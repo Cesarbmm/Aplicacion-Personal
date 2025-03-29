@@ -10,6 +10,7 @@ class DiarioApp:
         self.root.title("Mi Diario Personal")
         self.root.geometry("1200x800")
         
+      
         # Configuración inicial
         Styles.apply_styles()
         Styles.apply_window_style(root)
@@ -253,11 +254,45 @@ class DiarioApp:
                 self.cargar_nota(os.path.join(ruta_seccion, archivo))
                 break
 
+    # def cargar_nota(self, ruta_nota):
+    #     """Carga una nota en el editor"""
+    #     try:
+    #         with open(ruta_nota, "r", encoding="utf-8") as f:
+    #             contenido = f.read()
+            
+    #         # Extraer título del nombre del archivo
+    #         nombre_archivo = os.path.basename(ruta_nota)
+    #         titulo = " ".join(nombre_archivo.split("_")[2:]).replace(".txt", "")
+            
+    #         # Actualizar la interfaz
+    #         self.titulo_actual.set(titulo)
+    #         self.text_contenido.delete("1.0", tk.END)
+    #         self.text_contenido.insert("1.0", contenido.split("\n\n", 1)[-1])  # Saltar metadatos
+            
+    #         # Guardar referencia a la nota actual
+    #         self.nota_actual.set(ruta_nota)
+            
+    #     except Exception as e:
+    #         messagebox.showerror("Error", f"No se pudo cargar la nota:\n{str(e)}")
+
     def cargar_nota(self, ruta_nota):
         """Carga una nota en el editor"""
         try:
+            # Convertir a ruta absoluta si es relativa
+            if not os.path.isabs(ruta_nota):
+                ruta_nota = os.path.join(os.getcwd(), ruta_nota)
+            
+            # Verificar si el archivo existe realmente
+            if not os.path.exists(ruta_nota):
+                messagebox.showerror("Error", f"No se encontró el archivo:\n{ruta_nota}")
+                return
+                
             with open(ruta_nota, "r", encoding="utf-8") as f:
                 contenido = f.read()
+            
+            # Debug: Mostrar ruta y contenido en consola (útil para .exe)
+            print(f"Intentando cargar: {ruta_nota}")
+            print(f"Contenido leído: {contenido[:100]}...")  # Muestra primeros 100 caracteres
             
             # Extraer título del nombre del archivo
             nombre_archivo = os.path.basename(ruta_nota)
@@ -266,14 +301,21 @@ class DiarioApp:
             # Actualizar la interfaz
             self.titulo_actual.set(titulo)
             self.text_contenido.delete("1.0", tk.END)
-            self.text_contenido.insert("1.0", contenido.split("\n\n", 1)[-1])  # Saltar metadatos
             
+            # Buscar donde empieza el contenido real (después de metadatos)
+            partes = contenido.split("\n\n", 1)
+            if len(partes) > 1:
+                self.text_contenido.insert("1.0", partes[1])  # Contenido después de metadatos
+            else:
+                self.text_contenido.insert("1.0", contenido)  # Si no hay metadatos
+                
             # Guardar referencia a la nota actual
             self.nota_actual.set(ruta_nota)
             
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo cargar la nota:\n{str(e)}")
-
+            print(f"Error detallado: {str(e)}")  # Debug adicional
+    
     def crear_seccion(self):
         """Crea una nueva sección"""
         nombre = self.nueva_seccion.get().strip()

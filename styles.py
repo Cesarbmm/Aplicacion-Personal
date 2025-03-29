@@ -91,13 +91,13 @@ class Styles:
         style.map(
             "Danger.TButton", 
             background=[
-                ("pressed", Styles.COLOR_WARNING), 
-                ("active", Styles.COLOR_WARNING),
+                ("pressed", Styles.COLOR_ERROR), 
+                ("active", Styles.COLOR_ERROR),
                 ("disabled", Styles.COLOR_TEXT_LIGHT)
             ],
             foreground=[
-                ("pressed", Styles.COLOR_ERROR), 
-                ("active", Styles.COLOR_ERROR),
+                ("pressed", Styles.COLOR_WARNING), 
+                ("active", Styles.COLOR_WARNING),
                 ("disabled", Styles.COLOR_BACKGROUND)
             ],
             bordercolor=[
