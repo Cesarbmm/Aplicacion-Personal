@@ -230,7 +230,7 @@ class DiarioApp:
                 # Mostrar solo el título (eliminando fecha y extensión)
                 titulo = " ".join(nota.split("_")[2:]).replace(".txt", "")
                 self.lista_notas.insert(tk.END, titulo)
-
+    
     def on_seccion_seleccionada(self, event=None):
         """Maneja la selección de una sección"""
         seleccion = self.lista_secciones.curselection()
@@ -354,7 +354,9 @@ class DiarioApp:
             error_msg = f"No se pudo cargar la nota:\n{str(e)}"
             print(error_msg)
             messagebox.showerror("Error", error_msg)
-    
+
+
+        
     def crear_seccion(self):
         """Crea una nueva sección"""
         nombre = self.nueva_seccion.get().strip()
@@ -417,8 +419,8 @@ class DiarioApp:
         if es_nueva:
             # Crear nombre de archivo con timestamp
             fecha = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            nombre_archivo = f"{fecha}_{titulo.replace(' ', '_')}.txt"
-            nombre_archivo = "".join(c for c in nombre_archivo if c.isalnum() or c in ("_", "-", "."))
+            nombre_archivo = f"{fecha}_{titulo}.txt"
+            nombre_archivo = "".join(c for c in nombre_archivo if c.isalnum() or c in ("_", "-", "."," "))
             ruta_nota = os.path.join("Registros", seccion, nombre_archivo)
         
         try:
