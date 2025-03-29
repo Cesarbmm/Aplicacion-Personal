@@ -1,0 +1,23 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "debugpy", // Depurador nativo de Python
+            "request": "launch",
+            "name": "Launch Bapp",
+            "program": "${workspaceFolder}/Bapp.py", // Ruta al archivo principal
+            "console": "integratedTerminal", // Terminal integrada para mayor comodidad
+            "cwd": "${workspaceFolder}", // Configuración del directorio de trabajo
+            "env": { // Variables de entorno opcionales
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": true, // Depurar solo código del usuario
+            "args": [ // Argumentos opcionales para personalizar ejecuciones
+                "--example-arg", "value"
+            ],
+        }
+    ]
+}

@@ -1,0 +1,15 @@
+{
+  "fecha": "2025-03-28",
+  "tipo": "Pecho-Hombro-Tríceps",
+  "semana": 1,
+  "ejercicios": [
+    {
+      "ejercicio": "Press plano",
+      "series": "3",
+      "repeticiones": "10",
+      "peso": "0.0",
+      "observaciones": ""
+    }
+  ],
+  "recomendaciones": "\n"
+}
