@@ -180,6 +180,13 @@ class DiarioApp:
         
         ttk.Button(
             frame_botones,
+            text="Eliminar",
+            style="Danger.TButton",  # Asegúrate de tener este estilo definido
+            command=self.eliminar_nota
+        ).pack(side="left", padx=5)
+        
+        ttk.Button(
+            frame_botones,
             text="Guardar",
             style="Accent.TButton",
             command=self.guardar_nota
@@ -358,6 +365,37 @@ class DiarioApp:
             
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo guardar la nota:\n{str(e)}")
+
+    def eliminar_nota(self):
+        """Elimina la nota actualmente seleccionada"""
+        if not self.nota_actual.get():
+            messagebox.showwarning("Advertencia", "No hay ninguna nota seleccionada para eliminar")
+            return
+            
+        # Confirmar con el usuario
+        confirmacion = messagebox.askyesno(
+            "Confirmar eliminación",
+            f"¿Estás seguro de que deseas eliminar esta nota?\n\nTítulo: {self.titulo_actual.get()}",
+            icon="warning"
+        )
+        
+        if not confirmacion:
+            return
+            
+        try:
+            # Eliminar el archivo
+            os.remove(self.nota_actual.get())
+            
+            # Feedback al usuario
+            messagebox.showinfo("Éxito", "Nota eliminada correctamente")
+            
+            # Actualizar la interfaz
+            self.actualizar_lista_notas()
+            self.nueva_nota()  # Limpiar el editor
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo eliminar la nota:\n{str(e)}")
+
 
 if __name__ == "__main__":
     root = tk.Tk()

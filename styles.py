@@ -75,6 +75,36 @@ class Styles:
                 ("active", Styles.COLOR_ACCENT)
             ]
         )
+        
+        # En styles.py
+        style.configure(
+            "Danger.TButton", 
+            font=Styles.FONT,
+            padding=(Styles.PADDING, Styles.PADDING_SMALL),
+            foreground=Styles.COLOR_BACKGROUND,
+            background=Styles.COLOR_WARNING,
+            bordercolor=Styles.COLOR_BORDER,
+            relief="flat",
+            focuscolor=Styles.COLOR_WARNING
+        
+        )
+        style.map(
+            "Danger.TButton", 
+            background=[
+                ("pressed", Styles.COLOR_WARNING), 
+                ("active", Styles.COLOR_WARNING),
+                ("disabled", Styles.COLOR_TEXT_LIGHT)
+            ],
+            foreground=[
+                ("pressed", Styles.COLOR_ERROR), 
+                ("active", Styles.COLOR_ERROR),
+                ("disabled", Styles.COLOR_BACKGROUND)
+            ],
+            bordercolor=[
+                ("pressed", Styles.COLOR_ACCENT_DARK),
+                ("active", Styles.COLOR_ACCENT)
+            ] # Rojo más oscuro al hacer hover
+        )
 
         # Label Styles
         style.configure(
@@ -101,6 +131,8 @@ class Styles:
             background=Styles.COLOR_BACKGROUND,                  # Fondo principal
             borderwidth=1                                        # Opcional: Borde fino
         )
+        
+
 
         # Configuración para TLabelframe.Label (los títulos dentro de los Labelframe)
         style.configure(
