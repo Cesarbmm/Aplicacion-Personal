@@ -9,6 +9,7 @@ class MainApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Mi Aplicación Personal")
+        self.ventana_secundaria_abierta = False
         
         # Configuración de ventana centrada al abrir
         self.center_window(400, 600)
@@ -88,76 +89,58 @@ class MainApp:
         )
         self.btn_salir.pack(pady=10, ipadx=30, ipady=20)
 
-    def abrir_gimnasio(self):
-        """Abre la ventana del gimnasio"""
-        gimnasio_window = tk.Toplevel(self.root)
-        gimnasio_window.title("Registro de Gimnasio")
+    def abrir_ventana_secundaria(self, titulo, app_class):
+        """Método genérico para abrir ventanas secundarias"""
+        if self.ventana_secundaria_abierta:
+            return
+            
+        self.ventana_secundaria_abierta = True
+        self.root.withdraw()  # Oculta la ventana principal
         
-        # Configurar ventana con botones de control
-        gimnasio_window.attributes('-topmost', True)  # Temporalmente para asegurar enfoque
-        gimnasio_window.after(100, lambda: gimnasio_window.attributes('-topmost', False))
+        # Crear ventana secundaria
+        secundaria = tk.Toplevel()
+        secundaria.title(titulo)
         
-        # Configurar geometría y estado
-        gimnasio_window.state("zoomed")
+        # Configurar ventana
+        secundaria.state("zoomed")
+        secundaria.focus_force()
         
-        # Instanciar la aplicación del gimnasio
-        self.gimnasio_app = GimnasioApp(gimnasio_window)
+        # Instanciar la aplicación secundaria
+        app_instance = app_class(secundaria)
         
         # Configurar cierre seguro
-        gimnasio_window.protocol("WM_DELETE_WINDOW", 
-                                lambda: self.cerrar_ventana_secundaria(gimnasio_window))
+        secundaria.protocol("WM_DELETE_WINDOW", 
+                          lambda: self.cerrar_ventana_secundaria(secundaria))
+        
+        # Guardar referencia
+        setattr(self, f'app_{titulo.lower().replace(" ", "_")}', app_instance)
+        setattr(self, f'ventana_{titulo.lower().replace(" ", "_")}', secundaria)
+        
+        return secundaria
+
+    def cerrar_ventana_secundaria(self, ventana):
+        """Cierra la ventana secundaria y muestra la principal"""
+        # Destruir la ventana secundaria
+        ventana.destroy()
+        
+        # Mostrar la ventana principal
+        self.root.deiconify()
+        self.ventana_secundaria_abierta = False
+        
+        # Enfocar la ventana principal
+        self.root.focus_force()
+
+    def abrir_diario(self):
+        """Abre la ventana del diario"""
+        self.abrir_ventana_secundaria("Diario Personal", DiarioApp)
 
     def abrir_mochila(self):
         """Abre la ventana de la mochila"""
-        mochila_window = tk.Toplevel(self.root)
-        mochila_window.title("Mochila")
-        
-        # Configurar ventana con botones de control
-        mochila_window.attributes('-topmost', True)  # Temporalmente para asegurar enfoque
-        mochila_window.after(100, lambda: mochila_window.attributes('-topmost', False))
-        
-        # Configurar geometría y estado
-        mochila_window.state("zoomed")
-        
-        # Instanciar la aplicación de la mochila
-        self.mochila_app = MochilaApp(mochila_window)
-        
-        # Configurar cierre seguro
-        mochila_window.protocol("WM_DELETE_WINDOW", 
-                               lambda: self.cerrar_ventana_secundaria(mochila_window))
+        self.abrir_ventana_secundaria("Mochila", MochilaApp)
 
-    def abrir_diario(self):
-        """Abre la ventana del diario personal"""
-        diario_window = tk.Toplevel(self.root)
-        diario_window.title("Diario Personal")
-        
-        # Configurar ventana con botones de control
-        diario_window.attributes('-topmost', True)  # Temporalmente para asegurar enfoque
-        diario_window.after(100, lambda: diario_window.attributes('-topmost', False))
-        
-        # Configurar geometría y estado
-        diario_window.state("zoomed")
-        
-        # Instanciar la aplicación del diario
-        self.diario_app = DiarioApp(diario_window)
-        
-        # Configurar cierre seguro
-        diario_window.protocol("WM_DELETE_WINDOW", 
-                             lambda: self.cerrar_ventana_secundaria(diario_window))
-
-    def cerrar_ventana_secundaria(self, window):
-        """Cierra una ventana secundaria de manera segura"""
-        if hasattr(self, 'diario_app') and window == self.diario_app.root:
-            # Realizar limpieza específica del diario si es necesario
-            pass
-        elif hasattr(self, 'gimnasio_app') and window == self.gimnasio_app.root:
-            # Realizar limpieza específica del gimnasio si es necesario
-            pass
-        elif hasattr(self, 'mochila_app') and window == self.mochila_app.root:
-            # Realizar limpieza específica de la mochila si es necesario
-            pass
-            
-        window.destroy()
+    def abrir_gimnasio(self):
+        """Abre la ventana del gimnasio"""
+        self.abrir_ventana_secundaria("Registro de Gimnasio", GimnasioApp)
 
     def toggle_maximize(self, event=None):
         """Alternar modo maximizado"""

@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 import os
+import sys
 from styles import Styles
 
 class DiarioApp:
@@ -276,45 +277,83 @@ class DiarioApp:
     #         messagebox.showerror("Error", f"No se pudo cargar la nota:\n{str(e)}")
 
     def cargar_nota(self, ruta_nota):
-        """Carga una nota en el editor"""
+        """Carga una nota en el editor - Versión mejorada para .exe"""
         try:
-            # Convertir a ruta absoluta si es relativa
+            # Debug: Mostrar información de rutas antes de empezar
+            print("\n--- Inicio carga de nota ---")
+            print(f"Ruta recibida: {ruta_nota}")
+            print(f"Directorio actual: {os.getcwd()}")
+            
+            # Convertir a ruta absoluta de manera confiable
             if not os.path.isabs(ruta_nota):
-                ruta_nota = os.path.join(os.getcwd(), ruta_nota)
+                base_dir = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.getcwd()
+                ruta_nota = os.path.join(base_dir, ruta_nota)
+            
+            # Normalizar la ruta (para evitar problemas con / vs \)
+            ruta_nota = os.path.normpath(ruta_nota)
+            
+            print(f"Ruta absoluta normalizada: {ruta_nota}")
             
             # Verificar si el archivo existe realmente
             if not os.path.exists(ruta_nota):
-                messagebox.showerror("Error", f"No se encontró el archivo:\n{ruta_nota}")
+                error_msg = f"No se encontró el archivo:\n{ruta_nota}"
+                print(error_msg)
+                messagebox.showerror("Error", error_msg)
                 return
                 
-            with open(ruta_nota, "r", encoding="utf-8") as f:
-                contenido = f.read()
+            # Leer el archivo con manejo explícito de encoding
+            try:
+                with open(ruta_nota, "r", encoding="utf-8") as f:
+                    contenido = f.read()
+            except UnicodeDecodeError:
+                # Intentar con otro encoding si utf-8 falla
+                with open(ruta_nota, "r", encoding="latin-1") as f:
+                    contenido = f.read()
             
-            # Debug: Mostrar ruta y contenido en consola (útil para .exe)
-            print(f"Intentando cargar: {ruta_nota}")
-            print(f"Contenido leído: {contenido[:100]}...")  # Muestra primeros 100 caracteres
+            # Debug: Mostrar información del archivo
+            print(f"Archivo encontrado. Tamaño: {len(contenido)} caracteres")
+            print(f"Primeras líneas:\n{contenido[:200]}...")
             
-            # Extraer título del nombre del archivo
+            # Extraer título del nombre del archivo de manera más robusta
             nombre_archivo = os.path.basename(ruta_nota)
-            titulo = " ".join(nombre_archivo.split("_")[2:]).replace(".txt", "")
+            try:
+                # Intenta extraer el título después de la fecha
+                partes = nombre_archivo.split('_')
+                if len(partes) > 2:  # Si sigue el formato fecha_titulo.txt
+                    titulo = ' '.join(partes[2:]).replace('.txt', '')
+                else:
+                    titulo = nombre_archivo.replace('.txt', '')
+            except:
+                titulo = nombre_archivo.replace('.txt', '')
             
             # Actualizar la interfaz
             self.titulo_actual.set(titulo)
             self.text_contenido.delete("1.0", tk.END)
             
-            # Buscar donde empieza el contenido real (después de metadatos)
-            partes = contenido.split("\n\n", 1)
-            if len(partes) > 1:
-                self.text_contenido.insert("1.0", partes[1])  # Contenido después de metadatos
+            # Manejar diferentes formatos de contenido
+            if "Sección:" in contenido and "Título:" in contenido and "Fecha:" in contenido:
+                # Formato con metadatos (separados por doble salto de línea)
+                partes = contenido.split("\n\n", 1)
+                if len(partes) > 1:
+                    self.text_contenido.insert("1.0", partes[1].strip())  # Contenido después de metadatos
+                else:
+                    self.text_contenido.insert("1.0", contenido.strip())
             else:
-                self.text_contenido.insert("1.0", contenido)  # Si no hay metadatos
+                # Formato simple sin metadatos
+                self.text_contenido.insert("1.0", contenido.strip())
                 
             # Guardar referencia a la nota actual
             self.nota_actual.set(ruta_nota)
+            print("--- Nota cargada exitosamente ---\n")
             
+        except PermissionError:
+            error_msg = f"No tienes permisos para leer el archivo:\n{ruta_nota}"
+            print(error_msg)
+            messagebox.showerror("Error de Permisos", error_msg)
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo cargar la nota:\n{str(e)}")
-            print(f"Error detallado: {str(e)}")  # Debug adicional
+            error_msg = f"No se pudo cargar la nota:\n{str(e)}"
+            print(error_msg)
+            messagebox.showerror("Error", error_msg)
     
     def crear_seccion(self):
         """Crea una nueva sección"""

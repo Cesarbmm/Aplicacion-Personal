@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
+import os
 
 class Styles:
     # Elegant Color Palette (Soft Lavender and Deep Indigo Theme)
@@ -421,10 +422,16 @@ class Styles:
         """Apply window-level styling"""
         root.configure(background=Styles.COLOR_BACKGROUND)
         try:
-            # Set window icon if available
-            root.iconbitmap('app_icon.ico')  # Replace with your icon path
-        except:
-            pass
+            # Get the icon path dynamically
+            icon_path = os.path.join(
+                os.path.dirname(__file__),
+                "assets",
+                "iconos",
+                "icon.ico"
+            )
+            root.iconbitmap(icon_path)  # Set window icon
+        except Exception as e:
+            print(f"Error setting window icon: {e}")
         
         # Set window title font and color
         root.option_add('*TkFDialog*foreground', Styles.COLOR_TEXT)
