@@ -8,133 +8,129 @@ class DiarioApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Mi Diario Personal")
-        self.root.geometry("1000x800")
+        self.root.geometry("1200x800")
         
         # Configuración inicial
         Styles.apply_styles()
         Styles.apply_window_style(root)
         
         # Variables de control
-        self.seccion_actual = tk.StringVar(value="Elije una sección")
+        self.seccion_actual = tk.StringVar(value="General")
         self.nueva_seccion = tk.StringVar()
+        self.nota_actual = tk.StringVar()
+        self.titulo_actual = tk.StringVar()
         
         # Crear estructura de widgets
         self.setup_ui()
         
         # Inicializar sistema de archivos
         self.inicializar_estructura()
+        self.actualizar_lista_secciones()
+        self.actualizar_lista_notas()
 
     def setup_ui(self):
         """Configura la interfaz de usuario principal"""
         # Frame principal con padding
         self.main_frame = ttk.Frame(self.root, style="Custom.TFrame")
-        self.main_frame.pack(expand=True, fill="both", padx=30, pady=30)
+        self.main_frame.pack(expand=True, fill="both", padx=10, pady=10)
         
         # Configurar grid para mejor organización
-        self.main_frame.columnconfigure(0, weight=1)
-        self.main_frame.rowconfigure(3, weight=1)
+        self.main_frame.columnconfigure(1, weight=1)
+        self.main_frame.rowconfigure(1, weight=1)
         
-        # Título de la aplicación
-        self.crear_titulo()
+        # Panel izquierdo (lista de secciones y notas)
+        self.crear_panel_izquierdo()
         
-        # Controles de sección
-        self.crear_controles_seccion()
-        
-        # Campos de entrada
-        self.crear_campos_entrada()
-        
-        # Área de texto
-        self.crear_area_texto()
-        
-        # Botones de acción
-        self.crear_botones_accion()
+        # Panel derecho (editor)
+        self.crear_panel_derecho()
 
-    def inicializar_estructura(self):
-        """Crea la estructura inicial de directorios"""
-        if not os.path.exists("Registros"):
-            os.makedirs("Registros")
-        if not os.path.exists(os.path.join("Registros", "General")):
-            os.makedirs(os.path.join("Registros", "General"))
-
-    def crear_titulo(self):
-        """Crea el título de la aplicación"""
-        lbl_titulo = ttk.Label(
-            self.main_frame, 
-            text="Mi Diario Personal", 
-            style="Custom.Header.TLabel"
+    def crear_panel_izquierdo(self):
+        """Crea el panel izquierdo con listas de secciones y notas"""
+        panel_izquierdo = ttk.Frame(self.main_frame, style="Custom.TFrame", width=250)
+        panel_izquierdo.grid(row=0, column=0, rowspan=2, sticky="nswe", padx=5, pady=5)
+        panel_izquierdo.pack_propagate(False)
+        
+        # Frame para secciones
+        frame_secciones = ttk.LabelFrame(panel_izquierdo, text="Secciones", style="Custom.TLabelframe")
+        frame_secciones.pack(fill="x", pady=5)
+        
+        # Lista de secciones
+        self.lista_secciones = tk.Listbox(
+            frame_secciones,
+            bg=Styles.COLOR_BACKGROUND,
+            fg=Styles.COLOR_TEXT,
+            selectbackground=Styles.COLOR_PRIMARY,
+            font=Styles.FONT,
+            borderwidth=0,
+            highlightthickness=0,
+            selectmode=tk.SINGLE
         )
-        lbl_titulo.grid(row=0, column=0, pady=(0, 20), sticky="w")
-
-    def crear_controles_seccion(self):
-        """Crea los controles para manejar secciones"""
-        frame_seccion = ttk.Frame(self.main_frame, style="Custom.TFrame")
-        frame_seccion.grid(row=1, column=0, sticky="ew", pady=10)
+        self.lista_secciones.pack(fill="both", expand=True)
+        self.lista_secciones.bind("<<ListboxSelect>>", self.on_seccion_seleccionada)
         
-        # Label y Combobox para secciones existentes
-        ttk.Label(frame_seccion, text="Sección:", style="Custom.TLabel").pack(side="left", padx=5)
-        
-        self.combo_secciones = ttk.Combobox(
-            frame_seccion,
-            textvariable=self.seccion_actual,
-            values=self.obtener_secciones(),
-            state="readonly",
-            style="Custom.TCombobox",
-            width=25
-        )
-        self.combo_secciones.pack(side="left", padx=5)
-        self.combo_secciones.bind("<<ComboboxSelected>>", self.actualizar_seccion)
-        
-        # Separador visual
-        ttk.Separator(frame_seccion, orient="vertical").pack(side="left", fill="y", padx=10)
-        
-        # Controles para nueva sección
-        ttk.Label(frame_seccion, text="Nueva sección:", style="Custom.TLabel").pack(side="left", padx=5)
+        # Frame para crear nueva sección
+        frame_nueva_seccion = ttk.Frame(frame_secciones, style="Custom.TFrame")
+        frame_nueva_seccion.pack(fill="x", pady=5)
         
         ttk.Entry(
-            frame_seccion,
+            frame_nueva_seccion,
             textvariable=self.nueva_seccion,
-            style="Custom.TEntry",
-            width=25
-        ).pack(side="left", padx=5)
+            style="Custom.TEntry"
+        ).pack(side="left", fill="x", expand=True, padx=5)
         
         ttk.Button(
-            frame_seccion,
-            text="Crear Sección",
+            frame_nueva_seccion,
+            text="+",
             style="Custom.TButton",
-            command=self.crear_seccion
-        ).pack(side="left", padx=5)
+            command=self.crear_seccion,
+            width=3
+        ).pack(side="right", padx=5)
+        
+        # Frame para notas
+        frame_notas = ttk.LabelFrame(panel_izquierdo, text="Notas", style="Custom.TLabelframe")
+        frame_notas.pack(fill="both", expand=True, pady=5)
+        
+        # Lista de notas
+        self.lista_notas = tk.Listbox(
+            frame_notas,
+            bg=Styles.COLOR_BACKGROUND,
+            fg=Styles.COLOR_TEXT,
+            selectbackground=Styles.COLOR_PRIMARY,
+            font=Styles.FONT,
+            borderwidth=0,
+            highlightthickness=0,
+            selectmode=tk.SINGLE
+        )
+        self.lista_notas.pack(fill="both", expand=True)
+        self.lista_notas.bind("<<ListboxSelect>>", self.on_nota_seleccionada)
 
-    def crear_campos_entrada(self):
-        """Crea los campos para el título de la entrada"""
-        frame_titulo = ttk.Frame(self.main_frame, style="Custom.TFrame")
-        frame_titulo.grid(row=2, column=0, sticky="ew", pady=10)
+    def crear_panel_derecho(self):
+        """Crea el panel derecho con el editor de notas"""
+        panel_derecho = ttk.Frame(self.main_frame, style="Custom.TFrame")
+        panel_derecho.grid(row=0, column=1, rowspan=2, sticky="nswe", padx=5, pady=5)
+        
+        # Frame para el título
+        frame_titulo = ttk.Frame(panel_derecho, style="Custom.TFrame")
+        frame_titulo.pack(fill="x", pady=5)
         
         ttk.Label(
             frame_titulo, 
-            text="Título de la entrada:", 
+            text="Título:", 
             style="Custom.TLabel"
         ).pack(side="left", padx=5)
         
         self.entry_titulo = ttk.Entry(
             frame_titulo,
-            style="Custom.TEntry",
-            width=70
+            textvariable=self.titulo_actual,
+            style="Custom.TEntry"
         )
-        self.entry_titulo.pack(side="left", expand=True, fill="x", padx=5)
+        self.entry_titulo.pack(fill="x", expand=True, padx=5)
         
-        # Poner foco en el campo de título al iniciar
-        self.entry_titulo.focus_set()
-
-    def crear_area_texto(self):
-        """Crea el área de texto para el contenido"""
-        frame_texto = ttk.Frame(self.main_frame, style="Custom.Border.TFrame")
-        frame_texto.grid(row=3, column=0, sticky="nsew", pady=10)
+        # Área de texto para el contenido
+        frame_texto = ttk.Frame(panel_derecho, style="Custom.Border.TFrame")
+        frame_texto.pack(fill="both", expand=True, pady=5)
         
-        # Configurar grid para el área de texto
-        frame_texto.columnconfigure(0, weight=1)
-        frame_texto.rowconfigure(0, weight=1)
-        
-        # Área de texto principal
+        # Área de texto con scrollbars
         self.text_contenido = tk.Text(
             frame_texto,
             wrap="word",
@@ -144,12 +140,9 @@ class DiarioApp:
             padx=15,
             pady=15,
             insertbackground=Styles.COLOR_TEXT,
-            undo=True,  # Habilitar funcionalidad de deshacer
-            maxundo=-1,  # Número ilimitado de operaciones para deshacer
-            autoseparators=True  # Separadores automáticos para operaciones de deshacer
+            undo=True
         )
         
-        # Scrollbar vertical
         scroll_y = ttk.Scrollbar(
             frame_texto,
             orient="vertical",
@@ -158,7 +151,6 @@ class DiarioApp:
         )
         self.text_contenido.configure(yscrollcommand=scroll_y.set)
         
-        # Scrollbar horizontal
         scroll_x = ttk.Scrollbar(
             frame_texto,
             orient="horizontal",
@@ -167,53 +159,120 @@ class DiarioApp:
         )
         self.text_contenido.configure(xscrollcommand=scroll_x.set)
         
-        # Posicionamiento de widgets
+        # Posicionamiento
         self.text_contenido.grid(row=0, column=0, sticky="nsew")
         scroll_y.grid(row=0, column=1, sticky="ns")
         scroll_x.grid(row=1, column=0, sticky="ew")
-
-    def crear_botones_accion(self):
-        """Crea los botones de acción principales"""
-        frame_botones = ttk.Frame(self.main_frame, style="Custom.TFrame")
-        frame_botones.grid(row=4, column=0, sticky="e", pady=10)
         
-        # Botón para vaciar campos
+        frame_texto.grid_rowconfigure(0, weight=1)
+        frame_texto.grid_columnconfigure(0, weight=1)
+        
+        # Botones de acción
+        frame_botones = ttk.Frame(panel_derecho, style="Custom.TFrame")
+        frame_botones.pack(fill="x", pady=5)
+        
         ttk.Button(
             frame_botones,
-            text="↻ Vaciar Campos",
+            text="Nueva Nota",
             style="Custom.TButton",
-            command=self.vaciar_campos
-        ).pack(side="left", padx=10, ipadx=10, ipady=5)
+            command=self.nueva_nota
+        ).pack(side="left", padx=5)
         
-        # Botón para guardar
         ttk.Button(
             frame_botones,
-            text="💾 Guardar Entrada",
+            text="Guardar",
             style="Accent.TButton",
-            command=self.guardar_entrada
-        ).pack(side="left", padx=10, ipadx=20, ipady=8)
+            command=self.guardar_nota
+        ).pack(side="right", padx=5)
 
-    def obtener_secciones(self):
-        """Obtiene la lista de secciones disponibles"""
-        secciones = []
+    def inicializar_estructura(self):
+        """Crea la estructura inicial de directorios"""
+        if not os.path.exists("Registros"):
+            os.makedirs("Registros")
+        if not os.path.exists(os.path.join("Registros", "General")):
+            os.makedirs(os.path.join("Registros", "General"))
+
+    def actualizar_lista_secciones(self):
+        """Actualiza la lista de secciones disponibles"""
+        self.lista_secciones.delete(0, tk.END)
         if os.path.exists("Registros"):
-            secciones = [d for d in os.listdir("Registros") 
-                        if os.path.isdir(os.path.join("Registros", d))]
-        return secciones or ["general"]
+            secciones = sorted([d for d in os.listdir("Registros") 
+                              if os.path.isdir(os.path.join("Registros", d))])
+            for seccion in secciones:
+                self.lista_secciones.insert(tk.END, seccion)
+        
+        # Seleccionar la primera sección si existe
+        if self.lista_secciones.size() > 0:
+            self.lista_secciones.selection_set(0)
+            self.lista_secciones.activate(0)
+            self.on_seccion_seleccionada()
 
-    def actualizar_seccion(self, event=None):
-        """Actualiza la lista de secciones en el combobox"""
-        secciones = self.obtener_secciones()
-        self.combo_secciones["values"] = secciones
-        if not self.seccion_actual.get() in secciones:
-            self.seccion_actual.set(secciones[0] if secciones else "general")
+    def actualizar_lista_notas(self):
+        """Actualiza la lista de notas para la sección actual"""
+        self.lista_notas.delete(0, tk.END)
+        if not self.seccion_actual.get():
+            return
+            
+        ruta_seccion = os.path.join("Registros", self.seccion_actual.get())
+        if os.path.exists(ruta_seccion):
+            notas = sorted([f for f in os.listdir(ruta_seccion) 
+                          if f.endswith(".txt")], reverse=True)
+            for nota in notas:
+                # Mostrar solo el título (eliminando fecha y extensión)
+                titulo = " ".join(nota.split("_")[2:]).replace(".txt", "")
+                self.lista_notas.insert(tk.END, titulo)
+
+    def on_seccion_seleccionada(self, event=None):
+        """Maneja la selección de una sección"""
+        seleccion = self.lista_secciones.curselection()
+        if seleccion:
+            self.seccion_actual.set(self.lista_secciones.get(seleccion[0]))
+            self.actualizar_lista_notas()
+            self.nueva_nota()  # Limpiar editor al cambiar de sección
+
+    def on_nota_seleccionada(self, event=None):
+        """Maneja la selección de una nota"""
+        seleccion = self.lista_notas.curselection()
+        if not seleccion or not self.seccion_actual.get():
+            return
+            
+        # Obtener el nombre del archivo seleccionado
+        titulo_nota = self.lista_notas.get(seleccion[0])
+        ruta_seccion = os.path.join("Registros", self.seccion_actual.get())
+        
+        # Buscar el archivo correspondiente (puede haber múltiples con el mismo título)
+        for archivo in os.listdir(ruta_seccion):
+            if titulo_nota in archivo and archivo.endswith(".txt"):
+                self.cargar_nota(os.path.join(ruta_seccion, archivo))
+                break
+
+    def cargar_nota(self, ruta_nota):
+        """Carga una nota en el editor"""
+        try:
+            with open(ruta_nota, "r", encoding="utf-8") as f:
+                contenido = f.read()
+            
+            # Extraer título del nombre del archivo
+            nombre_archivo = os.path.basename(ruta_nota)
+            titulo = " ".join(nombre_archivo.split("_")[2:]).replace(".txt", "")
+            
+            # Actualizar la interfaz
+            self.titulo_actual.set(titulo)
+            self.text_contenido.delete("1.0", tk.END)
+            self.text_contenido.insert("1.0", contenido.split("\n\n", 1)[-1])  # Saltar metadatos
+            
+            # Guardar referencia a la nota actual
+            self.nota_actual.set(ruta_nota)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo cargar la nota:\n{str(e)}")
 
     def crear_seccion(self):
-        """Crea una nueva sección para entradas"""
+        """Crea una nueva sección"""
         nombre = self.nueva_seccion.get().strip()
         
         if not nombre:
-            Styles.show_msg_error("Debe ingresar un nombre para la nueva sección.")
+            messagebox.showwarning("Error", "Debe ingresar un nombre para la nueva sección.")
             return
         
         # Sanitizar nombre
@@ -221,68 +280,86 @@ class DiarioApp:
         nombre = nombre.replace(" ", "_")
         
         if not nombre:
-            Styles.show_msg_error("El nombre debe contener caracteres válidos.")
+            messagebox.showwarning("Error", "El nombre debe contener caracteres válidos.")
             return
             
         try:
             os.makedirs(os.path.join("Registros", nombre), exist_ok=True)
-            Styles.show_msg(f"Sección '{nombre}' creada exitosamente!")
+            messagebox.showinfo("Éxito", f"Sección '{nombre}' creada exitosamente!")
             self.nueva_seccion.set("")
-            self.actualizar_seccion()
-            self.seccion_actual.set(nombre)
+            self.actualizar_lista_secciones()
+            
+            # Seleccionar la nueva sección
+            items = self.lista_secciones.get(0, tk.END)
+            if nombre in items:
+                index = items.index(nombre)
+                self.lista_secciones.selection_clear(0, tk.END)
+                self.lista_secciones.selection_set(index)
+                self.lista_secciones.activate(index)
+                self.on_seccion_seleccionada()
+                
         except Exception as e:
-            Styles.show_msg_error(f"Error al crear sección:\n{str(e)}")
+            messagebox.showerror("Error", f"Error al crear sección:\n{str(e)}")
 
-    def vaciar_campos(self):
-        """Limpia todos los campos de entrada"""
-        self.entry_titulo.delete(0, tk.END)
+    def nueva_nota(self):
+        """Prepara el editor para una nueva nota"""
+        self.titulo_actual.set("")
         self.text_contenido.delete("1.0", tk.END)
+        self.nota_actual.set("")
         self.entry_titulo.focus_set()
 
-    def guardar_entrada(self):
-        """Guarda la entrada actual en el diario"""
-        titulo = self.entry_titulo.get().strip()
+    def guardar_nota(self):
+        """Guarda la nota actual (nueva o existente)"""
+        titulo = self.titulo_actual.get().strip()
         contenido = self.text_contenido.get("1.0", tk.END).strip()
         seccion = self.seccion_actual.get()
         
-        # Validaciones
         if not titulo:
-            Styles.show_msg_error("El título no puede estar vacío.")
+            messagebox.showwarning("Error", "El título no puede estar vacío.")
             return
             
         if not contenido:
-            Styles.show_msg_error("El contenido no puede estar vacío.")
+            messagebox.showwarning("Error", "El contenido no puede estar vacío.")
             return
             
-        # Preparar datos
-        fecha = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        nombre_archivo = f"{fecha}_{titulo[:50].replace(' ', '_')}.txt"
-        nombre_archivo = "".join(c for c in nombre_archivo if c.isalnum() or c in ("_", "-", "."))
+        # Determinar si es una nota nueva o existente
+        ruta_nota = self.nota_actual.get()
+        es_nueva = not ruta_nota
         
-        ruta_completa = os.path.join("Registros", seccion, nombre_archivo)
+        if es_nueva:
+            # Crear nombre de archivo con timestamp
+            fecha = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            nombre_archivo = f"{fecha}_{titulo.replace(' ', '_')}.txt"
+            nombre_archivo = "".join(c for c in nombre_archivo if c.isalnum() or c in ("_", "-", "."))
+            ruta_nota = os.path.join("Registros", seccion, nombre_archivo)
         
         try:
-            # Crear directorio si no existe
-            os.makedirs(os.path.dirname(ruta_completa), exist_ok=True)
-            
             # Escribir archivo
-            with open(ruta_completa, "w", encoding="utf-8") as f:
+            with open(ruta_nota, "w", encoding="utf-8") as f:
                 f.write(f"Sección: {seccion}\n")
                 f.write(f"Título: {titulo}\n")
                 f.write(f"Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
                 f.write(contenido)
             
             # Feedback al usuario
-            Styles.show_msg(f"Entrada guardada en:\n{ruta_completa}")
+            messagebox.showinfo("Éxito", "Nota guardada correctamente!")
             
-            # Limpiar campos
-            self.vaciar_campos()
+            # Actualizar listas
+            if es_nueva:
+                self.actualizar_lista_notas()
+                # Seleccionar la nueva nota
+                items = self.lista_notas.get(0, tk.END)
+                if titulo in items:
+                    index = items.index(titulo)
+                    self.lista_notas.selection_clear(0, tk.END)
+                    self.lista_notas.selection_set(index)
+                    self.lista_notas.activate(index)
+                    self.on_nota_seleccionada()
             
         except Exception as e:
-            Styles.show_msg_error(f"Error al guardar:\n{str(e)}")
+            messagebox.showerror("Error", f"No se pudo guardar la nota:\n{str(e)}")
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = DiarioApp(root)
-    root.state("zoomed")
     root.mainloop()
