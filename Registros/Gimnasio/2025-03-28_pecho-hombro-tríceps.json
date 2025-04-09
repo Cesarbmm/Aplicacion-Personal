@@ -9,7 +9,14 @@
       "repeticiones": "10",
       "peso": "0.0",
       "observaciones": ""
+    },
+    {
+      "ejercicio": "Apertura en polea",
+      "series": "3",
+      "repeticiones": "10",
+      "peso": "90.0",
+      "observaciones": ""
     }
   ],
-  "recomendaciones": "\n"
+  "recomendaciones": "\n\n"
 }

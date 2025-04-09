@@ -2449,6 +2449,7 @@
   ('socketserver',
    'C:\\Users\\pc\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\socketserver.py',
    'PYMODULE'),
+  ('splash', 'C:\\Users\\pc\\Desktop\\MOTION\\splash.py', 'PYMODULE'),
   ('ssl',
    'C:\\Users\\pc\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\ssl.py',
    'PYMODULE'),

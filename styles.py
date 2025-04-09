@@ -2,8 +2,23 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 import os
+import sys
+from PIL import Image, ImageTk
+
+def get_resource_path(relative_path):
+    """Obtiene la ruta absoluta para recursos, funciona para desarrollo y para PyInstaller"""
+    try:
+        # PyInstaller crea una carpeta temporal y almacena la ruta en _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 class Styles:
+    
+    LOGO_PATH = get_resource_path(os.path.join("assets", "iconos", "LOGO.png"))
+    ICON_PATH = get_resource_path(os.path.join("assets", "iconos", "icono.ico"))
     # Elegant Color Palette (Soft Lavender and Deep Indigo Theme)
     # Primary Colors
     COLOR_PRIMARY = "#4A4A8A"       # Deep indigo blue
@@ -41,6 +56,52 @@ class Styles:
     PADDING = 10
     PADDING_SMALL = 5
     PADDING_LARGE = 15
+    
+    
+    # Splash Screen Specific Styles
+    SPLASH_WIDTH = 400
+    SPLASH_HEIGHT = 300
+    SPLASH_PROGRESS_HEIGHT = 8
+    SPLASH_PROGRESS_WIDTH = 250
+    
+    @staticmethod
+    def configure_splash(splash_window):
+        """Apply splash screen specific styling"""
+        splash_window.configure(background=Styles.COLOR_BACKGROUND)
+        splash_window.overrideredirect(True)
+        
+        # Center splash window
+        screen_width = splash_window.winfo_screenwidth()
+        screen_height = splash_window.winfo_screenheight()
+        x = (screen_width // 2) - (Styles.SPLASH_WIDTH // 2)
+        y = (screen_height // 2) - (Styles.SPLASH_HEIGHT // 2)
+        splash_window.geometry(f"{Styles.SPLASH_WIDTH}x{Styles.SPLASH_HEIGHT}+{x}+{y}")
+    
+    @staticmethod
+    def get_splash_progress_style():
+        """Return style configuration for splash progress bar"""
+        return {
+            'background': Styles.COLOR_ACCENT,
+            'trough_color': "#E0E0E0",
+            'border_width': 0,
+            'height': Styles.SPLASH_PROGRESS_HEIGHT
+        }
+    
+    @staticmethod
+    def get_splash_text_style():
+        """Return style configuration for splash text"""
+        return {
+            'font': Styles.FONT,
+            'fill': Styles.COLOR_TEXT
+        }
+    
+    @staticmethod
+    def get_splash_percent_style():
+        """Return style configuration for percentage text"""
+        return {
+            'font': (Styles.FONT_FAMILY, 12, "bold"),
+            'fill': Styles.COLOR_TEXT
+        }
 
     @staticmethod
     def apply_styles():
@@ -422,14 +483,7 @@ class Styles:
         """Apply window-level styling"""
         root.configure(background=Styles.COLOR_BACKGROUND)
         try:
-            # Get the icon path dynamically
-            icon_path = os.path.join(
-                os.path.dirname(__file__),
-                "assets",
-                "iconos",
-                "icon.ico"
-            )
-            root.iconbitmap(icon_path)  # Set window icon
+            root.iconbitmap(Styles.ICON_PATH)  # Usa la ruta definida en ICON_PATH
         except Exception as e:
             print(f"Error setting window icon: {e}")
         
@@ -446,3 +500,4 @@ class Styles:
         root.option_add('*selectBackground', Styles.COLOR_ACCENT_LIGHT)
         root.option_add('*selectForeground', Styles.COLOR_TEXT)
         root.option_add('*selectBorderWidth', 0)
+        

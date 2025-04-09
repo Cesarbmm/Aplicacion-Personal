@@ -5,7 +5,7 @@ a = Analysis(
     ['Bapp.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('assets/iconos/LOGO.png', 'assets/iconos'), ('assets/iconos/icono.ico', 'assets/iconos')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -35,5 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['C:\\Users\\pc\\Desktop\\MOTION\\assets\\iconos\\icon.ico'],
+    icon=['assets\\iconos\\icono.ico'],
 )
