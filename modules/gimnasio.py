@@ -17,7 +17,6 @@ class GimnasioApp:
         self.root.geometry("1200x800")
         
         
-        
         # Aplicar estilos
         Styles.apply_styles()
         Styles.apply_window_style(root)
@@ -39,6 +38,10 @@ class GimnasioApp:
         self.nivel_actividad = tk.StringVar(value="Sedentario")
         self.objetivo = tk.StringVar(value="Mantenimiento")
         self.calorias_diarias = tk.StringVar()
+        
+        self.entrenamiento_actual = None
+        self.fecha_entrenamiento_actual = None
+        
         
             # Niveles de actividad para Harris-Benedict
         self.factores_actividad = {
@@ -115,6 +118,7 @@ class GimnasioApp:
         
         # Construir interfaz de registro
         self.construir_interfaz_registro()
+        
 
     def mostrar_historial(self):
         """Muestra el historial de entrenamientos en un calendario"""
@@ -168,6 +172,15 @@ class GimnasioApp:
         )
         self.detalle_text.pack(expand=True, fill="both")
 
+        # --- BOTÓN DE EDICIÓN (NUEVO) ---
+        btn_editar = ttk.Button(
+            detalle_frame,
+            text="✏️ Editar Entrenamiento",
+            style="Accent.TButton",
+            command=self.editar_entrenamiento_seleccionado
+        )
+        btn_editar.pack(pady=10, ipadx=10, ipady=5)
+        
     # def resaltar_dias_con_entrenamientos(self):
     #     """Resalta los días que tienen entrenamientos registrados"""
     #     entrenamientos = self.cargar_todos_entrenamientos()
@@ -311,6 +324,10 @@ class GimnasioApp:
                                    foreground="#555555")
 
         self.detalle_text.config(state="disabled")
+        
+
+
+        
         
     def mostrar_grafica_avance(self):
         """Muestra gráficas de avance separadas para el ejercicio y el peso corporal."""
@@ -552,6 +569,7 @@ class GimnasioApp:
 
     #     # Actualizar canvas
     #     self.canvas.draw()
+    
 
     def obtener_lista_ejercicios(self):
         """Obtiene una lista de todos los ejercicios registrados"""
@@ -787,6 +805,8 @@ class GimnasioApp:
             command=self.limpiar_todo
         ).pack(side="left", padx=10, ipadx=10, ipady=5)
         
+               
+                
         ttk.Button(
             acciones_frame,
             text="💾 Guardar Entrenamiento",
@@ -807,25 +827,97 @@ class GimnasioApp:
     def cargar_ejercicios_predefinidos(self):
         """Carga ejercicios predefinidos por tipo de entrenamiento"""
         return {
+        
             "Pecho-Hombro-Tríceps": [
-                "Press plano", "Press inclinado", "Apertura en polea",
-                "Press en polea", "Apertura en polea alta(mono)", "Apertura en polea baja",
-                "Press militar", "Elevaciones laterales", "Fondos", "Extension de triceps", 
-                "Extension de triceps en polea alta", "Patada de triceps"
+                "Press plano", "Press inclinado", "Press declinado", 
+                "Apertura con mancuernas", "Apertura en polea", "Apertura en polea alta(mono)",
+                "Apertura en polea baja", "Press militar", "Press Arnold", "Elevaciones laterales",
+                "Elevaciones frontales", "Elevaciones posteriores", "Fondos",
+                "Fondos en banco", "Extension de triceps", "Extension de triceps en polea alta",
+                "Patada de triceps", "Press francés", "Flexiones diamante"
             ],
             "Pierna": [
-                "Sentadilla hack", "Prensa", "Peso muerto",
-                "Extensiones de cuadriceps", "Curl femoral", "Elevaciones de gemelos", "Zancadas",
-                "Femoral en polea"
+                "Sentadilla libre", "Sentadilla hack", "Sentadilla búlgara", "Prensa 45°",
+                "Prensa horizontal", "Peso muerto convencional", "Peso muerto rumano",
+                "Peso muerto sumo", "Extensiones de cuadriceps", "Curl femoral",
+                "Curl femoral sentado", "Elevaciones de gemelos sentado",
+                "Elevaciones de gemelos de pie", "Zancadas caminando", "Zancadas estáticas",
+                "Pistol squat", "Femoral en polea", "Hip thrust", "Sentadilla overhead"
             ],
             "Espalda-Bíceps-Antebrazo": [
-                "Dominadas lastre", "Remo en T alto", "Jalón al pecho","Jalon al pecho abierto", 
-                "Pull over","Remo en polea alta","Remo en polea baja",  "Curl de bíceps", "Curl martillo",
-                "Extension de muñeca", "Curl de antebrazo"
+                "Dominadas pronación", "Dominadas supinación", "Dominadas lastre", 
+                "Remo con barra", "Remo en T alto", "Remo con mancuerna", 
+                "Jalón al pecho", "Jalon al pecho abierto", "Jalon tras nuca",
+                "Pull over con mancuerna", "Pull over en polea", "Remo en polea alta",
+                "Remo en polea baja", "Remo invertido", "Curl de bíceps",
+                "Curl de bíceps con mancuernas", "Curl martillo", "Curl concentrado",
+                "Curl 21", "Extension de muñeca", "Curl de antebrazo", "Curl invertido"
             ],
-            "Cardio": [
-                "Cinta", "Bicicleta","Natación"
+            "Pecho-Espalda": [
+                # Ejercicios de pecho
+                "Press plano", "Press inclinado", "Press declinado",
+                "Apertura con mancuernas", "Apertura en polea", 
+                "Fondos en paralelas", "Flexiones diamante", "Pull over con mancuerna",
+
+                # Ejercicios de espalda
+                "Dominadas pronación", "Dominadas supinación", "Remo con barra",
+                "Remo con mancuerna", "Jalón al pecho", "Jalon tras nuca",
+                "Remo invertido", "Face pull"
+            ],
+            "Brazo Completo": [
+                # Ejercicios de bíceps
+                "Curl de bíceps con barra", "Curl de bíceps con mancuernas",
+                "Curl martillo", "Curl concentrado", "Curl 21", 
+                "Curl predicador", "Curl invertido",
+
+                # Ejercicios de tríceps
+                "Extension de triceps con barra", "Extension de triceps en polea alta",
+                "Patada de triceps", "Press francés", "Fondos en banco",
+                "Extension con cuerda", "Extension tras nuca"
+                
+                # Ejercicios de hombros
+                "Press militar", "Press Arnold", "Elevaciones laterales",
+                "Elevaciones frontales", "Elevaciones posteriores"
+            ],
+            "Full Body": [
+                # Ejercicios compuestos
+                "Peso muerto", "Sentadilla libre", "Prensa 45°",
+                "Press militar", "Clean and press", "Thruster",
+                "Burpees", "Kettlebell swing", "Snatch",
+                "Dominadas", "Remo con barra", "Flexiones",
+                "Zancadas caminando", "Hip thrust", "Sentadilla overhead"
+            ],             
+            "Adicionales:Cardio-Potencia-Abdomen": [
+                "Cinta (running)", "Bicicleta estática", "Natación", 
+                "Trote", "Sprints", "Saltos pliométricos","Zancada dinamica",
+                "Burpees", "Mountain climbers", "Jumping jacks",
+                "Salto a caja", "Saltar la cuerda",
+                "Plancha", "Crunches", "Elevación de piernas",
+                "Russian twists", "Plancha lateral", "Elevación de cadera",
+                "Crunch inverso", "Plancha con elevación de brazos"
+                
             ]
+            
+            # "Pecho-Hombro-Tríceps": [
+            #     "Press plano", "Press inclinado", "Apertura en polea",
+            #     "Press en polea", "Apertura en polea alta(mono)", "Apertura en polea baja",
+            #     "Press militar", "Elevaciones laterales", "Fondos", "Extension de triceps", 
+            #     "Extension de triceps en polea alta", "Patada de triceps"
+            # ],
+            # "Pierna": [
+            #     "Sentadilla hack", "Prensa", "Peso muerto",
+            #     "Extensiones de cuadriceps", "Curl femoral", "Elevaciones de gemelos", "Zancadas",
+            #     "Femoral en polea"
+            # ],
+            # "Espalda-Bíceps-Antebrazo": [
+            #     "Dominadas lastre", "Remo en T alto", "Jalón al pecho","Jalon al pecho abierto", 
+            #     "Pull over","Remo en polea alta","Remo en polea baja",  "Curl de bíceps", "Curl martillo",
+            #     "Extension de muñeca", "Curl de antebrazo"
+            # ],
+            # "Cardio": [
+            #     "Cinta", "Bicicleta","Natación", "Trote"
+            # 
+            
         }
 
     def actualizar_ejercicios_disponibles(self, event=None):
@@ -934,7 +1026,26 @@ class GimnasioApp:
         # Formato del texto
         self.text_recomendaciones.tag_config("header", font=(Styles.FONT_FAMILY, 12, "bold"))
         self.text_recomendaciones.tag_config("notas", foreground="#555555")
+    
+    def editar_entrenamiento_seleccionado(self):
+        """Carga el entrenamiento seleccionado para su edición"""
+        fecha_seleccionada = self.cal.get_date()
+        entrenamientos = self.cargar_todos_entrenamientos()
         
+        # Buscar el entrenamiento de la fecha seleccionada
+        for fecha_str, datos in entrenamientos.items():
+            if fecha_str.startswith(fecha_seleccionada):
+                self.entrenamiento_actual = datos
+                self.fecha_entrenamiento_actual = fecha_str.split('.')[0]  # Elimina .json si existe
+                break
+        
+        if not self.entrenamiento_actual:
+            messagebox.showwarning("Advertencia", "No hay entrenamiento para editar en esta fecha.")
+            return
+        
+        # Cambiar a la vista de registro y cargar los datos
+        self.mostrar_registro_entrenamiento()
+        self.cargar_entrenamiento_para_edicion()
         
     def cargar_entrenamiento_para_edicion(self):
         """Carga un entrenamiento existente para editarlo"""
@@ -1377,6 +1488,8 @@ class GimnasioApp:
         # Ordenar por fecha
         datos_peso.sort(key=lambda x: datetime.strptime(x['fecha'], "%Y-%m-%d"))
         return datos_peso
+    
+    
 
 
 if __name__ == "__main__":

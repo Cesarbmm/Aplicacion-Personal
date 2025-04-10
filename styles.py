@@ -21,28 +21,55 @@ class Styles:
     ICON_PATH = get_resource_path(os.path.join("assets", "iconos", "icono.ico"))
     # Elegant Color Palette (Soft Lavender and Deep Indigo Theme)
     # Primary Colors
-    COLOR_PRIMARY = "#4A4A8A"       # Deep indigo blue
-    COLOR_PRIMARY_LIGHT = "#6A6AB0" # Softer indigo
-    COLOR_PRIMARY_DARK = "#2A2A5A"  # Deep navy indigo
+    # COLOR_PRIMARY = "#4A4A8A"       # Deep indigo blue
+    # COLOR_PRIMARY_LIGHT = "#6A6AB0" # Softer indigo
+    # COLOR_PRIMARY_DARK = "#2A2A5A"  # Deep navy indigo
 
-    COLOR_SECONDARY = "#4A4A8A"       # Deep indigo blue
-    COLOR_SECONDARY_LIGTH = "#6A6AB0" # Softer indigo
-    COLOR_SECONDARY_DARK = "#2A2A5A"  # Deep navy indigo
+    # COLOR_SECONDARY = "#4A4A8A"       # Deep indigo blue
+    # COLOR_SECONDARY_LIGTH = "#6A6AB0" # Softer indigo
+    # COLOR_SECONDARY_DARK = "#2A2A5A"  # Deep navy indigo
+    # # Accent Colors
+    # COLOR_ACCENT = "#8A6FD3"        # Soft lavender purple
+    # COLOR_ACCENT_LIGHT = "#A98EEA"  # Lighter lavender
+    # COLOR_ACCENT_DARK = "#7259B3"   # Deep lavender
+
+    # # Neutral Colors
+    # COLOR_BACKGROUND = "#F4F4FA"    # Soft off-white
+    # COLOR_TEXT = "#2C2C4A"          # Dark navy text
+    # COLOR_TEXT_LIGHT = "#4A4A6A"    # Softer navy text
+    # COLOR_BORDER = "#BAAED9"        # Soft border color
+
+    # # State Colors
+    # COLOR_SUCCESS = "#4CAF50"       # Soft green for success
+    # COLOR_ERROR = "#F44336"         # Soft red for errors
+    # COLOR_WARNING = "#FF9800"       # Soft orange for warnings
+    
+        # Elegant Color Palette (Military Green Theme)
+    # Primary Colors
+    COLOR_PRIMARY = "#4B5320"       # Military green
+    COLOR_PRIMARY_LIGHT = "#6E7B41" # Softer military green
+    COLOR_PRIMARY_DARK = "#364226"  # Deep forest green
+
+    COLOR_SECONDARY = "#4B5320"       # Military green
+    COLOR_SECONDARY_LIGHT = "#6E7B41" # Softer military green
+    COLOR_SECONDARY_DARK = "#364226"  # Deep forest green
+
     # Accent Colors
-    COLOR_ACCENT = "#8A6FD3"        # Soft lavender purple
-    COLOR_ACCENT_LIGHT = "#A98EEA"  # Lighter lavender
-    COLOR_ACCENT_DARK = "#7259B3"   # Deep lavender
+    COLOR_ACCENT = "#8E9775"        # Soft olive green
+    COLOR_ACCENT_LIGHT = "#A7B08C"  # Lighter olive
+    COLOR_ACCENT_DARK = "#6C744D"   # Deep olive
 
     # Neutral Colors
-    COLOR_BACKGROUND = "#F4F4FA"    # Soft off-white
-    COLOR_TEXT = "#2C2C4A"          # Dark navy text
-    COLOR_TEXT_LIGHT = "#4A4A6A"    # Softer navy text
-    COLOR_BORDER = "#BAAED9"        # Soft border color
+    COLOR_BACKGROUND = "#F5F5F0"    # Soft off-white with a green undertone
+    COLOR_TEXT = "#2E2E1F"          # Dark olive text
+    COLOR_TEXT_LIGHT = "#4C4C33"    # Softer olive text
+    COLOR_BORDER = "#AAB393"        # Subtle border color
 
     # State Colors
-    COLOR_SUCCESS = "#4CAF50"       # Soft green for success
-    COLOR_ERROR = "#F44336"         # Soft red for errors
-    COLOR_WARNING = "#FF9800"       # Soft orange for warnings
+    COLOR_SUCCESS = "#6B8E23"       # Olive green for success
+    COLOR_ERROR = "#A52A2A"         # Deep brownish-red for errors
+    COLOR_WARNING = "#D2B48C"       # Tan for warnings
+
 
     # Fonts with improved typography
     FONT_FAMILY = "Segoe UI"  # Modern, clean font

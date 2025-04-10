@@ -12,6 +12,8 @@ class MainApp:
         self.root.title("Mi Aplicación Personal")
         self.ventana_secundaria_abierta = False
         
+        self.root.protocol("WM_DELETE_WINDOW", self.exit_app)  # Manejo de cierre de ventana
+        
         # Configuración inicial de la ventana
         self.setup_window()
         
@@ -153,15 +155,27 @@ class MainApp:
 
     def cerrar_ventana_secundaria(self, ventana):
         """Cierra la ventana secundaria y muestra la principal"""
+        # Obtener la instancia asociada
+        ventana_nombre = [attr for attr in dir(self) if getattr(self, attr) == ventana]
+        if ventana_nombre:
+            app_instance = getattr(self, f'app_{ventana_nombre[0][8:]}', None)
+            if app_instance and hasattr(app_instance, 'cleanup'):
+                app_instance.cleanup()  # Llama al método de limpieza específico
+
+            # Eliminar referencias a la aplicación y ventana secundaria
+            setattr(self, f'app_{ventana_nombre[0][8:]}', None)
+            setattr(self, ventana_nombre[0], None)
+
         # Destruir la ventana secundaria
         ventana.destroy()
-        
+
         # Mostrar la ventana principal
         self.root.deiconify()
         self.ventana_secundaria_abierta = False
-        
+
         # Enfocar la ventana principal
         self.root.focus_force()
+
 
     def abrir_diario(self):
         """Abre la ventana del diario"""
@@ -185,10 +199,30 @@ class MainApp:
         return "break"
 
     def exit_app(self, event=None):
-        """Salir de la aplicación con Escape"""
-        self.root.quit()
+        """Salir de la aplicación cerrando ventanas secundarias y la principal"""
+        try:
+            # Cerrar todas las ventanas secundarias si existen
+            for attr in dir(self):
+                if attr.startswith('ventana_'):
+                    ventana = getattr(self, attr)
+                    if isinstance(ventana, tk.Toplevel) and ventana.winfo_exists():
+                        # Llamar al método de limpieza si está definido
+                        app_instance = getattr(self, f'app_{attr[8:]}', None)
+                        if app_instance and hasattr(app_instance, 'cleanup'):
+                            app_instance.cleanup()
+
+                        # Destruir la ventana y eliminar referencias
+                        ventana.destroy()
+                        setattr(self, f'app_{attr[8:]}', None)
+                        setattr(self, attr, None)
+
+            # Cerrar la ventana principal
+            self.root.quit()
+        except Exception as e:
+            print(f"Error al cerrar la aplicación: {e}")
         return "break"
-    
+
+
 def main():
     root = tk.Tk()
     root.withdraw()  # Ocultar la ventana principal

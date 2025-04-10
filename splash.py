@@ -63,7 +63,7 @@ class SplashScreen:
             print(f"Error cargando logo: {e}")
             # Fallback simple
             self.logo_img = tk.PhotoImage(width=1, height=1)
-            self.width, self.height = 200, 200
+            self.width, self.height = 300, 300
 
     def fade_in(self):
         """Efecto de aparición suave"""
@@ -99,7 +99,7 @@ class SplashScreen:
     def get_drift_direction(self):
         """Dirección aleatoria para el desvanecimiento"""
         directions = [
-            (2, 0),   # Derecha
+            (4, 0),   # Derecha
             # (-2, 0),  # Izquierda
             # (0, 2),   # Abajo
             # (0, -2),  # Arriba
