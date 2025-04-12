@@ -1,6 +1,6 @@
 import tkinter as tk
 from PIL import Image, ImageTk
-from styles import Styles
+from assets.estilos.styles import Styles
 import random
 
 class SplashScreen:

@@ -15,66 +15,74 @@ def get_resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
+class ToolTip:
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tipwindow = None
+        widget.bind("<Enter>", self.show_tip)
+        widget.bind("<Leave>", self.hide_tip)
+
+    def show_tip(self, event=None):
+        if self.tipwindow or not self.text:
+            return
+        x, y, _, _ = self.widget.bbox("insert")
+        x += self.widget.winfo_rootx() + 20
+        y += self.widget.winfo_rooty() + 20
+        self.tipwindow = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        label = tk.Label(
+            tw, text=self.text, justify="left",
+            background="#ffffe0", relief="solid", borderwidth=1,
+            font=("Segoe UI", 9)
+        )
+        label.pack(ipadx=5, ipady=2)
+
+    def hide_tip(self, event=None):
+        if self.tipwindow:
+            self.tipwindow.destroy()
+            self.tipwindow = None
+
+
 class Styles:
     
     LOGO_PATH = get_resource_path(os.path.join("assets", "iconos", "LOGO.png"))
     ICON_PATH = get_resource_path(os.path.join("assets", "iconos", "icono.ico"))
-    # Elegant Color Palette (Soft Lavender and Deep Indigo Theme)
-    # Primary Colors
-    # COLOR_PRIMARY = "#4A4A8A"       # Deep indigo blue
-    # COLOR_PRIMARY_LIGHT = "#6A6AB0" # Softer indigo
-    # COLOR_PRIMARY_DARK = "#2A2A5A"  # Deep navy indigo
-
-    # COLOR_SECONDARY = "#4A4A8A"       # Deep indigo blue
-    # COLOR_SECONDARY_LIGTH = "#6A6AB0" # Softer indigo
-    # COLOR_SECONDARY_DARK = "#2A2A5A"  # Deep navy indigo
-    # # Accent Colors
-    # COLOR_ACCENT = "#8A6FD3"        # Soft lavender purple
-    # COLOR_ACCENT_LIGHT = "#A98EEA"  # Lighter lavender
-    # COLOR_ACCENT_DARK = "#7259B3"   # Deep lavender
-
-    # # Neutral Colors
-    # COLOR_BACKGROUND = "#F4F4FA"    # Soft off-white
-    # COLOR_TEXT = "#2C2C4A"          # Dark navy text
-    # COLOR_TEXT_LIGHT = "#4A4A6A"    # Softer navy text
-    # COLOR_BORDER = "#BAAED9"        # Soft border color
-
-    # # State Colors
-    # COLOR_SUCCESS = "#4CAF50"       # Soft green for success
-    # COLOR_ERROR = "#F44336"         # Soft red for errors
-    # COLOR_WARNING = "#FF9800"       # Soft orange for warnings
     
-        # Elegant Color Palette (Military Green Theme)
+    # Retro Dark Mode Color Palette
     # Primary Colors
-    COLOR_PRIMARY = "#4B5320"       # Military green
-    COLOR_PRIMARY_LIGHT = "#6E7B41" # Softer military green
-    COLOR_PRIMARY_DARK = "#364226"  # Deep forest green
+        # Primary Colors (azul retro)
+    COLOR_PRIMARY = "#2A2A5A"          # Azul oscuro retro
+    COLOR_PRIMARY_LIGHT = "#3A3A6A"    # Azul medio retro
+    COLOR_PRIMARY_DARK = "#1A1A3A"     # Azul muy oscuro retro
 
-    COLOR_SECONDARY = "#4B5320"       # Military green
-    COLOR_SECONDARY_LIGHT = "#6E7B41" # Softer military green
-    COLOR_SECONDARY_DARK = "#364226"  # Deep forest green
+    # Secondary Colors (complementarios)
+    COLOR_SECONDARY = "#5A2A5A"        # Lavanda profundo (lavanda oscuro)
+    COLOR_SECONDARY_LIGHT = "#7A4C7A"  # Lavanda medio
+    COLOR_SECONDARY_DARK = "#3A1A3A"   # Lavanda muy oscuro
 
-    # Accent Colors
-    COLOR_ACCENT = "#8E9775"        # Soft olive green
-    COLOR_ACCENT_LIGHT = "#A7B08C"  # Lighter olive
-    COLOR_ACCENT_DARK = "#6C744D"   # Deep olive
+    # Accent Colors (lavanda en vez de naranja)
+    COLOR_ACCENT = "#B38BFA"           # Lavanda pastel brillante
+    COLOR_ACCENT_LIGHT = "#D5BFFF"     # Lavanda claro
+    COLOR_ACCENT_DARK = "#9166CC"      # Lavanda oscuro
 
-    # Neutral Colors
-    COLOR_BACKGROUND = "#F5F5F0"    # Soft off-white with a green undertone
-    COLOR_TEXT = "#2E2E1F"          # Dark olive text
-    COLOR_TEXT_LIGHT = "#4C4C33"    # Softer olive text
-    COLOR_BORDER = "#AAB393"        # Subtle border color
+    # Neutral Colors (fondo oscuro)
+    COLOR_BACKGROUND = "#121212"       # Fondo negro oscuro
+    COLOR_TEXT = "#E0E0E0"             # Texto blanco brillante
+    COLOR_TEXT_LIGHT = "#A0A0A0"       # Texto gris claro
+    COLOR_BORDER = "#404040"           # Bordes grises oscuros
 
-    # State Colors
-    COLOR_SUCCESS = "#6B8E23"       # Olive green for success
-    COLOR_ERROR = "#A52A2A"         # Deep brownish-red for errors
-    COLOR_WARNING = "#D2B48C"       # Tan for warnings
+    # State Colors (brillantes para contraste)
+    COLOR_SUCCESS = "#00C853"          # Verde brillante retro
+    COLOR_ERROR = "#FF3D00"            # Rojo brillante retro
+    COLOR_WARNING = "#FFAB00"          # Amarillo brillante retro
 
-
-    # Fonts with improved typography
-    FONT_FAMILY = "Segoe UI"  # Modern, clean font
-    FONT = (FONT_FAMILY, 12)
-    FONT_BOLD = (FONT_FAMILY, 12, "bold")
+    
+    # Fonts with retro style
+    FONT_FAMILY = "Poppins Bold"        # Fuente tipo máquina de escribir para estilo retro
+    FONT = (FONT_FAMILY, 10)
+    FONT_BOLD = (FONT_FAMILY, 10, "bold")
     FONT_LARGE = (FONT_FAMILY, 16, "bold")
     FONT_SMALL = (FONT_FAMILY, 10)
 
@@ -83,7 +91,6 @@ class Styles:
     PADDING = 10
     PADDING_SMALL = 5
     PADDING_LARGE = 15
-    
     
     # Splash Screen Specific Styles
     SPLASH_WIDTH = 400
@@ -109,7 +116,7 @@ class Styles:
         """Return style configuration for splash progress bar"""
         return {
             'background': Styles.COLOR_ACCENT,
-            'trough_color': "#E0E0E0",
+            'trough_color': Styles.COLOR_BACKGROUND,
             'border_width': 0,
             'height': Styles.SPLASH_PROGRESS_HEIGHT
         }
@@ -119,7 +126,7 @@ class Styles:
         """Return style configuration for splash text"""
         return {
             'font': Styles.FONT,
-            'fill': Styles.COLOR_TEXT
+            'fill': Styles.COLOR_ACCENT  # Texto en color de acento para destacar
         }
     
     @staticmethod
@@ -127,24 +134,24 @@ class Styles:
         """Return style configuration for percentage text"""
         return {
             'font': (Styles.FONT_FAMILY, 12, "bold"),
-            'fill': Styles.COLOR_TEXT
+            'fill': Styles.COLOR_ACCENT  # Porcentaje en color de acento
         }
 
     @staticmethod
     def apply_styles():
         """Apply comprehensive custom styles to ttk widgets"""
         style = ttk.Style()
-        style.theme_use("clam")  # Clean, modern theme base
+        style.theme_use("clam")  # Base para tema oscuro
 
         # Button Styles
         style.configure(
             "Custom.TButton",
             font=Styles.FONT,
             padding=(Styles.PADDING, Styles.PADDING_SMALL),
-            foreground=Styles.COLOR_BACKGROUND,
+            foreground=Styles.COLOR_TEXT,
             background=Styles.COLOR_PRIMARY,
             bordercolor=Styles.COLOR_BORDER,
-            relief="flat",
+            relief="raised",  # Relieve para efecto retro
             focuscolor=Styles.COLOR_ACCENT_LIGHT
         )
         style.map(
@@ -155,8 +162,8 @@ class Styles:
                 ("disabled", Styles.COLOR_TEXT_LIGHT)
             ],
             foreground=[
-                ("pressed", Styles.COLOR_BACKGROUND), 
-                ("active", Styles.COLOR_BACKGROUND),
+                ("pressed", Styles.COLOR_TEXT), 
+                ("active", Styles.COLOR_TEXT),
                 ("disabled", Styles.COLOR_BACKGROUND)
             ],
             bordercolor=[
@@ -165,34 +172,33 @@ class Styles:
             ]
         )
         
-        # En styles.py
+        # Danger Button Style
         style.configure(
             "Danger.TButton", 
             font=Styles.FONT,
             padding=(Styles.PADDING, Styles.PADDING_SMALL),
-            foreground=Styles.COLOR_BACKGROUND,
-            background=Styles.COLOR_WARNING,
+            foreground=Styles.COLOR_TEXT,
+            background=Styles.COLOR_ERROR,
             bordercolor=Styles.COLOR_BORDER,
-            relief="flat",
-            focuscolor=Styles.COLOR_WARNING
-        
+            relief="raised",
+            focuscolor=Styles.COLOR_ACCENT_LIGHT
         )
         style.map(
             "Danger.TButton", 
             background=[
                 ("pressed", Styles.COLOR_ERROR), 
-                ("active", Styles.COLOR_ERROR),
+                ("active", Styles.COLOR_WARNING),
                 ("disabled", Styles.COLOR_TEXT_LIGHT)
             ],
             foreground=[
-                ("pressed", Styles.COLOR_WARNING), 
-                ("active", Styles.COLOR_WARNING),
+                ("pressed", Styles.COLOR_TEXT), 
+                ("active", Styles.COLOR_TEXT),
                 ("disabled", Styles.COLOR_BACKGROUND)
             ],
             bordercolor=[
                 ("pressed", Styles.COLOR_ACCENT_DARK),
                 ("active", Styles.COLOR_ACCENT)
-            ] # Rojo más oscuro al hacer hover
+            ]
         )
 
         # Label Styles
@@ -207,7 +213,7 @@ class Styles:
         style.configure(
             "Custom.Header.TLabel",
             font=Styles.FONT_LARGE,
-            foreground=Styles.COLOR_PRIMARY_DARK,
+            foreground=Styles.COLOR_ACCENT,  # Encabezados en color de acento
             background=Styles.COLOR_BACKGROUND,
             padding=Styles.PADDING
         )
@@ -215,35 +221,33 @@ class Styles:
         # Configuración del estilo para TLabelframe
         style.configure(
             "Custom.TLabelframe",
-            font=Styles.FONT_BOLD,  # Fuente en bold
-            foreground=Styles.COLOR_TEXT,                        # Color del texto
-            background=Styles.COLOR_BACKGROUND,                  # Fondo principal
-            borderwidth=1                                        # Opcional: Borde fino
+            font=Styles.FONT_BOLD,
+            foreground=Styles.COLOR_ACCENT,  # Texto en color de acento
+            background=Styles.COLOR_BACKGROUND,
+            borderwidth=2,
+            relief="groove"  # Relieve retro
         )
         
-
-
-        # Configuración para TLabelframe.Label (los títulos dentro de los Labelframe)
+        # Configuración para TLabelframe.Label
         style.configure(
             "Custom.TLabelframe.Label",
-            font=Styles.FONT_BOLD,  # Texto en bold
-            foreground=Styles.COLOR_TEXT,                        # Color del texto
-            background=Styles.COLOR_BACKGROUND                   # Fondo del título
+            font=Styles.FONT_BOLD,
+            foreground=Styles.COLOR_ACCENT,  # Texto en color de acento
+            background=Styles.COLOR_BACKGROUND
         )
-
 
         # Entry Styles
         style.configure(
             "Custom.TEntry",
             font=Styles.FONT,
             foreground=Styles.COLOR_TEXT,
-            background=Styles.COLOR_BACKGROUND,
-            fieldbackground=Styles.COLOR_BACKGROUND,
+            background="#1E1E1E",  # Fondo ligeramente más claro que el principal
+            fieldbackground="#1E1E1E",
             bordercolor=Styles.COLOR_BORDER,
             lightcolor=Styles.COLOR_BACKGROUND,
             darkcolor=Styles.COLOR_BACKGROUND,
             padding=(Styles.PADDING_SMALL, Styles.PADDING_SMALL),
-            relief="flat"
+            relief="sunken"  # Relieve retro
         )
         style.map(
             "Custom.TEntry",
@@ -256,13 +260,14 @@ class Styles:
                 ("!focus", Styles.COLOR_BACKGROUND)
             ]
         )
+        
         # Treeview Styles
         style.configure(
             "Custom.Treeview",
             font=Styles.FONT,
             foreground=Styles.COLOR_TEXT,
-            background=Styles.COLOR_BACKGROUND,
-            fieldbackground=Styles.COLOR_BACKGROUND,
+            background="#1E1E1E",  # Fondo ligeramente más claro
+            fieldbackground="#1E1E1E",
             bordercolor=Styles.COLOR_BORDER,
             rowheight=25
         )
@@ -272,13 +277,13 @@ class Styles:
             "Custom.TScrolledText",
             font=Styles.FONT,
             foreground=Styles.COLOR_TEXT,
-            background=Styles.COLOR_BACKGROUND,
-            fieldbackground=Styles.COLOR_BACKGROUND,
+            background="#1E1E1E",
+            fieldbackground="#1E1E1E",
             bordercolor=Styles.COLOR_BORDER,
             lightcolor=Styles.COLOR_BACKGROUND,
             darkcolor=Styles.COLOR_BACKGROUND,
             padding=(Styles.PADDING_SMALL, Styles.PADDING_SMALL),
-            relief="flat"
+            relief="sunken"
         )
 
         # Combobox Styles
@@ -286,19 +291,19 @@ class Styles:
             "Custom.TCombobox",
             font=Styles.FONT,
             foreground=Styles.COLOR_TEXT,
-            background=Styles.COLOR_BACKGROUND,
-            fieldbackground=Styles.COLOR_BACKGROUND,
-            selectbackground=Styles.COLOR_ACCENT_LIGHT,
+            background="#1E1E1E",
+            fieldbackground="#1E1E1E",
+            selectbackground=Styles.COLOR_ACCENT,
             selectforeground=Styles.COLOR_TEXT,
             arrowsize=15,
-            arrowcolor=Styles.COLOR_TEXT,
+            arrowcolor=Styles.COLOR_ACCENT,  # Flechas en color de acento
             padding=(Styles.PADDING_SMALL, Styles.PADDING_SMALL)
         )
         style.map(
             "Custom.TCombobox",
-            fieldbackground=[("readonly", Styles.COLOR_BACKGROUND)],
-            selectbackground=[("readonly", Styles.COLOR_ACCENT_LIGHT)],
-            background=[("readonly", Styles.COLOR_BACKGROUND)]
+            fieldbackground=[("readonly", "#1E1E1E")],
+            selectbackground=[("readonly", Styles.COLOR_ACCENT)],
+            background=[("readonly", "#1E1E1E")]
         )
 
         # Frame Styles
@@ -312,14 +317,14 @@ class Styles:
         style.configure(
             "Custom.Border.TFrame",
             background=Styles.COLOR_BORDER,
-            relief="flat"
+            relief="groove"  # Relieve retro
         )
 
         # Scrollbar Styles
         style.configure(
             "Custom.Vertical.TScrollbar",
-            background=Styles.COLOR_PRIMARY_LIGHT,
-            arrowcolor=Styles.COLOR_TEXT,
+            background=Styles.COLOR_ACCENT_DARK,
+            arrowcolor=Styles.COLOR_ACCENT,
             troughcolor=Styles.COLOR_BACKGROUND,
             bordercolor=Styles.COLOR_BORDER,
             gripcount=0,
@@ -328,8 +333,8 @@ class Styles:
         
         style.configure(
             "Custom.Horizontal.TScrollbar",
-            background=Styles.COLOR_PRIMARY_LIGHT,
-            arrowcolor=Styles.COLOR_TEXT,
+            background=Styles.COLOR_ACCENT_DARK,
+            arrowcolor=Styles.COLOR_ACCENT,
             troughcolor=Styles.COLOR_BACKGROUND,
             bordercolor=Styles.COLOR_BORDER,
             gripcount=0,
@@ -339,13 +344,13 @@ class Styles:
         style.map(
             "Custom.Vertical.TScrollbar",
             background=[("active", Styles.COLOR_ACCENT)],
-            arrowcolor=[("active", Styles.COLOR_BACKGROUND)]
+            arrowcolor=[("active", Styles.COLOR_TEXT)]
         )
         
         style.map(
             "Custom.Horizontal.TScrollbar",
             background=[("active", Styles.COLOR_ACCENT)],
-            arrowcolor=[("active", Styles.COLOR_BACKGROUND)]
+            arrowcolor=[("active", Styles.COLOR_TEXT)]
         )
 
         # Notebook Styles (Tabs)
@@ -367,11 +372,11 @@ class Styles:
         style.map(
             "Custom.TNotebook.Tab",
             background=[
-                ("selected", Styles.COLOR_PRIMARY_LIGHT),
+                ("selected", Styles.COLOR_ACCENT),
                 ("active", Styles.COLOR_ACCENT_LIGHT)
             ],
             foreground=[
-                ("selected", Styles.COLOR_BACKGROUND),
+                ("selected", Styles.COLOR_TEXT),
                 ("active", Styles.COLOR_TEXT)
             ],
             expand=[("selected", (1, 1, 1, 0))]
@@ -382,8 +387,8 @@ class Styles:
             "Custom.Treeview",
             font=Styles.FONT,
             foreground=Styles.COLOR_TEXT,
-            background=Styles.COLOR_BACKGROUND,
-            fieldbackground=Styles.COLOR_BACKGROUND,
+            background="#1E1E1E",
+            fieldbackground="#1E1E1E",
             bordercolor=Styles.COLOR_BORDER,
             rowheight=25
         )
@@ -391,9 +396,9 @@ class Styles:
         style.configure(
             "Custom.Treeview.Heading",
             font=Styles.FONT_BOLD,
-            foreground=Styles.COLOR_BACKGROUND,
+            foreground=Styles.COLOR_TEXT,
             background=Styles.COLOR_PRIMARY,
-            relief="flat",
+            relief="raised",  # Relieve retro
             padding=(Styles.PADDING_SMALL, Styles.PADDING_SMALL)
         )
         
@@ -408,7 +413,7 @@ class Styles:
         style.map(
             "Custom.Treeview",
             background=[
-                ("selected", Styles.COLOR_ACCENT_LIGHT)
+                ("selected", Styles.COLOR_ACCENT)
             ],
             foreground=[
                 ("selected", Styles.COLOR_TEXT)
@@ -434,7 +439,7 @@ class Styles:
             background=Styles.COLOR_BACKGROUND,
             indicatorcolor=Styles.COLOR_BACKGROUND,
             indicatordiameter=15,
-            indicatorrelief="flat",
+            indicatorrelief="sunken",  # Relieve retro
             padding=Styles.PADDING
         )
         
@@ -445,7 +450,7 @@ class Styles:
             background=Styles.COLOR_BACKGROUND,
             indicatorcolor=Styles.COLOR_BACKGROUND,
             indicatordiameter=15,
-            indicatorrelief="flat",
+            indicatorrelief="sunken",  # Relieve retro
             padding=Styles.PADDING
         )
         
@@ -470,7 +475,7 @@ class Styles:
         # Sizegrip Style
         style.configure(
             "Custom.Sizegrip",
-            background=Styles.COLOR_PRIMARY_LIGHT
+            background=Styles.COLOR_ACCENT_DARK
         )
 
     @staticmethod
@@ -510,12 +515,12 @@ class Styles:
         """Apply window-level styling"""
         root.configure(background=Styles.COLOR_BACKGROUND)
         try:
-            root.iconbitmap(Styles.ICON_PATH)  # Usa la ruta definida en ICON_PATH
+            root.iconbitmap(Styles.ICON_PATH)
         except Exception as e:
             print(f"Error setting window icon: {e}")
         
         # Set window title font and color
-        root.option_add('*TkFDialog*foreground', Styles.COLOR_TEXT)
+        root.option_add('*TkFDialog*foreground', Styles.COLOR_ACCENT)  # Diálogos con texto en color de acento
         root.option_add('*TkFDialog*font', Styles.FONT)
         
         # Configure the default focus highlight
@@ -524,7 +529,6 @@ class Styles:
         root.option_add('*highlightThickness', 1)
         
         # Configure selection colors
-        root.option_add('*selectBackground', Styles.COLOR_ACCENT_LIGHT)
+        root.option_add('*selectBackground', Styles.COLOR_ACCENT)
         root.option_add('*selectForeground', Styles.COLOR_TEXT)
         root.option_add('*selectBorderWidth', 0)
-        

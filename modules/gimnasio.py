@@ -6,9 +6,10 @@ import json
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
-from styles import Styles
+from assets.estilos.styles import Styles
 import calendar
 from tkcalendar import Calendar
+from assets.estilos.styles import ToolTip
 
 class GimnasioApp:
     def __init__(self, root):
@@ -106,6 +107,55 @@ class GimnasioApp:
             style="Custom.TButton",
             command=self.mostrar_control_peso
         ).pack(side="left", padx=5, ipadx=10, ipady=5)
+        
+        # Icono de ayuda "?"
+        label_help = tk.Label(menu_frame, text=" ? ", font=("Segoe UI", 10, "bold"), fg=Styles.COLOR_BACKGROUND, cursor="question_arrow")
+        label_help.pack(side="left", padx=(6, 0))
+        
+        ToolTip(label_help, 
+        """🏋️‍♂️ Registro de Rutina de Gimnasio:
+
+        1. Verifica que la fecha sea correcta.
+        2. Selecciona el tipo de rutina (Ej: "Pecho-Espalda", "Pierna", etc.).
+        3. Escoge un ejercicio, luego completa:
+           - Series
+           - Repeticiones
+           - Peso
+           - Observaciones (Ej: unilateral, dolencia)
+           Luego haz clic en "Agregar".
+
+        4. ¿Cometiste un error?
+           Selecciona el ejercicio en la lista inferior y presiona "Eliminar".
+
+        5. ¿No encuentras un ejercicio en el tipo seleccionado?
+           Cambia el tipo de rutina, búscalo y agrégalo.
+
+        6. Usa "Limpiar Todo" si necesitas reiniciar todo el formulario.
+
+        7. Puedes generar recomendaciones semanales:
+           - Semana 1: Adaptación (misma carga, enfoque técnico)
+           - Semana 2: Volumen (+1 serie)
+           - Semana 3: Intensidad (+2 repeticiones)
+           - Semana 4: Aumento de carga (+2.5% del peso)
+
+        8. Finalmente, haz clic en "Guardar" para conservar tu progreso.
+           Luego podrás visualizarlo en la sección de gráficas.
+           
+        
+        📊 Control de Peso (Cálculo de Calorías):
+
+        1. Verifica que tu edad, altura, peso y sexo estén correctos.
+        2. Selecciona tu nivel de actividad física.
+        3. Se aplicará la fórmula Mifflin-St Jeor.
+        4. El resultado será tu TMB (Tasa Metabólica Basal).
+        5. Si deseas:
+           - Perder peso: se recomienda un déficit calórico.
+           - Ganar masa muscular: se sugiere un superávit controlado.
+        6. Haz clic en "Guardar" para conservar los datos. 
+        Puedes hacer un seguimiento desde la sección de control de peso.
+        """)
+
+
 
     def mostrar_registro_entrenamiento(self):
         """Muestra la interfaz para registrar entrenamientos"""
@@ -127,7 +177,7 @@ class GimnasioApp:
             self.main_content.destroy()
         
         self.main_content = ttk.Frame(self.root, style="Custom.TFrame")
-        self.main_content.pack(expand=True, fill="both", padx=20, pady=(0, 20))
+        self.main_content.pack(expand=True, fill="both", padx=20, pady=(0, 15))
         
         # Frame para el calendario y detalles
         historial_frame = ttk.Frame(self.main_content, style="Custom.TFrame")
@@ -167,7 +217,7 @@ class GimnasioApp:
             bg=Styles.COLOR_BACKGROUND,
             fg=Styles.COLOR_TEXT,
             padx=10,
-            pady=10,
+            pady=3,
             state="disabled"
         )
         self.detalle_text.pack(expand=True, fill="both")
@@ -181,18 +231,6 @@ class GimnasioApp:
         )
         btn_editar.pack(pady=10, ipadx=10, ipady=5)
         
-    # def resaltar_dias_con_entrenamientos(self):
-    #     """Resalta los días que tienen entrenamientos registrados"""
-    #     entrenamientos = self.cargar_todos_entrenamientos()
-    #     for fecha_str in entrenamientos.keys():
-    #         try:
-    #             fecha = datetime.strptime(fecha_str.split('_')[0], "%Y-%m-%d").date()
-    #             self.cal.calevent_create(fecha, 'Entrenamiento', 'entrenamiento')
-    #         except:
-    #             continue
-        
-    #     self.cal.tag_config('entrenamiento', background=Styles.COLOR_ACCENT)
-
     def resaltar_dias_con_entrenamientos(self):
         """Resalta los días que tienen entrenamientos o registros de peso"""
         # Resaltar entrenamientos
@@ -221,43 +259,6 @@ class GimnasioApp:
         self.cal.tag_config('peso', background="#4CAF50")  # Verde para registros de peso
 
 
-    # def mostrar_detalle_entrenamiento(self, event=None):
-    #     """Muestra el detalle del entrenamiento seleccionado en el calendario"""
-    #     fecha_seleccionada = self.cal.get_date()
-    #     entrenamientos = self.cargar_todos_entrenamientos()
-        
-    #     # Buscar entrenamiento para la fecha seleccionada
-    #     entrenamiento = None
-    #     for fecha_str, datos in entrenamientos.items():
-    #         if fecha_str.startswith(fecha_seleccionada):
-    #             entrenamiento = datos
-    #             break
-        
-    #     self.detalle_text.config(state="normal")
-    #     self.detalle_text.delete("1.0", tk.END)
-        
-    #     if entrenamiento:
-    #         # Mostrar información del entrenamiento
-    #         self.detalle_text.insert(tk.END, f"Fecha: {entrenamiento['fecha']}\n", "header")
-    #         self.detalle_text.insert(tk.END, f"Tipo: {entrenamiento['tipo']}\n", "header")
-    #         self.detalle_text.insert(tk.END, f"Semana: {entrenamiento['semana']}\n\n", "header")
-            
-    #         self.detalle_text.insert(tk.END, "Ejercicios:\n", "subheader")
-    #         for ejercicio in entrenamiento['ejercicios']:
-    #             self.detalle_text.insert(tk.END, 
-    #                 f"• {ejercicio['ejercicio']}: {ejercicio['series']}x{ejercicio['repeticiones']} "
-    #                 f"con {ejercicio['peso']} kg - {ejercicio['observaciones']}\n")
-            
-    #         if 'recomendaciones' in entrenamiento and entrenamiento['recomendaciones'].strip():
-    #             self.detalle_text.insert(tk.END, "\nRecomendaciones:\n", "subheader")
-    #             self.detalle_text.insert(tk.END, entrenamiento['recomendaciones'])
-    #     else:
-    #         self.detalle_text.insert(tk.END, f"No hay entrenamientos registrados para {fecha_seleccionada}", "info")
-        
-    #     self.detalle_text.tag_config("header", font=(Styles.FONT_FAMILY, 12, "bold"))
-    #     self.detalle_text.tag_config("subheader", font=(Styles.FONT_FAMILY, 10, "bold"))
-    #     self.detalle_text.tag_config("info", foreground="#555555")
-    #     self.detalle_text.config(state="disabled")
 
     def mostrar_detalle_entrenamiento(self, event=None):
         """Muestra el detalle del entrenamiento y peso seleccionado en el calendario"""
@@ -326,109 +327,9 @@ class GimnasioApp:
         self.detalle_text.config(state="disabled")
         
 
-
         
-        
-    def mostrar_grafica_avance(self):
-        """Muestra gráficas de avance separadas para el ejercicio y el peso corporal."""
-        # Limpiar el contenido principal si existe
-        if hasattr(self, 'main_content'):
-            self.main_content.destroy()
-        
-        self.main_content = ttk.Frame(self.root, style="Custom.TFrame")
-        self.main_content.pack(expand=True, fill="both", padx=20, pady=(0, 20))
-        
-        # Frame para controles
-        controles_frame = ttk.Frame(self.main_content, style="Custom.TFrame")
-        controles_frame.pack(fill="x", pady=10)
-        
-        ttk.Label(controles_frame, text="Ejercicio:", style="Custom.TLabel").pack(side="left", padx=5)
-        
-        # Obtener lista de todos los ejercicios registrados
-        ejercicios = self.obtener_lista_ejercicios()
-        self.ejercicio_grafica = tk.StringVar()
-        
-        ejercicio_combo = ttk.Combobox(
-            controles_frame,
-            textvariable=self.ejercicio_grafica,
-            values=ejercicios,
-            state="readonly",
-            style="Custom.TCombobox",
-            width=30
-        )
-        ejercicio_combo.pack(side="left", padx=5)
-        
-        if ejercicios:
-            self.ejercicio_grafica.set(ejercicios[0])
-        
-        ttk.Button(
-            controles_frame,
-            text="Mostrar Gráfica",
-            style="Accent.TButton",
-            command=self.actualizar_graficas
-        ).pack(side="left", padx=10)
-        
-        # Crear contenedores para gráficas
-        self.grafica_ejercicio_frame = ttk.Frame(self.main_content, style="Custom.TFrame")
-        self.grafica_ejercicio_frame.pack(expand=True, fill="both", side="left", padx=10)
-    
-        self.grafica_peso_frame = ttk.Frame(self.main_content, style="Custom.TFrame")
-        self.grafica_peso_frame.pack(expand=True, fill="both", side="right", padx=10)
-    
-        # Inicializar gráficas vacías
-        self.fig_ejercicio, self.ax_ejercicio = plt.subplots(figsize=(6, 4))
-        self.canvas_ejercicio = FigureCanvasTkAgg(self.fig_ejercicio, master=self.grafica_ejercicio_frame)
-        self.canvas_ejercicio.get_tk_widget().pack(expand=True, fill="both")
-    
-        self.fig_peso, self.ax_peso = plt.subplots(figsize=(6, 4))
-        self.canvas_peso = FigureCanvasTkAgg(self.fig_peso, master=self.grafica_peso_frame)
-        self.canvas_peso.get_tk_widget().pack(expand=True, fill="both")
-    
-        # Mostrar gráfica inicial si hay ejercicios
-        if ejercicios:
-            self.actualizar_graficas()
-    
-    def actualizar_graficas(self):
-        """Actualiza las gráficas de ejercicios y peso corporal."""
-        ejercicio = self.ejercicio_grafica.get()
-        if not ejercicio:
-            return
-    
-        # Obtener datos del ejercicio
-        datos_ejercicio = self.obtener_datos_ejercicio(ejercicio)
-        if not datos_ejercicio:
-            messagebox.showinfo("Información", f"No hay datos históricos para {ejercicio}")
-            return
-    
-        # Obtener datos de peso corporal
-        datos_peso = self.obtener_datos_peso()
-    
-        # Actualizar gráfica del ejercicio
-        self.ax_ejercicio.clear()
-        fechas_ejercicio = [datetime.strptime(d['fecha'], "%Y-%m-%d") for d in datos_ejercicio]
-        pesos_ejercicio = [float(d['peso']) for d in datos_ejercicio]
-        self.ax_ejercicio.plot(fechas_ejercicio, pesos_ejercicio, 'o-', color=Styles.COLOR_PRIMARY)
-        self.ax_ejercicio.set_title(f"Peso levantado en {ejercicio}", color=Styles.COLOR_TEXT)
-        self.ax_ejercicio.set_xlabel("Fecha")
-        self.ax_ejercicio.set_ylabel("Peso (kg)", color=Styles.COLOR_PRIMARY)
-        self.fig_ejercicio.autofmt_xdate()
-        self.canvas_ejercicio.draw()
-    
-        # Actualizar gráfica del peso corporal
-        self.ax_peso.clear()
-        if datos_peso:
-            fechas_peso = [datetime.strptime(d['fecha'], "%Y-%m-%d") for d in datos_peso]
-            pesos_corporales = [float(d['peso']) for d in datos_peso]
-            self.ax_peso.plot(fechas_peso, pesos_corporales, 's-', color=Styles.COLOR_ACCENT)
-        self.ax_peso.set_title("Peso Corporal", color=Styles.COLOR_TEXT)
-        self.ax_peso.set_xlabel("Fecha")
-        self.ax_peso.set_ylabel("Peso Corporal (kg)", color=Styles.COLOR_ACCENT)
-        self.fig_peso.autofmt_xdate()
-        self.canvas_peso.draw()
-
-
     # def mostrar_grafica_avance(self):
-    #     """Muestra gráficas de avance para los ejercicios"""
+    #     """Muestra gráficas de avance separadas para el ejercicio y el peso corporal."""
     #     # Limpiar el contenido principal si existe
     #     if hasattr(self, 'main_content'):
     #         self.main_content.destroy()
@@ -463,114 +364,187 @@ class GimnasioApp:
     #         controles_frame,
     #         text="Mostrar Gráfica",
     #         style="Accent.TButton",
-    #         command=self.actualizar_grafica
+    #         command=self.actualizar_graficas
     #     ).pack(side="left", padx=10)
         
-    #     # Frame para la gráfica
-    #     grafica_frame = ttk.Frame(self.main_content, style="Custom.TFrame")
-    #     grafica_frame.pack(expand=True, fill="both")
-        
-    #     # Crear figura de matplotlib
-    #     self.fig, self.ax = plt.subplots(figsize=(10, 6), facecolor=Styles.COLOR_BACKGROUND)
-    #     self.fig.patch.set_facecolor(Styles.COLOR_BACKGROUND)
-    #     self.ax.set_facecolor(Styles.COLOR_BACKGROUND)
-        
-    #     for spine in self.ax.spines.values():
-    #         spine.set_edgecolor(Styles.COLOR_TEXT)
-        
-    #     self.ax.tick_params(axis='x', colors=Styles.COLOR_TEXT)
-    #     self.ax.tick_params(axis='y', colors=Styles.COLOR_TEXT)
-    #     self.ax.yaxis.label.set_color(Styles.COLOR_TEXT)
-    #     self.ax.xaxis.label.set_color(Styles.COLOR_TEXT)
-    #     self.ax.title.set_color(Styles.COLOR_TEXT)
-        
-    #     # Canvas para la gráfica
-    #     self.canvas = FigureCanvasTkAgg(self.fig, master=grafica_frame)
-    #     self.canvas.get_tk_widget().pack(expand=True, fill="both")
-        
+    #     # Crear contenedores para gráficas
+    #     self.grafica_ejercicio_frame = ttk.Frame(self.main_content, style="Custom.TFrame")
+    #     self.grafica_ejercicio_frame.pack(expand=True, fill="both", side="left", padx=10)
+    
+    #     self.grafica_peso_frame = ttk.Frame(self.main_content, style="Custom.TFrame")
+    #     self.grafica_peso_frame.pack(expand=True, fill="both", side="right", padx=10)
+    
+    #     # Inicializar gráficas vacías
+    #     self.fig_ejercicio, self.ax_ejercicio = plt.subplots(figsize=(6, 4))
+    #     self.canvas_ejercicio = FigureCanvasTkAgg(self.fig_ejercicio, master=self.grafica_ejercicio_frame)
+    #     self.canvas_ejercicio.get_tk_widget().pack(expand=True, fill="both")
+    
+    #     self.fig_peso, self.ax_peso = plt.subplots(figsize=(6, 4))
+    #     self.canvas_peso = FigureCanvasTkAgg(self.fig_peso, master=self.grafica_peso_frame)
+    #     self.canvas_peso.get_tk_widget().pack(expand=True, fill="both")
+    
     #     # Mostrar gráfica inicial si hay ejercicios
     #     if ejercicios:
-    #         self.actualizar_grafica()
-
-    # def actualizar_grafica(self):
-    #     """Actualiza la gráfica con los datos del ejercicio y peso corporal"""
+    #         self.actualizar_graficas()
+    
+    # def actualizar_graficas(self):
+    #     """Actualiza las gráficas de ejercicios y peso corporal."""
     #     ejercicio = self.ejercicio_grafica.get()
     #     if not ejercicio:
     #         return
-
-    #     # Obtener datos históricos del ejercicio
+    
+    #     # Obtener datos del ejercicio
     #     datos_ejercicio = self.obtener_datos_ejercicio(ejercicio)
     #     if not datos_ejercicio:
     #         messagebox.showinfo("Información", f"No hay datos históricos para {ejercicio}")
     #         return
-
+    
     #     # Obtener datos de peso corporal
     #     datos_peso = self.obtener_datos_peso()
-
-    #     # Limpiar gráfica
-    #     self.ax.clear()
-
-    #     # Preparar datos del ejercicio
+    
+    #     # Actualizar gráfica del ejercicio
+    #     self.ax_ejercicio.clear()
     #     fechas_ejercicio = [datetime.strptime(d['fecha'], "%Y-%m-%d") for d in datos_ejercicio]
     #     pesos_ejercicio = [float(d['peso']) for d in datos_ejercicio]
-    #     repeticiones = [int(d['repeticiones']) for d in datos_ejercicio]
-    #     series = [int(d['series']) for d in datos_ejercicio]
-    #     volumen = [s * r * p for s, r, p in zip(series, repeticiones, pesos_ejercicio)]
-
-    #     # Gráfica de peso del ejercicio (peso levantado)
-    #     self.ax.plot(fechas_ejercicio, pesos_ejercicio, 'o-', 
-    #                 color=Styles.COLOR_PRIMARY, 
-    #                 label=f"Peso en {ejercicio} (kg)")
-
-    #     # Gráfica de volumen (series * reps * peso)
-    #     self.ax2 = self.ax.twinx()
-    #     self.ax2.plot(fechas_ejercicio, volumen, 's--', 
-    #                  color=Styles.COLOR_ACCENT, 
-    #                  label=f"Volumen en {ejercicio} (kg)")
-
-    #     # Si hay datos de peso corporal, añadirlos a la gráfica
+    #     self.ax_ejercicio.plot(fechas_ejercicio, pesos_ejercicio, 'o-', color=Styles.COLOR_PRIMARY)
+    #     self.ax_ejercicio.set_title(f"Peso levantado en {ejercicio}", color=Styles.COLOR_TEXT)
+    #     self.ax_ejercicio.set_xlabel("Fecha")
+    #     self.ax_ejercicio.set_ylabel("Peso (kg)", color=Styles.COLOR_PRIMARY)
+    #     self.fig_ejercicio.autofmt_xdate()
+    #     self.canvas_ejercicio.draw()
+    
+    #     # Actualizar gráfica del peso corporal
+    #     self.ax_peso.clear()
     #     if datos_peso:
     #         fechas_peso = [datetime.strptime(d['fecha'], "%Y-%m-%d") for d in datos_peso]
     #         pesos_corporales = [float(d['peso']) for d in datos_peso]
-
-    #         # Normalizar pesos para que aparezcan en la misma escala
-    #         max_peso_ejercicio = max(pesos_ejercicio) if pesos_ejercicio else 1
-    #         max_peso_corporal = max(pesos_corporales) if pesos_corporales else 1
-    #         factor_escala = max_peso_ejercicio / max_peso_corporal
-
-    #         pesos_corporales_escalados = [p * factor_escala for p in pesos_corporales]
-
-    #         self.ax.plot(fechas_peso, pesos_corporales_escalados, '^-', 
-    #                     color="#4CAF50",  # Verde
-    #                     label=f"Peso corporal (x{factor_escala:.2f})")
-
-    #     # Configurar ejes y formato
-    #     self.ax.set_title(f"Progreso en {ejercicio} y peso corporal", color=Styles.COLOR_TEXT)
-    #     self.ax.set_xlabel("Fecha")
-    #     self.ax.set_ylabel("Peso levantado (kg)", color=Styles.COLOR_PRIMARY)
-    #     self.ax2.set_ylabel("Volumen (kg)", color=Styles.COLOR_ACCENT)
-
-    #     # Formato de fechas
-    #     date_format = DateFormatter("%Y-%m-%d")
-    #     self.ax.xaxis.set_major_formatter(date_format)
-    #     self.fig.autofmt_xdate()
-
-    #     # Leyenda combinada
-    #     lines, labels = self.ax.get_legend_handles_labels()
-    #     lines2, labels2 = self.ax2.get_legend_handles_labels()
-    #     self.ax.legend(lines + lines2, labels + labels2, loc="upper left")
-
-    #     # Configurar colores de ejes
-    #     self.ax.tick_params(axis='x', colors=Styles.COLOR_TEXT)
-    #     self.ax.tick_params(axis='y', colors=Styles.COLOR_PRIMARY)
-    #     self.ax.yaxis.label.set_color(Styles.COLOR_PRIMARY)
-    #     self.ax2.tick_params(axis='y', colors=Styles.COLOR_ACCENT)
-    #     self.ax2.yaxis.label.set_color(Styles.COLOR_ACCENT)
-
-    #     # Actualizar canvas
-    #     self.canvas.draw()
+    #         self.ax_peso.plot(fechas_peso, pesos_corporales, 's-', color=Styles.COLOR_ACCENT)
+    #     self.ax_peso.set_title("Peso Corporal", color=Styles.COLOR_TEXT)
+    #     self.ax_peso.set_xlabel("Fecha")
+    #     self.ax_peso.set_ylabel("Peso Corporal (kg)", color=Styles.COLOR_ACCENT)
+    #     self.fig_peso.autofmt_xdate()
+    #     self.canvas_peso.draw()
     
+    def mostrar_grafica_avance(self):
+        """Muestra gráficas de avance separadas para el ejercicio y el peso corporal."""
+        # Limpiar el contenido principal si existe
+        if hasattr(self, 'main_content'):
+            self.main_content.destroy()
 
+        self.main_content = ttk.Frame(self.root, style="Custom.TFrame")
+        self.main_content.pack(expand=True, fill="both", padx=20, pady=(0, 20))
+
+        # Frame para controles
+        controles_frame = ttk.Frame(self.main_content, style="Custom.TFrame")
+        controles_frame.pack(fill="x", pady=10)
+
+        ttk.Label(controles_frame, text="Ejercicio:", style="Custom.TLabel").pack(side="left", padx=5)
+
+        # Obtener lista de todos los ejercicios registrados
+        ejercicios = self.obtener_lista_ejercicios()
+        self.ejercicio_grafica = tk.StringVar()
+
+        ejercicio_combo = ttk.Combobox(
+            controles_frame,
+            textvariable=self.ejercicio_grafica,
+            values=ejercicios,
+            state="readonly",
+            style="Custom.TCombobox",
+            width=30
+        )
+        ejercicio_combo.pack(side="left", padx=5)
+
+        if ejercicios:
+            self.ejercicio_grafica.set(ejercicios[0])
+
+        ttk.Button(
+            controles_frame,
+            text="Mostrar Gráfica",
+            style="Accent.TButton",
+            command=self.actualizar_graficas
+        ).pack(side="left", padx=10)
+
+        # Crear contenedores para gráficas
+        self.grafica_ejercicio_frame = ttk.Frame(self.main_content, style="Custom.TFrame")
+        self.grafica_ejercicio_frame.pack(expand=True, fill="both", side="left", padx=10)
+
+        self.grafica_peso_frame = ttk.Frame(self.main_content, style="Custom.TFrame")
+        self.grafica_peso_frame.pack(expand=True, fill="both", side="right", padx=10)
+
+        # Configuración de estilo para gráficas oscuras
+        plt.style.use('dark_background')
+
+        # Inicializar gráficas con fondo oscuro pero contraste
+        self.fig_ejercicio, self.ax_ejercicio = plt.subplots(figsize=(6, 4), facecolor='#2E2E2E')
+        self.fig_ejercicio.patch.set_facecolor('#2E2E2E')  # Fondo gris oscuro
+        self.ax_ejercicio.set_facecolor('#3A3A3A')  # Fondo del área de gráfica un poco más claro
+        self.canvas_ejercicio = FigureCanvasTkAgg(self.fig_ejercicio, master=self.grafica_ejercicio_frame)
+        self.canvas_ejercicio.get_tk_widget().pack(expand=True, fill="both")
+
+        self.fig_peso, self.ax_peso = plt.subplots(figsize=(6, 4), facecolor='#2E2E2E')
+        self.fig_peso.patch.set_facecolor('#2E2E2E')
+        self.ax_peso.set_facecolor('#3A3A3A')
+        self.canvas_peso = FigureCanvasTkAgg(self.fig_peso, master=self.grafica_peso_frame)
+        self.canvas_peso.get_tk_widget().pack(expand=True, fill="both")
+
+        # Mostrar gráfica inicial si hay ejercicios
+        if ejercicios:
+            self.actualizar_graficas()
+
+    def actualizar_graficas(self):
+        """Actualiza las gráficas de ejercicios y peso corporal."""
+        ejercicio = self.ejercicio_grafica.get()
+        if not ejercicio:
+            return
+
+        # Obtener datos del ejercicio
+        datos_ejercicio = self.obtener_datos_ejercicio(ejercicio)
+        if not datos_ejercicio:
+            messagebox.showinfo("Información", f"No hay datos históricos para {ejercicio}")
+            return
+
+        # Obtener datos de peso corporal
+        datos_peso = self.obtener_datos_peso()
+
+        # Configuración común para ejes
+        axis_color = '#CCCCCC'  # Gris claro para ejes y texto
+        grid_color = '#555555'  # Gris medio para la cuadrícula
+
+        # Actualizar gráfica del ejercicio
+        self.ax_ejercicio.clear()
+        fechas_ejercicio = [datetime.strptime(d['fecha'], "%Y-%m-%d") for d in datos_ejercicio]
+        pesos_ejercicio = [float(d['peso']) for d in datos_ejercicio]
+
+        # Configurar estilo de la gráfica
+        self.ax_ejercicio.plot(fechas_ejercicio, pesos_ejercicio, 'o-', color=Styles.COLOR_ACCENT_LIGHT, linewidth=2, markersize=8)
+        self.ax_ejercicio.set_title(f"Peso levantado en {ejercicio}", color=Styles.COLOR_TEXT, pad=20)
+        self.ax_ejercicio.set_xlabel("Fecha", color=axis_color)
+        self.ax_ejercicio.set_ylabel("Peso (kg)", color=Styles.COLOR_ACCENT_LIGHT)
+        self.ax_ejercicio.tick_params(axis='x', colors=axis_color)
+        self.ax_ejercicio.tick_params(axis='y', colors=Styles.COLOR_ACCENT_LIGHT)
+        self.ax_ejercicio.grid(color=grid_color, linestyle='--', linewidth=0.5)
+        self.ax_ejercicio.set_facecolor('#3A3A3A')  # Mantener fondo gris
+        self.fig_ejercicio.autofmt_xdate()
+        self.canvas_ejercicio.draw()
+
+        # Actualizar gráfica del peso corporal
+        self.ax_peso.clear()
+        if datos_peso:
+            fechas_peso = [datetime.strptime(d['fecha'], "%Y-%m-%d") for d in datos_peso]
+            pesos_corporales = [float(d['peso']) for d in datos_peso]
+            self.ax_peso.plot(fechas_peso, pesos_corporales, 's-', color=Styles.COLOR_ACCENT, linewidth=2, markersize=8)
+
+        self.ax_peso.set_title("Peso Corporal", color=Styles.COLOR_TEXT, pad=20)
+        self.ax_peso.set_xlabel("Fecha", color=axis_color)
+        self.ax_peso.set_ylabel("Peso Corporal (kg)", color=Styles.COLOR_ACCENT)
+        self.ax_peso.tick_params(axis='x', colors=axis_color)
+        self.ax_peso.tick_params(axis='y', colors=Styles.COLOR_ACCENT)
+        self.ax_peso.grid(color=grid_color, linestyle='--', linewidth=0.5)
+        self.ax_peso.set_facecolor('#3A3A3A')  # Mantener fondo gris
+        self.fig_peso.autofmt_xdate()
+        self.canvas_peso.draw()
+
+  
     def obtener_lista_ejercicios(self):
         """Obtiene una lista de todos los ejercicios registrados"""
         entrenamientos = self.cargar_todos_entrenamientos()
@@ -639,8 +613,7 @@ class GimnasioApp:
         # Botones de acción
         self.crear_botones_accion(registro_frame)
 
-    # Los siguientes métodos son los mismos que en tu implementación original,
-    # solo que ahora reciben el frame padre como parámetro
+    # Recibe el frame padre como parámetro
     
     def crear_encabezado(self, parent):
         """Crea el encabezado con los controles principales"""
@@ -775,14 +748,14 @@ class GimnasioApp:
             fg=Styles.COLOR_TEXT,
             padx=10,
             pady=10,
-            height=5,
+            height=4,
             state="normal"
         )
         self.text_recomendaciones.pack(fill="both", expand=True)
         
         # Frame para el botón de recomendaciones
         btn_frame = ttk.Frame(recomendaciones_frame, style="Custom.TFrame")
-        btn_frame.pack(fill="x", pady=(5, 0))
+        btn_frame.pack(fill="x", pady=(4, 0))
         
         # Botón para generar recomendaciones
         ttk.Button(
@@ -829,7 +802,7 @@ class GimnasioApp:
         return {
         
             "Pecho-Hombro-Tríceps": [
-                "Press plano", "Press inclinado", "Press declinado", 
+                "Press plano", "Press inclinado", "Press declinado", "Press en polea"
                 "Apertura con mancuernas", "Apertura en polea", "Apertura en polea alta(mono)",
                 "Apertura en polea baja", "Press militar", "Press Arnold", "Elevaciones laterales",
                 "Elevaciones frontales", "Elevaciones posteriores", "Fondos",
@@ -897,26 +870,6 @@ class GimnasioApp:
                 "Crunch inverso", "Plancha con elevación de brazos"
                 
             ]
-            
-            # "Pecho-Hombro-Tríceps": [
-            #     "Press plano", "Press inclinado", "Apertura en polea",
-            #     "Press en polea", "Apertura en polea alta(mono)", "Apertura en polea baja",
-            #     "Press militar", "Elevaciones laterales", "Fondos", "Extension de triceps", 
-            #     "Extension de triceps en polea alta", "Patada de triceps"
-            # ],
-            # "Pierna": [
-            #     "Sentadilla hack", "Prensa", "Peso muerto",
-            #     "Extensiones de cuadriceps", "Curl femoral", "Elevaciones de gemelos", "Zancadas",
-            #     "Femoral en polea"
-            # ],
-            # "Espalda-Bíceps-Antebrazo": [
-            #     "Dominadas lastre", "Remo en T alto", "Jalón al pecho","Jalon al pecho abierto", 
-            #     "Pull over","Remo en polea alta","Remo en polea baja",  "Curl de bíceps", "Curl martillo",
-            #     "Extension de muñeca", "Curl de antebrazo"
-            # ],
-            # "Cardio": [
-            #     "Cinta", "Bicicleta","Natación", "Trote"
-            # 
             
         }
 
@@ -1091,60 +1044,6 @@ class GimnasioApp:
         # Guardar referencia al archivo original para sobreescribirlo al guardar
         self.archivo_a_sobreescribir = self.fecha_entrenamiento_actual
 
-    # def guardar_entrenamiento(self):
-    #     """Guarda el entrenamiento como archivo JSON"""
-    #     fecha = self.fecha_actual.get()
-    #     tipo = self.tipo_entrenamiento.get()
-    #     semana = self.semana_actual.get()
-        
-    #     if not fecha or not tipo:
-    #         Styles.show_msg_error("Debes completar la fecha y el tipo de entrenamiento")
-    #         return
-            
-    #     if not self.tree.get_children():
-    #         Styles.show_msg_error("Debes agregar al menos un ejercicio")
-    #         return
-            
-    #     # Recoger todos los ejercicios
-    #     ejercicios = []
-    #     for item in self.tree.get_children():
-    #         valores = self.tree.item(item, "values")
-    #         ejercicios.append({
-    #             "ejercicio": valores[0],
-    #             "series": valores[1],
-    #             "repeticiones": valores[2],
-    #             "peso": valores[3],
-    #             "observaciones": valores[4]
-    #         })
-        
-    #     # Crear estructura de datos
-    #     entrenamiento = {
-    #         "fecha": fecha,
-    #         "tipo": tipo,
-    #         "semana": semana,
-    #         "ejercicios": ejercicios,
-    #         "recomendaciones": self.text_recomendaciones.get("1.0", tk.END)
-    #     }
-        
-    #     # Crear nombre de archivo seguro
-    #     nombre_archivo = f"{fecha}_{tipo.lower().replace(' ', '_')}.json"
-    #     nombre_archivo = "".join(c for c in nombre_archivo if c.isalnum() or c in ("_", "-", "."))
-        
-    #     ruta_completa = os.path.join("Registros", "Gimnasio", nombre_archivo)
-        
-    #     try:
-    #         # Guardar como JSON
-    #         with open(ruta_completa, "w", encoding="utf-8") as f:
-    #             json.dump(entrenamiento, f, indent=2, ensure_ascii=False)
-            
-    #         Styles.show_msg(f"Entrenamiento guardado exitosamente en:\n{ruta_completa}")
-            
-    #         # Limpiar campos
-    #         self.limpiar_todo()
-    #         self.semana_actual.set(semana + 1)
-            
-    #     except Exception as e:
-    #         Styles.show_msg_error(f"Error al guardar el entrenamiento:\n{str(e)}")
 
     def guardar_entrenamiento(self):
         """Guarda el entrenamiento como archivo JSON"""
@@ -1367,49 +1266,6 @@ class GimnasioApp:
             Styles.show_msg_error("Por favor ingresa valores numéricos válidos")
             
 
-    # def guardar_registro_peso(self):
-    #     """Guarda el registro de peso en el archivo correspondiente"""
-    #     fecha = self.fecha_actual.get()
-    #     peso = self.peso_actual.get()
-
-    #     if not fecha or not peso:
-    #         Styles.show_msg_error("Debes completar la fecha y el peso actual")
-    #         return
-
-    #     try:
-    #         peso_num = float(peso)
-    #     except ValueError:
-    #         Styles.show_msg_error("El peso debe ser un valor numérico válido")
-    #         return
-
-    #     # Crear estructura de datos
-    #     registro = {
-    #         "fecha": fecha,
-    #         "peso": peso_num,
-    #         "calorias_diarias": self.calorias_diarias.get() or "No calculado",
-    #         "sexo": self.sexo.get(),
-    #         "edad": self.edad.get(),
-    #         "altura": self.altura.get(),
-    #         "nivel_actividad": self.nivel_actividad.get(),
-    #         "objetivo": self.objetivo.get()
-    #     }
-
-    #     # Crear nombre de archivo seguro
-    #     nombre_archivo = f"peso_{fecha}.json"
-    #     nombre_archivo = "".join(c for c in nombre_archivo if c.isalnum() or c in ("_", "-", "."))
-
-    #     ruta_completa = os.path.join("Registros", "Gimnasio", nombre_archivo)
-
-    #     try:
-    #         # Guardar como JSON
-    #         with open(ruta_completa, "w", encoding="utf-8") as f:
-    #             json.dump(registro, f, indent=2, ensure_ascii=False)
-
-    #         Styles.show_msg(f"Registro de peso guardado exitosamente en:\n{ruta_completa}")
-
-    #     except Exception as e:
-    #         Styles.show_msg_error(f"Error al guardar el registro de peso:\n{str(e)}")
-
     def guardar_registro_peso(self):
         """Guarda el registro de peso en un archivo JSON"""
         try:
@@ -1490,8 +1346,6 @@ class GimnasioApp:
         return datos_peso
     
     
-
-
 if __name__ == "__main__":
     root = tk.Tk()
     app = GimnasioApp(root)

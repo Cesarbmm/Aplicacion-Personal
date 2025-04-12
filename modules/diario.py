@@ -3,7 +3,8 @@ from tkinter import ttk, messagebox
 from datetime import datetime
 import os
 import sys
-from styles import Styles
+from assets.estilos.styles import Styles
+from assets.estilos.styles import ToolTip
 
 class DiarioApp:
     def __init__(self, root):
@@ -49,12 +50,50 @@ class DiarioApp:
     def crear_panel_izquierdo(self):
         """Crea el panel izquierdo con listas de secciones y notas"""
         panel_izquierdo = ttk.Frame(self.main_frame, style="Custom.TFrame", width=250)
-        panel_izquierdo.grid(row=0, column=0, rowspan=2, sticky="nswe", padx=5, pady=5)
+        panel_izquierdo.grid(row=0, column=0, rowspan=2, sticky="nswe", padx=6, pady=5)
         panel_izquierdo.pack_propagate(False)
         
         # Frame para secciones
-        frame_secciones = ttk.LabelFrame(panel_izquierdo, text="Secciones", style="Custom.TLabelframe")
-        frame_secciones.pack(fill="x", pady=5)
+        frame_secciones_container = ttk.Frame(panel_izquierdo, style="Custom.TFrame")
+        frame_secciones_container.pack(fill="x", pady=5)
+        
+        # LabelFrame dentro del contenedor
+        frame_secciones = ttk.LabelFrame(frame_secciones_container, text="Secciones", style="Custom.TLabelframe")
+        frame_secciones.pack(side="left", fill="x", expand=True)
+        
+        # Icono de ayuda "?"
+        label_help = tk.Label(frame_secciones_container, text=" ? ", font=("Segoe UI", 10, "bold"), fg=Styles.COLOR_BACKGROUND, cursor="question_arrow")
+        label_help.pack(side="right", padx=(6, 0))
+        
+        ToolTip(label_help, 
+        """📒 Instrucciones para Crear y Guardar Notas:
+
+        🔹 Crear una Sección:    
+        1. Escribe el nombre de la nueva sección (ej. "Ideas", "Notas de reunión, "Letras").
+        2. Haz clic en el botón "+".
+        3. Confirma y se añadirá como carpeta para tus notas.
+        4. Puedes consultarlas luego desde la sección "Registros".
+
+        📝 Crear una Nueva Nota:
+        1. Selecciona una sección existente.
+        2. Haz clic en "Nueva nota".
+        3. Escribe el título.
+        
+        💡 Anota tus Ideas:
+        - Relájate y escribe sin preocuparte por errores.
+        - Captura tus pensamientos libremente.
+
+        💾 Guardar:
+        - Cuando termines, haz clic en "Guardar".
+        - Tu nota quedará almacenada en la sección correspondiente.
+        
+         👀OJO (Enfoque del 100%)
+        - El navegar por otras notas no guarda los cambios automáticamente.
+        - Usa el botón "💾 Guardar" para guardar los cambios en la nota actual.
+        
+        """
+        )
+
         
         # Lista de secciones
         self.lista_secciones = tk.Listbox(
@@ -183,7 +222,7 @@ class DiarioApp:
         ttk.Button(
             frame_botones,
             text="Eliminar",
-            style="Danger.TButton",  # Asegúrate de tener este estilo definido
+            style="Danger.TButton",  
             command=self.eliminar_nota
         ).pack(side="left", padx=5)
         
@@ -255,27 +294,7 @@ class DiarioApp:
                 self.cargar_nota(os.path.join(ruta_seccion, archivo))
                 break
 
-    # def cargar_nota(self, ruta_nota):
-    #     """Carga una nota en el editor"""
-    #     try:
-    #         with open(ruta_nota, "r", encoding="utf-8") as f:
-    #             contenido = f.read()
-            
-    #         # Extraer título del nombre del archivo
-    #         nombre_archivo = os.path.basename(ruta_nota)
-    #         titulo = " ".join(nombre_archivo.split("_")[2:]).replace(".txt", "")
-            
-    #         # Actualizar la interfaz
-    #         self.titulo_actual.set(titulo)
-    #         self.text_contenido.delete("1.0", tk.END)
-    #         self.text_contenido.insert("1.0", contenido.split("\n\n", 1)[-1])  # Saltar metadatos
-            
-    #         # Guardar referencia a la nota actual
-    #         self.nota_actual.set(ruta_nota)
-            
-    #     except Exception as e:
-    #         messagebox.showerror("Error", f"No se pudo cargar la nota:\n{str(e)}")
-
+    
     def cargar_nota(self, ruta_nota):
         """Carga una nota en el editor - Versión mejorada para .exe"""
         try:
@@ -365,7 +384,7 @@ class DiarioApp:
             messagebox.showwarning("Error", "Debe ingresar un nombre para la nueva sección.")
             return
         
-        # Sanitizar nombre
+        # Limpiar nombre
         nombre = "".join(c for c in nombre if c.isalnum() or c in (" ", "_")).strip()
         nombre = nombre.replace(" ", "_")
         

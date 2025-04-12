@@ -1,13 +1,107 @@
 import tkinter as tk
 from tkinter import ttk, scrolledtext, filedialog, messagebox
 import os
-import markdown
-from datetime import datetime
+import json
 import pdfkit
-from styles import Styles
+from datetime import datetime
+from assets.estilos.styles import Styles
+from assets.estilos.styles import ToolTip
+
+class RichTextEditor(scrolledtext.ScrolledText):
+    """Editor de texto enriquecido con capacidades básicas de formato"""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._setup_tags()
+        self._setup_keybindings()
+
+    def _setup_tags(self):
+        """Configura los estilos de formato disponibles"""
+        self.tag_configure('heading1', font=('Helvetica', 18, 'bold'))
+        self.tag_configure('heading2', font=('Helvetica', 16, 'bold'))
+        self.tag_configure('bold', font=('Helvetica', 12, 'bold'))
+        self.tag_configure('normal', font=('Helvetica', 12))
+
+
+    def _setup_keybindings(self):
+        """Configura atajos de teclado"""
+        self.bind('<Control-b>', lambda e: self.apply_format('bold') or "break")
+        self.bind('<Control-B>', lambda e: self.apply_format('bold') or "break")
+        self.bind('<Control-Key-1>', lambda e: self.apply_heading(1))
+        self.bind('<Control-Key-2>', lambda e: self.apply_heading(2))
+        self.bind('<Control-KP_1>', lambda e: self.apply_heading(1))
+        self.bind('<Control-KP_2>', lambda e: self.apply_heading(2))
+
+
+
+    def apply_format(self, format_type):
+        """Aplica formato al texto seleccionado"""
+        try:
+            current_tags = self.tag_names("sel.first")
+            if format_type in current_tags:
+                self.tag_remove(format_type, "sel.first", "sel.last")
+            else:
+                self.tag_add(format_type, "sel.first", "sel.last")
+        except tk.TclError:
+            pass  # No hay texto seleccionado
+
+    def get_json_content(self):
+        """Convierte el contenido a formato JSON para guardar"""
+        content = []
+        for line in self.get("1.0", tk.END).split('\n'):
+            if not line.strip():
+                continue
+                
+            # Obtener tags de la primera posición de la línea
+            line_start = self.search(line, "1.0", stopindex=tk.END)
+            if line_start:
+                tags = self.tag_names(line_start)
+                line_type = 'normal'
+                
+                if 'heading1' in tags:
+                    line_type = 'heading1'
+                elif 'heading2' in tags:
+                    line_type = 'heading2'
+                elif 'bold' in tags:
+                    line_type = 'bold'
+                
+                content.append({
+                    'type': line_type,
+                    'text': line
+                })
+        
+        return content
+
+    def load_json_content(self, content_data):
+        """Carga contenido desde formato JSON"""
+        self.delete("1.0", tk.END)
+        for item in content_data:
+            self.insert("end", item['text'] + '\n', item['type'])
+
+    def get_html_content(self):
+        """Genera HTML para exportación a PDF"""
+        html_lines = []
+        for line in self.get("1.0", tk.END).split('\n'):
+            if not line.strip():
+                continue
+                
+            line_start = self.search(line, "1.0", stopindex=tk.END)
+            if line_start:
+                tags = self.tag_names(line_start)
+                
+                if 'heading1' in tags:
+                    html_lines.append(f"<h1>{line}</h1>")
+                elif 'heading2' in tags:
+                    html_lines.append(f"<h2>{line}</h2>")
+                elif 'bold' in tags:
+                    html_lines.append(f"<p><strong>{line}</strong></p>")
+                else:
+                    html_lines.append(f"<p>{line}</p>")
+        
+        return '\n'.join(html_lines)
 
 
 class MochilaApp:
+    """Aplicación principal para gestión de apuntes universitarios"""
     def __init__(self, root):
         self.root = root
         self.root.title("Mochila Universitaria")
@@ -16,66 +110,117 @@ class MochilaApp:
         Styles.apply_styles()
         Styles.apply_window_style(root)
         
-        self.materia_actual = tk.StringVar()
-        self.clase_actual = tk.StringVar(value=f"CLASE {datetime.now().strftime('%d-%m')}")
-        self.contenido_apunte = tk.StringVar()
+        self._setup_variables()
+        self._initialize_structure()
+        self._build_interface()
+        self._update_subjects_list()
         
-        self.inicializar_estructura()
-        self.construir_interfaz()
-        self.actualizar_lista_materias()
-        
-        # Variables para mantener el seguimiento de las selecciones
-        self.materia_seleccionada = None
-        self.clase_seleccionada = None
+    def _setup_variables(self):
+        """Configura las variables de control"""
+        self.current_subject = tk.StringVar()
+        self.current_class = tk.StringVar(value=f"CLASE {datetime.now().strftime('%d-%m')}")
+        self.selected_subject = None
+        self.selected_class = None
 
-    def inicializar_estructura(self):
+    def _initialize_structure(self):
         """Crea la estructura inicial de directorios"""
-        if not os.path.exists("Registros"):
-            os.makedirs("Registros")
-        if not os.path.exists(os.path.join("Registros", "Mochila")):
-            os.makedirs(os.path.join("Registros", "Mochila"))
+        os.makedirs(os.path.join("Registros", "Mochila"), exist_ok=True)
 
-    def construir_interfaz(self):
+    def _build_interface(self):
         """Construye la interfaz gráfica"""
-        # Frame principal
         main_frame = ttk.Frame(self.root, style="Custom.TFrame")
         main_frame.pack(expand=True, fill="both", padx=20, pady=20)
         
         # Panel izquierdo (lista de materias y clases)
-        panel_izquierdo = ttk.Frame(main_frame, style="Custom.TFrame", width=250)
-        panel_izquierdo.pack(side="left", fill="y", padx=5)
-        panel_izquierdo.pack_propagate(False)
+        left_panel = ttk.Frame(main_frame, style="Custom.TFrame", width=250)
+        left_panel.pack(side="left", fill="y", padx=5)
+        left_panel.pack_propagate(False)
         
         # Panel derecho (editor de apuntes)
-        panel_derecho = ttk.Frame(main_frame, style="Custom.TFrame")
-        panel_derecho.pack(side="right", expand=True, fill="both", padx=5)
+        right_panel = ttk.Frame(main_frame, style="Custom.TFrame")
+        right_panel.pack(side="right", expand=True, fill="both", padx=5)
         
-        # Controles de materia
-        materia_frame = ttk.LabelFrame(panel_izquierdo, text="Materias", style="Custom.TLabelframe")
-        materia_frame.pack(fill="x", pady=5)
+        # Sección de materias
+        self._build_subjects_section(left_panel)
         
-        ttk.Entry(materia_frame, textvariable=self.materia_actual, style="Custom.TEntry").pack(fill="x", padx=5, pady=5)
+        # Sección de clases
+        self._build_classes_section(left_panel)
         
-        btn_frame = ttk.Frame(materia_frame, style="Custom.TFrame")
+        # Editor de apuntes
+        self._build_notes_editor(right_panel)
+        
+        # Barra de herramientas
+        self._build_toolbar(right_panel)
+
+    def _build_subjects_section(self, parent):
+        """Construye la sección de materias"""
+        frame = ttk.LabelFrame(parent, text="Materias", style="Custom.TLabelframe")
+        frame.pack(fill="x", pady=5)
+        
+    # Añadir tooltip de ayuda aquí
+        label_help = tk.Label(frame, text=" ? ", font=("Segoe UI", 10, "bold"), 
+                            fg=Styles.COLOR_BACKGROUND, cursor="question_arrow")
+        label_help.pack(side="right", padx=(6, 0))
+
+        ToolTip(label_help,
+        """📚 Gestión de Materias:
+
+        🔹 Crear nueva materia:
+        1. Escribe el nombre de la materia (ej: "Matemáticas", "Historia")
+        2. Haz clic en el botón "+"
+
+        🔹 Eliminar materia:
+        1. Selecciona una materia de la lista
+        2. Haz clic en el botón "✖"
+        ⚠️ Esto borrará TODAS las clases de esa materia
+        
+        📅 Gestión de Clases:
+    
+         🔹 Crear nueva clase:
+         1. Selecciona una materia primero
+         2. El nombre por defecto es "CLASE [fecha actual]"
+         3. Haz clic en el botón "+"
+
+         🔹 Eliminar clase:
+         1. Selecciona una clase de la lista
+         2. Haz clic en el botón "✖"
+         ⚠️ Esto borrará la clase y sus apuntes
+         
+         🎨 Formato de Texto:
+    
+        🔹 Título 1: Convierte la línea actual en título principal
+        🔹 Título 2: Convierte la línea actual en subtítulo
+        🔹 Negrita: Aplica negrita al texto seleccionado
+
+        📌 Atajos de teclado:
+        - Ctrl+1: Título 1
+        - Ctrl+2: Título 2
+        - Ctrl+B: Negrita
+        
+        👀OJO(Enfoque maximo)
+        - El navegar por otras materias o clases no guarda los cambios automáticamente.
+        - Usa el botón "💾 Guardar" para guardar los cambios en el apunte actual.
+        
+        
+        """)
+        
+        ttk.Entry(frame, textvariable=self.current_subject, style="Custom.TEntry").pack(fill="x", padx=5, pady=5)
+        
+        btn_frame = ttk.Frame(frame, style="Custom.TFrame")
         btn_frame.pack(fill="x", pady=5)
         
         ttk.Button(
-            btn_frame,
-            text="➕ Nueva",
-            style="Custom.TButton",
-            command=self.crear_materia
+            btn_frame, text="➕ Nueva", style="Custom.TButton",
+            command=self._create_subject
         ).pack(side="left", expand=True)
         
         ttk.Button(
-            btn_frame,
-            text="✖ Eliminar",
-            style="Custom.TButton",
-            command=self.eliminar_materia
+            btn_frame, text="✖ Eliminar", style="Custom.TButton",
+            command=self._delete_subject
         ).pack(side="right", expand=True)
         
-        # Lista de materias
-        self.lista_materias = tk.Listbox(
-            panel_izquierdo,
+        self.subjects_list = tk.Listbox(
+            parent,
             bg=Styles.COLOR_BACKGROUND,
             fg=Styles.COLOR_TEXT,
             selectbackground=Styles.COLOR_PRIMARY,
@@ -84,35 +229,31 @@ class MochilaApp:
             highlightthickness=0,
             selectmode=tk.SINGLE
         )
-        self.lista_materias.pack(expand=True, fill="both", pady=5)
-        self.lista_materias.bind("<<ListboxSelect>>", self.on_materia_seleccionada)
+        self.subjects_list.pack(expand=True, fill="both", pady=5)
+        self.subjects_list.bind("<<ListboxSelect>>", self._on_subject_selected)
+
+    def _build_classes_section(self, parent):
+        """Construye la sección de clases"""
+        frame = ttk.LabelFrame(parent, text="Clases", style="Custom.TLabelframe")
+        frame.pack(fill="x", pady=5)
         
-        # Controles de clase
-        clase_frame = ttk.LabelFrame(panel_izquierdo, text="Clases", style="Custom.TLabelframe")
-        clase_frame.pack(fill="x", pady=5)
+        ttk.Entry(frame, textvariable=self.current_class, style="Custom.TEntry").pack(fill="x", padx=5, pady=5)
         
-        ttk.Entry(clase_frame, textvariable=self.clase_actual, style="Custom.TEntry").pack(fill="x", padx=5, pady=5)
-        
-        btn_frame_clase = ttk.Frame(clase_frame, style="Custom.TFrame")
-        btn_frame_clase.pack(fill="x", pady=5)
+        btn_frame = ttk.Frame(frame, style="Custom.TFrame")
+        btn_frame.pack(fill="x", pady=5)
         
         ttk.Button(
-            btn_frame_clase,
-            text="➕ Nueva",
-            style="Custom.TButton",
-            command=self.crear_clase
+            btn_frame, text="➕ Nueva", style="Custom.TButton",
+            command=self._create_class
         ).pack(side="left", expand=True)
         
         ttk.Button(
-            btn_frame_clase,
-            text="✖ Eliminar",
-            style="Custom.TButton",
-            command=self.eliminar_clase
+            btn_frame, text="✖ Eliminar", style="Custom.TButton",
+            command=self._delete_class
         ).pack(side="right", expand=True)
         
-        # Lista de clases
-        self.lista_clases = tk.Listbox(
-            panel_izquierdo,
+        self.classes_list = tk.Listbox(
+            parent,
             bg=Styles.COLOR_BACKGROUND,
             fg=Styles.COLOR_TEXT,
             selectbackground=Styles.COLOR_PRIMARY,
@@ -121,24 +262,18 @@ class MochilaApp:
             highlightthickness=0,
             selectmode=tk.SINGLE
         )
-        self.lista_clases.pack(expand=True, fill="both", pady=5)
-        self.lista_clases.bind("<<ListboxSelect>>", self.on_clase_seleccionada)
-        
-        # Editor de apuntes
-        editor_frame = ttk.LabelFrame(panel_derecho, text="Apuntes", style="Custom.TLabelframe")
+        self.classes_list.pack(expand=True, fill="both", pady=5)
+        self.classes_list.bind("<<ListboxSelect>>", self._on_class_selected)
+
+    def _build_notes_editor(self, parent):
+        """Construye el editor de apuntes"""
+        editor_frame = ttk.LabelFrame(parent, text="Apuntes", style="Custom.TLabelframe")
         editor_frame.pack(expand=True, fill="both")
         
-        notebook = ttk.Notebook(editor_frame, style="Custom.TNotebook")
-        notebook.pack(expand=True, fill="both")
-        
-        # Pestaña de edición (Markdown)
-        edit_tab = ttk.Frame(notebook, style="Custom.TFrame")
-        notebook.add(edit_tab, text="Editar")
-        
-        self.editor = scrolledtext.ScrolledText(
-            edit_tab,
+        self.editor = RichTextEditor(
+            editor_frame,
             wrap=tk.WORD,
-            font=("Consolas", 12),
+            font=("Helvetica", 12),
             bg=Styles.COLOR_BACKGROUND,
             fg=Styles.COLOR_TEXT,
             insertbackground=Styles.COLOR_TEXT,
@@ -146,371 +281,290 @@ class MochilaApp:
             pady=10
         )
         self.editor.pack(expand=True, fill="both")
+
+    def _build_toolbar(self, parent):
+        """Construye la barra de herramientas"""
+        toolbar = ttk.Frame(parent, style="Custom.TFrame")
+        toolbar.pack(fill="x", pady=5)
         
-        # Pestaña de vista previa (HTML renderizado)
-        preview_tab = ttk.Frame(notebook, style="Custom.TFrame")
-        notebook.add(preview_tab, text="Vista Previa")
-        
-        self.preview = scrolledtext.ScrolledText(
-            preview_tab,
-            wrap=tk.WORD,
-            font=Styles.FONT,
-            bg="white",
-            fg="black",
-            state="disabled",
-            padx=10,
-            pady=10
-        )
-        self.preview.pack(expand=True, fill="both")
-        
-        self.editor.bind("<KeyRelease>", self.actualizar_vista_previa)
-        
-        # Barra de herramientas
-        toolbar_frame = ttk.Frame(panel_derecho, style="Custom.TFrame")
-        toolbar_frame.pack(fill="x", pady=5)
-        
+        # Botones de acción
         ttk.Button(
-            toolbar_frame,
-            text="💾 Guardar Apunte",
-            style="Accent.TButton",
-            command=self.guardar_apunte
+            toolbar, text="💾 Guardar", style="Accent.TButton",
+            command=self._save_note
         ).pack(side="left", padx=5)
         
         ttk.Button(
-            toolbar_frame,
-            text="📤 Exportar a PDF",
-            style="Custom.TButton",
-            command=self.exportar_a_pdf
+            toolbar, text="📤 Exportar PDF", style="Custom.TButton",
+            command=self._export_to_pdf
         ).pack(side="left", padx=5)
         
         # Botones de formato
-        formatos = [
-            ("# H1", "# ", ""),
-            ("## H2", "## ", ""),
-            ("**B**", "**", "**"),
-            ("*I*", "*", "*"),
-            ("- Lista", "- ", "", True),
-            ("``` Código", "```\n", "\n```", True)
-        ]
+        ttk.Button(
+            toolbar, text="Título 1", style="Custom.TButton",
+            command=lambda: self.editor.apply_heading(1)
+        ).pack(side="left", padx=2)
         
-        for texto, prefijo, sufijo, *args in formatos:
-            newline = args[0] if args else False
-            ttk.Button(
-                toolbar_frame,
-                text=texto,
-                style="Custom.TButton",
-                command=lambda p=prefijo, s=sufijo, nl=newline: self.insertar_formato(p, s, nl)
-            ).pack(side="left", padx=2)
+        ttk.Button(
+            toolbar, text="Título 2", style="Custom.TButton",
+            command=lambda: self.editor.apply_heading(2)
+        ).pack(side="left", padx=2)
+        
+        ttk.Button(
+            toolbar, text="Negrita", style="Custom.TButton",
+            command=lambda: self.editor.apply_format('bold')
+        ).pack(side="left", padx=2)
+        
 
-    def on_materia_seleccionada(self, event=None):
+    def _on_subject_selected(self, event=None):
         """Maneja la selección de una materia"""
-        seleccion = self.lista_materias.curselection()
-        if seleccion:
-            self.materia_seleccionada = self.lista_materias.get(seleccion[0])
-            self.cargar_clases_materia()
+        selection = self.subjects_list.curselection()
+        if selection:
+            self.selected_subject = self.subjects_list.get(selection[0])
+            self._load_classes()
 
-    def on_clase_seleccionada(self, event=None):
+    def _on_class_selected(self, event=None):
         """Maneja la selección de una clase"""
-        seleccion = self.lista_clases.curselection()
-        if seleccion:
-            self.clase_seleccionada = self.lista_clases.get(seleccion[0])
-            self.cargar_apunte()
+        selection = self.classes_list.curselection()
+        if selection:
+            self.selected_class = self.classes_list.get(selection[0])
+            self._load_note()
 
-    def insertar_formato(self, prefix, suffix="", newline=False):
-        """Inserta formato Markdown en el editor"""
-        try:
-            # Verificar si hay texto seleccionado
-            if self.editor.tag_ranges("sel"):
-                start = self.editor.index("sel.first")
-                end = self.editor.index("sel.last")
-                selected_text = self.editor.get(start, end)
-                
-                # Insertar el formato alrededor del texto seleccionado
-                self.editor.delete(start, end)
-                self.editor.insert(start, f"{prefix}{selected_text}{suffix}")
-                
-                # Posicionar el cursor después del texto formateado
-                self.editor.mark_set("insert", f"{start}+{len(prefix + selected_text + suffix)}c")
-            else:
-                # No hay texto seleccionado, insertar marcadores
-                pos = self.editor.index("insert")
-                self.editor.insert(pos, f"{prefix}{suffix}")
-                
-                # Posicionar el cursor entre los marcadores
-                if prefix and suffix:
-                    self.editor.mark_set("insert", f"{pos}+{len(prefix)}c")
-                
-                # Agregar nueva línea si es necesario
-                if newline:
-                    self.editor.insert("insert", "\n")
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al aplicar formato:\n{str(e)}")
-        
-        self.actualizar_vista_previa()
-
-    def actualizar_vista_previa(self, event=None):
-        """Actualiza la vista previa del Markdown"""
-        try:
-            markdown_text = self.editor.get("1.0", tk.END)
-            html = markdown.markdown(markdown_text)
-            
-            self.preview.config(state="normal")
-            self.preview.delete("1.0", tk.END)
-            self.preview.insert(tk.END, html)
-            self.preview.config(state="disabled")
-        except Exception as e:
-            print(f"Error al actualizar vista previa: {str(e)}")
-
-    def actualizar_lista_materias(self):
+    def _update_subjects_list(self):
         """Actualiza la lista de materias disponibles"""
-        self.lista_materias.delete(0, tk.END)
-        ruta_mochila = os.path.join("Registros", "Mochila")
+        self.subjects_list.delete(0, tk.END)
+        backpack_path = os.path.join("Registros", "Mochila")
         
-        if os.path.exists(ruta_mochila):
-            for materia in sorted(os.listdir(ruta_mochila)):
-                if os.path.isdir(os.path.join(ruta_mochila, materia)):
-                    self.lista_materias.insert(tk.END, materia)
+        if os.path.exists(backpack_path):
+            for subject in sorted(os.listdir(backpack_path)):
+                if os.path.isdir(os.path.join(backpack_path, subject)):
+                    self.subjects_list.insert(tk.END, subject)
         
         # Seleccionar la primera materia si existe
-        if self.lista_materias.size() > 0:
-            self.lista_materias.selection_set(0)
-            self.lista_materias.activate(0)
-            self.on_materia_seleccionada()
+        if self.subjects_list.size() > 0:
+            self.subjects_list.selection_set(0)
+            self.subjects_list.activate(0)
+            self._on_subject_selected()
 
-    def crear_materia(self):
+    def _create_subject(self):
         """Crea una nueva materia"""
-        materia = self.materia_actual.get().strip()
-        if not materia:
+        subject = self.current_subject.get().strip()
+        if not subject:
             messagebox.showwarning("Advertencia", "Debes ingresar un nombre para la materia")
             return
         
-        ruta_materia = os.path.join("Registros", "Mochila", materia)
+        subject_path = os.path.join("Registros", "Mochila", subject)
         try:
-            os.makedirs(ruta_materia, exist_ok=True)
-            self.actualizar_lista_materias()
-            self.materia_actual.set("")
+            os.makedirs(subject_path, exist_ok=True)
+            self._update_subjects_list()
+            self.current_subject.set("")
             
             # Seleccionar la nueva materia
-            items = self.lista_materias.get(0, tk.END)
-            if materia in items:
-                index = items.index(materia)
-                self.lista_materias.selection_clear(0, tk.END)
-                self.lista_materias.selection_set(index)
-                self.lista_materias.activate(index)
-                self.on_materia_seleccionada()
+            items = self.subjects_list.get(0, tk.END)
+            if subject in items:
+                index = items.index(subject)
+                self.subjects_list.selection_clear(0, tk.END)
+                self.subjects_list.selection_set(index)
+                self.subjects_list.activate(index)
+                self._on_subject_selected()
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo crear la materia:\n{str(e)}")
 
-    def eliminar_materia(self):
+    def _delete_subject(self):
         """Elimina la materia seleccionada"""
-        if not self.materia_seleccionada:
+        if not self.selected_subject:
             messagebox.showwarning("Advertencia", "Selecciona una materia primero")
             return
             
-        respuesta = messagebox.askyesno(
+        if messagebox.askyesno(
             "Confirmar",
-            f"¿Estás seguro de eliminar la materia '{self.materia_seleccionada}' y todos sus apuntes?"
-        )
-        
-        if respuesta:
+            f"¿Estás seguro de eliminar la materia '{self.selected_subject}' y todos sus apuntes?"
+        ):
             try:
-                ruta_materia = os.path.join("Registros", "Mochila", self.materia_seleccionada)
-                # Eliminar todo el contenido de la materia
-                for root, dirs, files in os.walk(ruta_materia, topdown=False):
+                subject_path = os.path.join("Registros", "Mochila", self.selected_subject)
+                for root, dirs, files in os.walk(subject_path, topdown=False):
                     for name in files:
                         os.remove(os.path.join(root, name))
                     for name in dirs:
                         os.rmdir(os.path.join(root, name))
-                os.rmdir(ruta_materia)
+                os.rmdir(subject_path)
                 
-                # Actualizar la interfaz
-                self.actualizar_lista_materias()
-                self.lista_clases.delete(0, tk.END)
+                self._update_subjects_list()
+                self.classes_list.delete(0, tk.END)
                 self.editor.delete("1.0", tk.END)
-                self.preview.config(state="normal")
-                self.preview.delete("1.0", tk.END)
-                self.preview.config(state="disabled")
                 
-                # Limpiar selecciones
-                self.materia_seleccionada = None
-                self.clase_seleccionada = None
+                self.selected_subject = None
+                self.selected_class = None
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo eliminar la materia:\n{str(e)}")
 
-    def cargar_clases_materia(self):
+    def _load_classes(self):
         """Carga las clases de la materia seleccionada"""
-        if not self.materia_seleccionada:
+        if not self.selected_subject:
             return
             
-        self.lista_clases.delete(0, tk.END)
-        ruta_materia = os.path.join("Registros", "Mochila", self.materia_seleccionada)
+        self.classes_list.delete(0, tk.END)
+        subject_path = os.path.join("Registros", "Mochila", self.selected_subject)
         
-        if os.path.exists(ruta_materia):
-            for archivo in sorted(os.listdir(ruta_materia)):
-                if archivo.endswith(".md"):
-                    self.lista_clases.insert(tk.END, archivo[:-3])  # Quitar la extensión .md
+        if os.path.exists(subject_path):
+            for file in sorted(os.listdir(subject_path)):
+                if file.endswith(".json"):
+                    self.classes_list.insert(tk.END, file[:-5])  # Quitar la extensión .json
         
         # Seleccionar la primera clase si existe
-        if self.lista_clases.size() > 0:
-            self.lista_clases.selection_set(0)
-            self.lista_clases.activate(0)
-            self.on_clase_seleccionada()
+        if self.classes_list.size() > 0:
+            self.classes_list.selection_set(0)
+            self.classes_list.activate(0)
+            self._on_class_selected()
 
-    def crear_clase(self):
+    def _create_class(self):
         """Crea una nueva clase"""
-        if not self.materia_seleccionada:
+        if not self.selected_subject:
             messagebox.showwarning("Advertencia", "Selecciona una materia primero")
             return
             
-        clase = self.clase_actual.get().strip()
-        if not clase:
+        class_name = self.current_class.get().strip()
+        if not class_name:
             messagebox.showwarning("Advertencia", "Debes ingresar un nombre para la clase")
             return
             
-        ruta_apunte = os.path.join("Registros", "Mochila", self.materia_seleccionada, f"{clase}.md")
+        note_path = os.path.join("Registros", "Mochila", self.selected_subject, f"{class_name}.json")
         
-        # Si el archivo ya existe, preguntar si sobrescribir
-        if os.path.exists(ruta_apunte):
-            respuesta = messagebox.askyesno(
-                "Confirmar",
-                f"El apunte '{clase}' ya existe. ¿Deseas sobrescribirlo?"
-            )
-            if not respuesta:
-                return
+        if os.path.exists(note_path) and not messagebox.askyesno(
+            "Confirmar",
+            f"El apunte '{class_name}' ya existe. ¿Deseas sobrescribirlo?"
+        ):
+            return
         
         try:
-            with open(ruta_apunte, "w", encoding="utf-8") as f:
-                f.write(f"# {clase}\n\n")
+            with open(note_path, "w", encoding="utf-8") as f:
+                json.dump([{"type": "heading1", "text": class_name}], f, indent=2)
             
-            # Actualizar lista de clases
-            self.cargar_clases_materia()
+            self._load_classes()
             
             # Seleccionar la nueva clase
-            items = self.lista_clases.get(0, tk.END)
-            if clase in items:
-                index = items.index(clase)
-                self.lista_clases.selection_clear(0, tk.END)
-                self.lista_clases.selection_set(index)
-                self.lista_clases.activate(index)
-                self.on_clase_seleccionada()
+            items = self.classes_list.get(0, tk.END)
+            if class_name in items:
+                index = items.index(class_name)
+                self.classes_list.selection_clear(0, tk.END)
+                self.classes_list.selection_set(index)
+                self.classes_list.activate(index)
+                self._on_class_selected()
             
             # Actualizar nombre para próxima clase
-            self.clase_actual.set(f"CLASE {datetime.now().strftime('%d-%m')}")
+            self.current_class.set(f"CLASE {datetime.now().strftime('%d-%m')}")
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo crear el apunte:\n{str(e)}")
 
-    def eliminar_clase(self):
+    def _delete_class(self):
         """Elimina la clase seleccionada"""
-        if not self.materia_seleccionada or not self.clase_seleccionada:
+        if not self.selected_subject or not self.selected_class:
             messagebox.showwarning("Advertencia", "Selecciona una materia y una clase primero")
             return
             
-        respuesta = messagebox.askyesno(
+        if messagebox.askyesno(
             "Confirmar",
-            f"¿Estás seguro de eliminar el apunte '{self.clase_seleccionada}'?"
-        )
-        
-        if respuesta:
+            f"¿Estás seguro de eliminar el apunte '{self.selected_class}'?"
+        ):
             try:
-                ruta_apunte = os.path.join("Registros", "Mochila", self.materia_seleccionada, f"{self.clase_seleccionada}.md")
-                os.remove(ruta_apunte)
+                note_path = os.path.join("Registros", "Mochila", self.selected_subject, f"{self.selected_class}.json")
+                os.remove(note_path)
                 
-                # Actualizar la interfaz
-                self.cargar_clases_materia()
+                self._load_classes()
                 self.editor.delete("1.0", tk.END)
-                self.preview.config(state="normal")
-                self.preview.delete("1.0", tk.END)
-                self.preview.config(state="disabled")
                 
-                # Limpiar selección de clase
-                self.clase_seleccionada = None
+                self.selected_class = None
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo eliminar el apunte:\n{str(e)}")
 
-    def cargar_apunte(self):
-        """Carga el apunte seleccionado en el editor"""
-        if not self.materia_seleccionada or not self.clase_seleccionada:
+    def _load_note(self):
+        """Carga el apunte seleccionado"""
+        if not self.selected_subject or not self.selected_class:
             return
             
-        ruta_apunte = os.path.join("Registros", "Mochila", self.materia_seleccionada, f"{self.clase_seleccionada}.md")
+        note_path = os.path.join("Registros", "Mochila", self.selected_subject, f"{self.selected_class}.json")
         
         try:
-            with open(ruta_apunte, "r", encoding="utf-8") as f:
-                contenido = f.read()
-            
-            self.editor.delete("1.0", tk.END)
-            self.editor.insert("1.0", contenido)
-            self.actualizar_vista_previa()
+            if os.path.exists(note_path):
+                with open(note_path, "r", encoding="utf-8") as f:
+                    content = json.load(f)
+                self.editor.load_json_content(content)
+            else:
+                # Si no existe, crear un apunte nuevo con un título
+                self.editor.delete("1.0", tk.END)
+                self.editor.insert("end", f"{self.selected_class}\n", "heading1")
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo cargar el apunte:\n{str(e)}")
 
-    def guardar_apunte(self):
+    def _save_note(self):
         """Guarda el apunte actual"""
-        if not self.materia_seleccionada or not self.clase_seleccionada:
+        if not self.selected_subject or not self.selected_class:
             messagebox.showwarning("Advertencia", "Selecciona una materia y una clase primero")
             return
             
-        ruta_apunte = os.path.join("Registros", "Mochila", self.materia_seleccionada, f"{self.clase_seleccionada}.md")
-        contenido = self.editor.get("1.0", tk.END)
+        note_path = os.path.join("Registros", "Mochila", self.selected_subject, f"{self.selected_class}.json")
+        content = self.editor.get_json_content()
         
         try:
-            with open(ruta_apunte, "w", encoding="utf-8") as f:
-                f.write(contenido)
+            with open(note_path, "w", encoding="utf-8") as f:
+                json.dump(content, f, indent=2, ensure_ascii=False)
             
-            messagebox.showinfo("Guardado", f"Apunte '{self.clase_seleccionada}' guardado correctamente")
+            messagebox.showinfo("Guardado", f"Apunte '{self.selected_class}' guardado correctamente")
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo guardar el apunte:\n{str(e)}")
 
-    def exportar_a_pdf(self):
+    def _export_to_pdf(self):
         """Exporta el apunte actual a PDF"""
-        if not self.materia_seleccionada or not self.clase_seleccionada:
+        if not self.selected_subject or not self.selected_class:
             messagebox.showwarning("Advertencia", "Selecciona una materia y una clase primero")
             return
             
-        ruta_apunte = os.path.join("Registros", "Mochila", self.materia_seleccionada, f"{self.clase_seleccionada}.md")
-        
-        if not os.path.exists(ruta_apunte):
-            messagebox.showerror("Error", f"El archivo {ruta_apunte} no existe")
-            return
-
         try:
-            with open(ruta_apunte, "r", encoding="utf-8") as f:
-                markdown_text = f.read()
-                
-            html = markdown.markdown(markdown_text)
+            html = self.editor.get_html_content()
             
             styled_html = f"""
             <!DOCTYPE html>
             <html>
             <head>
                 <meta charset="utf-8">
-                <title>{self.clase_seleccionada} - {self.materia_seleccionada}</title>
+                <title>{self.selected_class} - {self.selected_subject}</title>
                 <style>
-                    body {{ font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }}
-                    h1, h2, h3 {{ color: #2c3e50; }}
-                    code {{ background: #f4f4f4; padding: 2px 5px; border-radius: 3px; }}
-                    pre {{ background: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto; }}
-                    blockquote {{ border-left: 3px solid #2c3e50; padding-left: 10px; margin-left: 0; color: #555; }}
+                    body {{ font-family: Arial, sans-serif; line-height: 1.6; margin: 2cm; }}
+                    h1 {{ color: #2c3e50; border-bottom: 2px solid #2c3e50; padding-bottom: 5px; }}
+                    h2 {{ color: #34495e; }}
+                    strong {{ font-weight: bold; }}
+                    p {{ margin: 0.5em 0; }}
                 </style>
             </head>
             <body>
-                <h1>{self.clase_seleccionada}</h1>
-                <h2>{self.materia_seleccionada}</h2>
+                <h1>{self.selected_class}</h1>
+                <h2>{self.selected_subject}</h2>
                 {html}
+                <footer style="margin-top: 20px; font-size: 0.8em; text-align: right;">
+                    Generado con Mochila Universitaria - {datetime.now().strftime('%d/%m/%Y %H:%M')}
+                </footer>
             </body>
             </html>
             """
             
-            ruta_pdf = filedialog.asksaveasfilename(
+            pdf_path = filedialog.asksaveasfilename(
                 defaultextension=".pdf",
                 filetypes=[("PDF Files", "*.pdf")],
-                initialfile=f"{self.materia_seleccionada}_{self.clase_seleccionada}.pdf"
+                initialfile=f"{self.selected_subject}_{self.selected_class}.pdf"
             )
             
-            if ruta_pdf:  # Si el usuario no canceló
-                pdfkit.from_string(styled_html, ruta_pdf)
-                messagebox.showinfo("Éxito", f"PDF exportado correctamente a:\n{ruta_pdf}")
+            if pdf_path:
+                pdfkit.from_string(styled_html, pdf_path)
+                messagebox.showinfo("Éxito", f"PDF exportado correctamente a:\n{pdf_path}")
                 
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo exportar a PDF:\n{str(e)}")
-            
+
+
+def main():
+    root = tk.Tk()
+    app = MochilaApp(root)
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()

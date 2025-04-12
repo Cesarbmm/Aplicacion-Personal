@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
-from splash import SplashScreen
-from styles import Styles
+from assets.estilos.splash import SplashScreen
+from assets.estilos.styles import Styles
 from modules.diario import DiarioApp
 from modules.gimnasio import GimnasioApp
 from modules.mochila import MochilaApp
@@ -120,7 +120,7 @@ class MainApp:
             style="Custom.TButton",
             command=self.root.quit,
             width=19,
-            padding=(30, 20)
+            padding=(50, 20)
         )
         self.btn_salir.pack(pady=10)
 
