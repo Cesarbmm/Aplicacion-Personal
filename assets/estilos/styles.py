@@ -213,7 +213,7 @@ class Styles:
         style.configure(
             "Custom.Header.TLabel",
             font=Styles.FONT_LARGE,
-            foreground=Styles.COLOR_ACCENT,  # Encabezados en color de acento
+            foreground=Styles.COLOR_TEXT_LIGHT,  # Encabezados en color de acento
             background=Styles.COLOR_BACKGROUND,
             padding=Styles.PADDING
         )
@@ -520,7 +520,7 @@ class Styles:
             print(f"Error setting window icon: {e}")
         
         # Set window title font and color
-        root.option_add('*TkFDialog*foreground', Styles.COLOR_ACCENT)  # Diálogos con texto en color de acento
+        root.option_add('*TkFDialog*foreground', Styles.COLOR_TEXT_LIGHT)  # Diálogos con texto en color de acento
         root.option_add('*TkFDialog*font', Styles.FONT)
         
         # Configure the default focus highlight

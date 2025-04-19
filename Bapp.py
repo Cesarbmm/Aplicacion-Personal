@@ -71,7 +71,9 @@ class MainApp:
         self.lbl_titulo = ttk.Label(
             self.main_frame, 
             text="Mi Aplicación Personal", 
+        
             style="Custom.Header.TLabel"
+            
         )
         self.lbl_titulo.pack(pady=(0, 30))
         

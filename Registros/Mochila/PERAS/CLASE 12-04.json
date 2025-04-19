@@ -30,5 +30,21 @@
   {
     "type": "normal",
     "text": "ASAS"
+  },
+  {
+    "type": "heading1",
+    "text": "hn"
+  },
+  {
+    "type": "heading2",
+    "text": "hj"
+  },
+  {
+    "type": "heading1",
+    "text": "h"
+  },
+  {
+    "type": "normal",
+    "text": "ahhaa"
   }
 ]

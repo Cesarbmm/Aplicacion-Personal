@@ -10,6 +10,7 @@ from assets.estilos.styles import ToolTip
 class RichTextEditor(scrolledtext.ScrolledText):
     """Editor de texto enriquecido con capacidades básicas de formato"""
     def __init__(self, *args, **kwargs):
+        self.parent = kwargs.pop('parent', None)
         super().__init__(*args, **kwargs)
         self._setup_tags()
         self._setup_keybindings()
@@ -21,17 +22,25 @@ class RichTextEditor(scrolledtext.ScrolledText):
         self.tag_configure('bold', font=('Helvetica', 12, 'bold'))
         self.tag_configure('normal', font=('Helvetica', 12))
 
-
     def _setup_keybindings(self):
-        """Configura atajos de teclado"""
+        """Configura atajos de teclado para formato y funciones"""
+        # Atajos de formato
         self.bind('<Control-b>', lambda e: self.apply_format('bold') or "break")
         self.bind('<Control-B>', lambda e: self.apply_format('bold') or "break")
         self.bind('<Control-Key-1>', lambda e: self.apply_heading(1))
         self.bind('<Control-Key-2>', lambda e: self.apply_heading(2))
         self.bind('<Control-KP_1>', lambda e: self.apply_heading(1))
         self.bind('<Control-KP_2>', lambda e: self.apply_heading(2))
-
-
+        
+        # Atajos de funciones
+        if self.parent:
+            self.bind('<Control-s>', lambda e: self.parent.save_note())
+            self.bind('<Control-S>', lambda e: self.parent.save_note())
+        
+        self.bind('<Control-z>', lambda e: self.edit_undo() or "break")
+        self.bind('<Control-Z>', lambda e: self.edit_undo() or "break")
+        self.bind('<Control-y>', lambda e: self.edit_redo() or "break")
+        self.bind('<Control-Y>', lambda e: self.edit_redo() or "break")
 
     def apply_format(self, format_type):
         """Aplica formato al texto seleccionado"""
@@ -43,6 +52,22 @@ class RichTextEditor(scrolledtext.ScrolledText):
                 self.tag_add(format_type, "sel.first", "sel.last")
         except tk.TclError:
             pass  # No hay texto seleccionado
+
+    def apply_heading(self, level):
+        """Aplica formato de título al texto seleccionado o línea actual"""
+        try:
+            # Si hay texto seleccionado
+            if self.tag_ranges("sel"):
+                start = self.index("sel.first")
+                end = self.index("sel.last")
+                self.tag_add(f'heading{level}', start, end)
+            else:
+                # Aplicar a la línea actual
+                line_start = self.index("insert linestart")
+                line_end = self.index("insert lineend")
+                self.tag_add(f'heading{level}', line_start, line_end)
+        except tk.TclError:
+            pass
 
     def get_json_content(self):
         """Convierte el contenido a formato JSON para guardar"""
@@ -149,15 +174,15 @@ class MochilaApp:
         # Editor de apuntes
         self._build_notes_editor(right_panel)
         
-        # Barra de herramientas
-        self._build_toolbar(right_panel)
+        # Botón de guardar en la parte inferior
+        self._build_bottom_controls(right_panel)
 
     def _build_subjects_section(self, parent):
         """Construye la sección de materias"""
         frame = ttk.LabelFrame(parent, text="Materias", style="Custom.TLabelframe")
         frame.pack(fill="x", pady=5)
         
-    # Añadir tooltip de ayuda aquí
+        # Añadir tooltip de ayuda
         label_help = tk.Label(frame, text=" ? ", font=("Segoe UI", 10, "bold"), 
                             fg=Styles.COLOR_BACKGROUND, cursor="question_arrow")
         label_help.pack(side="right", padx=(6, 0))
@@ -167,7 +192,7 @@ class MochilaApp:
 
         🔹 Crear nueva materia:
         1. Escribe el nombre de la materia (ej: "Matemáticas", "Historia")
-        2. Haz clic en el botón "+"
+        2. Haz clic en el botón "+" o presiona Enter en el campo de texto
 
         🔹 Eliminar materia:
         1. Selecciona una materia de la lista
@@ -176,35 +201,38 @@ class MochilaApp:
         
         📅 Gestión de Clases:
     
-         🔹 Crear nueva clase:
-         1. Selecciona una materia primero
-         2. El nombre por defecto es "CLASE [fecha actual]"
-         3. Haz clic en el botón "+"
+        🔹 Crear nueva clase:
+        1. Selecciona una materia primero
+        2. El nombre por defecto es "CLASE [fecha actual]"
+        3. Haz clic en el botón "+" o presiona Enter en el campo de texto
 
-         🔹 Eliminar clase:
-         1. Selecciona una clase de la lista
-         2. Haz clic en el botón "✖"
-         ⚠️ Esto borrará la clase y sus apuntes
+        🔹 Eliminar clase:
+        1. Selecciona una clase de la lista
+        2. Haz clic en el botón "✖"
+        ⚠️ Esto borrará la clase y sus apuntes
          
-         🎨 Formato de Texto:
-    
-        🔹 Título 1: Convierte la línea actual en título principal
-        🔹 Título 2: Convierte la línea actual en subtítulo
-        🔹 Negrita: Aplica negrita al texto seleccionado
-
         📌 Atajos de teclado:
         - Ctrl+1: Título 1
         - Ctrl+2: Título 2
         - Ctrl+B: Negrita
+        - Ctrl+S: Guardar apunte actual
+        - Ctrl+Z: Deshacer
+        - Ctrl+Y: Rehacer
         
-        👀OJO(Enfoque maximo)
-        - El navegar por otras materias o clases no guarda los cambios automáticamente.
-        - Usa el botón "💾 Guardar" para guardar los cambios en el apunte actual.
+        📝 Funciones:
+        - Botón "💾 Guardar": Guarda el apunte actual
+        - Botón "📤 Exportar PDF": Exporta el apunte a PDF
         
-        
+        👀 OJO (Enfoque máximo)
+        - El navegar por otras materias o clases 
+           no guarda los cambios automáticamente.
+        - Usa el botón "💾 Guardar" o Ctrl+S para 
+         guardar los cambios en el apunte actual.
         """)
         
-        ttk.Entry(frame, textvariable=self.current_subject, style="Custom.TEntry").pack(fill="x", padx=5, pady=5)
+        subject_entry = ttk.Entry(frame, textvariable=self.current_subject, style="Custom.TEntry")
+        subject_entry.pack(fill="x", padx=5, pady=5)
+        subject_entry.bind('<Return>', lambda e: self._create_subject())
         
         btn_frame = ttk.Frame(frame, style="Custom.TFrame")
         btn_frame.pack(fill="x", pady=5)
@@ -237,7 +265,9 @@ class MochilaApp:
         frame = ttk.LabelFrame(parent, text="Clases", style="Custom.TLabelframe")
         frame.pack(fill="x", pady=5)
         
-        ttk.Entry(frame, textvariable=self.current_class, style="Custom.TEntry").pack(fill="x", padx=5, pady=5)
+        class_entry = ttk.Entry(frame, textvariable=self.current_class, style="Custom.TEntry")
+        class_entry.pack(fill="x", padx=5, pady=5)
+        class_entry.bind('<Return>', lambda e: self._create_class())
         
         btn_frame = ttk.Frame(frame, style="Custom.TFrame")
         btn_frame.pack(fill="x", pady=5)
@@ -278,42 +308,28 @@ class MochilaApp:
             fg=Styles.COLOR_TEXT,
             insertbackground=Styles.COLOR_TEXT,
             padx=10,
-            pady=10
+            pady=10,
+            undo=True,
+            parent=self
+            # Habilitar funcionalidad de deshacer/rehacer
         )
         self.editor.pack(expand=True, fill="both")
-
-    def _build_toolbar(self, parent):
-        """Construye la barra de herramientas"""
-        toolbar = ttk.Frame(parent, style="Custom.TFrame")
-        toolbar.pack(fill="x", pady=5)
         
-        # Botones de acción
+
+    def _build_bottom_controls(self, parent):
+        """Construye los controles inferiores (guardar y exportar)"""
+        bottom_frame = ttk.Frame(parent, style="Custom.TFrame")
+        bottom_frame.pack(fill="x", pady=5)
+        
         ttk.Button(
-            toolbar, text="💾 Guardar", style="Accent.TButton",
+            bottom_frame, text="💾 Guardar", style="Accent.TButton",
             command=self._save_note
         ).pack(side="left", padx=5)
         
         ttk.Button(
-            toolbar, text="📤 Exportar PDF", style="Custom.TButton",
+            bottom_frame, text="📤 Exportar PDF", style="Custom.TButton",
             command=self._export_to_pdf
         ).pack(side="left", padx=5)
-        
-        # Botones de formato
-        ttk.Button(
-            toolbar, text="Título 1", style="Custom.TButton",
-            command=lambda: self.editor.apply_heading(1)
-        ).pack(side="left", padx=2)
-        
-        ttk.Button(
-            toolbar, text="Título 2", style="Custom.TButton",
-            command=lambda: self.editor.apply_heading(2)
-        ).pack(side="left", padx=2)
-        
-        ttk.Button(
-            toolbar, text="Negrita", style="Custom.TButton",
-            command=lambda: self.editor.apply_format('bold')
-        ).pack(side="left", padx=2)
-        
 
     def _on_subject_selected(self, event=None):
         """Maneja la selección de una materia"""
@@ -558,6 +574,10 @@ class MochilaApp:
                 
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo exportar a PDF:\n{str(e)}")
+
+    def save_note(self):
+        """Método público para guardar notas (usado por el editor)"""
+        self._save_note()
 
 
 def main():

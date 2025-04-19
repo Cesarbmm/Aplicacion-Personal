@@ -245,7 +245,7 @@ class GimnasioApp:
         self.cal.tag_config('entrenamiento', background=Styles.COLOR_ACCENT)
 
         # Resaltar registros de peso
-        ruta_gimnasio = os.path.join("Registros", "Gimnasio")
+        ruta_gimnasio = os.path.join("Registros", "Peso")
         if os.path.exists(ruta_gimnasio):
             for archivo in os.listdir(ruta_gimnasio):
                 if archivo.startswith("peso_") and archivo.endswith(".json"):
@@ -802,7 +802,7 @@ class GimnasioApp:
         return {
         
             "Pecho-Hombro-Tríceps": [
-                "Press plano", "Press inclinado", "Press declinado", "Press en polea"
+                "Press plano", "Press inclinado", "Press declinado", "Press en polea",
                 "Apertura con mancuernas", "Apertura en polea", "Apertura en polea alta(mono)",
                 "Apertura en polea baja", "Press militar", "Press Arnold", "Elevaciones laterales",
                 "Elevaciones frontales", "Elevaciones posteriores", "Fondos",
