@@ -21,16 +21,24 @@ class RichTextEditor(scrolledtext.ScrolledText):
         self.tag_configure('heading2', font=('Helvetica', 16, 'bold'))
         self.tag_configure('bold', font=('Helvetica', 12, 'bold'))
         self.tag_configure('normal', font=('Helvetica', 12))
+        
+        # Configurar prioridad de tags (los más específicos primero)
+        self.tag_lower('normal')
+        self.tag_lower('bold')
+        self.tag_lower('heading2')
+        self.tag_lower('heading1')
 
     def _setup_keybindings(self):
         """Configura atajos de teclado para formato y funciones"""
         # Atajos de formato
-        self.bind('<Control-b>', lambda e: self.apply_format('bold') or "break")
-        self.bind('<Control-B>', lambda e: self.apply_format('bold') or "break")
-        self.bind('<Control-Key-1>', lambda e: self.apply_heading(1))
-        self.bind('<Control-Key-2>', lambda e: self.apply_heading(2))
-        self.bind('<Control-KP_1>', lambda e: self.apply_heading(1))
-        self.bind('<Control-KP_2>', lambda e: self.apply_heading(2))
+        self.bind('<Control-b>', lambda e: self._toggle_format('bold') or "break")
+        self.bind('<Control-B>', lambda e: self._toggle_format('bold') or "break")
+        self.bind('<Control-Key-0>', lambda e: self._set_normal_text() or "break")
+        self.bind('<Control-Key-1>', lambda e: self._toggle_format('heading1') or "break")
+        self.bind('<Control-Key-2>', lambda e: self._toggle_format('heading2') or "break")
+        self.bind('<Control-KP_0>', lambda e: self._set_normal_text() or "break")
+        self.bind('<Control-KP_1>', lambda e: self._toggle_format('heading1') or "break")
+        self.bind('<Control-KP_2>', lambda e: self._toggle_format('heading2') or "break")
         
         # Atajos de funciones
         if self.parent:
@@ -42,32 +50,62 @@ class RichTextEditor(scrolledtext.ScrolledText):
         self.bind('<Control-y>', lambda e: self.edit_redo() or "break")
         self.bind('<Control-Y>', lambda e: self.edit_redo() or "break")
 
-    def apply_format(self, format_type):
-        """Aplica formato al texto seleccionado"""
-        try:
-            current_tags = self.tag_names("sel.first")
-            if format_type in current_tags:
-                self.tag_remove(format_type, "sel.first", "sel.last")
-            else:
-                self.tag_add(format_type, "sel.first", "sel.last")
-        except tk.TclError:
-            pass  # No hay texto seleccionado
+    def _set_normal_text(self):
+        """Establece el texto seleccionado o línea actual como normal"""
+        self._apply_format_to_line_or_selection('normal')
 
-    def apply_heading(self, level):
-        """Aplica formato de título al texto seleccionado o línea actual"""
+    def _toggle_format(self, format_type):
+        """Alterna el formato especificado en la selección o línea actual"""
+        current_line_tags = self._get_current_line_tags()
+        
+        # Si el formato ya está aplicado, quitarlo
+        if format_type in current_line_tags:
+            self._apply_format_to_line_or_selection('normal')
+        else:
+            self._apply_format_to_line_or_selection(format_type)
+
+    def _get_current_line_tags(self):
+        """Obtiene los tags de la línea actual"""
+        line_start = self.index("insert linestart")
+        line_end = self.index("insert lineend")
+        
+        # Obtener todos los tags en la línea actual
+        tags_in_line = set()
+        for tag in self.tag_names():
+            ranges = self.tag_ranges(tag)
+            for i in range(0, len(ranges), 2):
+                start = ranges[i]
+                end = ranges[i+1]
+                if self.compare(start, '<=', line_end) and self.compare(end, '>=', line_start):
+                    tags_in_line.add(tag)
+        
+        return tags_in_line
+
+    def _apply_format_to_line_or_selection(self, format_type):
+        """Aplica formato a la selección o a toda la línea actual"""
         try:
-            # Si hay texto seleccionado
+            # Si hay texto seleccionado, aplicar al texto seleccionado
             if self.tag_ranges("sel"):
                 start = self.index("sel.first")
                 end = self.index("sel.last")
-                self.tag_add(f'heading{level}', start, end)
             else:
-                # Aplicar a la línea actual
-                line_start = self.index("insert linestart")
-                line_end = self.index("insert lineend")
-                self.tag_add(f'heading{level}', line_start, line_end)
+                # Aplicar a toda la línea actual
+                start = self.index("insert linestart")
+                end = self.index("insert lineend")
+            
+            # Primero quitar todos los formatos existentes
+            for tag in ['heading1', 'heading2', 'bold', 'normal']:
+                self.tag_remove(tag, start, end)
+            
+            # Aplicar el nuevo formato (excepto para 'normal' que solo limpia)
+            if format_type != 'normal':
+                self.tag_add(format_type, start, end)
+                
+            # Mover el cursor al final de la línea para mejor experiencia de usuario
+            self.mark_set("insert", end)
+            
         except tk.TclError:
-            pass
+            pass  # No hay texto seleccionado o error en índices
 
     def get_json_content(self):
         """Convierte el contenido a formato JSON para guardar"""
@@ -212,6 +250,7 @@ class MochilaApp:
         ⚠️ Esto borrará la clase y sus apuntes
          
         📌 Atajos de teclado:
+        - Ctrl+0: Texto normal
         - Ctrl+1: Título 1
         - Ctrl+2: Título 2
         - Ctrl+B: Negrita
@@ -311,10 +350,8 @@ class MochilaApp:
             pady=10,
             undo=True,
             parent=self
-            # Habilitar funcionalidad de deshacer/rehacer
         )
         self.editor.pack(expand=True, fill="both")
-        
 
     def _build_bottom_controls(self, parent):
         """Construye los controles inferiores (guardar y exportar)"""

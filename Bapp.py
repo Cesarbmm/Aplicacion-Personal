@@ -39,7 +39,7 @@ class MainApp:
     
     def finalize_setup(self):
         """Finaliza la configuración después de que la ventana esté lista"""
-        # Puedes añadir aquí cualquier inicialización que necesite la ventana visible
+        # Para añadir aquí cualquier inicialización que necesite la ventana visible
         self.root.focus_force()
     
     def center_window(self, width, height):
