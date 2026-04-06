@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("../../assets/fonts/SpaceGrotesk-Variable.ttf") format("truetype");
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("../../assets/fonts/PlusJakartaSans-Variable.ttf") format("truetype");
+  font-weight: 300 800;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  min-height: 100%;
+  background: #050506;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  background:
+    radial-gradient(circle at top, rgba(190, 24, 93, 0.15), transparent 34%),
+    radial-gradient(circle at right, rgba(220, 38, 38, 0.11), transparent 26%),
+    linear-gradient(180deg, #0c0c0d 0%, #050506 100%);
+  color: #f5f7fa;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+::selection {
+  background: rgba(220, 38, 38, 0.3);
+  color: #f5f7fa;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: rgba(239, 68, 68, 0.28);
+  background-clip: content-box;
+}
