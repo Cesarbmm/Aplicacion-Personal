@@ -1,21 +1,16 @@
-import { createRootRouteWithContext, createRoute, createRouter, Outlet } from '@tanstack/react-router'
-import type { QueryClient } from '@tanstack/react-query'
+import { Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
 
+import { RouteRedirect } from './components/route-redirect'
 import { RootLayout } from './components/root-layout'
-import { BodyPage } from './pages/body-page'
-import { CoachPage } from './pages/coach-page'
+import { ProfilePage } from './pages/body-page'
 import { DashboardPage } from './pages/dashboard-page'
-import { ExercisesPage } from './pages/exercises-page'
-import { HistoryPage } from './pages/history-page'
-import { PlanPage } from './pages/plan-page'
-import { SettingsPage } from './pages/settings-page'
-import { TrainingPage } from './pages/training-page'
-import { WelcomePage } from './pages/welcome-page'
+import { ProgressPage } from './pages/history-page'
+import { LandingPage } from './pages/landing-page'
+import { LoginPage } from './pages/login-page'
+import { WorkoutPage } from './pages/training-page'
+import { RegisterPage } from './pages/welcome-page'
 
-
-type RouterContext = { queryClient: QueryClient }
-
-const rootRoute = createRootRouteWithContext<RouterContext>()({
+const rootRoute = createRootRoute({
   component: () => (
     <RootLayout>
       <Outlet />
@@ -23,77 +18,85 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
   ),
 })
 
-const dashboardRoute = createRoute({
+const landingRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
+  component: LandingPage,
+})
+
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/login',
+  component: LoginPage,
+})
+
+const registerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/register',
+  component: RegisterPage,
+})
+
+const dashboardRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/dashboard',
   component: DashboardPage,
 })
 
-const welcomeRoute = createRoute({
+const workoutRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/welcome',
-  component: WelcomePage,
+  path: '/workout',
+  component: WorkoutPage,
 })
 
-const trainingRoute = createRoute({
+const progressRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/training',
-  component: TrainingPage,
+  path: '/progress',
+  component: ProgressPage,
 })
 
-const exercisesRoute = createRoute({
+const profileRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/exercises',
-  component: ExercisesPage,
+  path: '/profile',
+  component: ProfilePage,
 })
 
-const historyRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/history',
-  component: HistoryPage,
-})
+function createRedirectRoute(path: string, to: string) {
+  return createRoute({
+    getParentRoute: () => rootRoute,
+    path,
+    component: () => <RouteRedirect to={to} />,
+  })
+}
 
-const planRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/plan',
-  component: PlanPage,
-})
-
-const bodyRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/body',
-  component: BodyPage,
-})
-
-const coachRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/coach',
-  component: CoachPage,
-})
-
-const settingsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/settings',
-  component: SettingsPage,
-})
+const legacyWelcomeRoute = createRedirectRoute('/welcome', '/register')
+const legacyTrainingRoute = createRedirectRoute('/training', '/workout')
+const legacyHistoryRoute = createRedirectRoute('/history', '/progress')
+const legacyPlanRoute = createRedirectRoute('/plan', '/progress')
+const legacyBodyRoute = createRedirectRoute('/body', '/profile')
+const legacySettingsRoute = createRedirectRoute('/settings', '/profile')
+const legacyCoachRoute = createRedirectRoute('/coach', '/workout')
+const legacyExercisesRoute = createRedirectRoute('/exercises', '/workout')
 
 const routeTree = rootRoute.addChildren([
+  landingRoute,
+  loginRoute,
+  registerRoute,
   dashboardRoute,
-  welcomeRoute,
-  trainingRoute,
-  exercisesRoute,
-  historyRoute,
-  planRoute,
-  bodyRoute,
-  coachRoute,
-  settingsRoute,
+  workoutRoute,
+  progressRoute,
+  profileRoute,
+  legacyWelcomeRoute,
+  legacyTrainingRoute,
+  legacyHistoryRoute,
+  legacyPlanRoute,
+  legacyBodyRoute,
+  legacySettingsRoute,
+  legacyCoachRoute,
+  legacyExercisesRoute,
 ])
 
 export const router = createRouter({
   routeTree,
-  context: {
-    queryClient: undefined as unknown as QueryClient,
-  },
 })
 
 declare module '@tanstack/react-router' {

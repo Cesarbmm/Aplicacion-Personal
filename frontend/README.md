@@ -1,64 +1,41 @@
-# Bapp Gym Coach Frontend
+# SigmaFit Frontend
 
-Nueva shell premium para `Bapp Gym Coach` sobre `React + TypeScript + Vite`, pensada para correr dentro de `Tauri` y hablar con la API local en Python.
+Frontend web actual de SigmaFit.
 
-## Desarrollo
-
-Stack completo:
+## Ejecutar
 
 ```powershell
-cd frontend
-npm install
-npm run dev
+npm.cmd install
+npm.cmd run dev
 ```
 
-Ese comando levanta:
+URL local:
 
-- API FastAPI en `http://127.0.0.1:8765`
-- frontend Vite en `http://127.0.0.1:5173`
+```text
+http://127.0.0.1:5180
+```
 
-Si quieres levantar solo una parte:
+## Verificaciones
 
 ```powershell
-python Bapp.py --api --port 8765
-cd frontend
-npm run dev:vite
+npm.cmd run lint
+npm.cmd run build
+npm.cmd run test
 ```
 
-## Build web
+## Stack
 
-```powershell
-cd frontend
-npm run test
-npm run lint
-npm run build
-```
+- React 19
+- TypeScript
+- Vite
+- Tailwind CSS 4
+- TanStack Router
+- Zustand
+- Framer Motion
+- Recharts
 
-## Tauri
+## Notas
 
-Esta carpeta ya incluye `src-tauri/` y la configuracion base para el wrapper desktop.
-
-Requisitos locales:
-
-- Rust toolchain
-- WebView2 en Windows
-- sidecar Python compilado en `frontend/src-tauri/binaries/`
-
-Script incluido para compilar el sidecar:
-
-```powershell
-.\scripts\build-api-sidecar.ps1
-```
-
-Luego:
-
-```powershell
-cd frontend
-npm run tauri:dev
-```
-
-## Estado actual
-
-- API FastAPI operativa sobre el core Python/SQLite existente
-- frontend React conectado a datos reales
-- scaffold Tauri listo, pero no compilado en este entorno porque aqui no hay `cargo` ni `rustc`
+- El flujo actual usa mocks persistentes en `localStorage`.
+- La navegacion publica vive en `/`, `/login`, `/register`.
+- La shell interna vive en `/dashboard`, `/workout`, `/progress`, `/profile`.

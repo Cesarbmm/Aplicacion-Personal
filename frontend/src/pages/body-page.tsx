@@ -1,266 +1,243 @@
 import { useEffect, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useForm, useWatch } from 'react-hook-form'
-import { z } from 'zod'
+import * as Tabs from '@radix-ui/react-tabs'
+import { Link } from '@tanstack/react-router'
+import { Bell, RefreshCcw, Save } from 'lucide-react'
 
-import { MiniChart } from '../components/mini-chart'
-import { PageHeader } from '../components/page-header'
-import { PanelCard } from '../components/panel-card'
-import { api } from '../lib/api'
-import { useUiStore } from '../store/ui-store'
+import { PageHeader } from '@/components/page-header'
+import { PanelCard } from '@/components/panel-card'
+import { ProgressBar } from '@/components/ui/progress-bar'
+import { getSigmaProfileView } from '@/lib/sigmafit/mock-adapter'
+import type { SigmaProfile } from '@/lib/sigmafit/types'
+import { useSigmafitStore } from '@/store/sigmafit-store'
 
-const profileSchema = z.object({
-  displayName: z.string().default(''),
-  primaryGoal: z.string().default(''),
-  experienceLevel: z.string().default('intermedio'),
-  weeklyAvailability: z.number().min(1).max(7).default(3),
-  equipmentAccess: z.string().default(''),
-  limitations: z.string().default(''),
-  laggingMuscles: z.string().default(''),
-  preferredFocus: z.string().default(''),
-  preferredUnit: z.string().default('metric'),
-  coachingStyle: z.string().default('directo'),
-  intensityPreference: z.string().default('moderada'),
-  sex: z.string().default(''),
-  age: z.number().nullable().default(null),
-  heightCm: z.number().nullable().default(null),
-})
+export function ProfilePage() {
+  const session = useSigmafitStore((state) => state.session)
+  const profile = useSigmafitStore((state) => state.profile)
+  const workout = useSigmafitStore((state) => state.workout)
+  const progressHistory = useSigmafitStore((state) => state.progressHistory)
+  const preferences = useSigmafitStore((state) => state.preferences)
+  const updateProfile = useSigmafitStore((state) => state.updateProfile)
+  const updatePreferences = useSigmafitStore((state) => state.updatePreferences)
+  const resetDemo = useSigmafitStore((state) => state.resetDemo)
+  const [saved, setSaved] = useState(false)
+  const [draft, setDraft] = useState<SigmaProfile>(profile)
 
-const checkinSchema = z.object({
-  checkinDate: z.string().min(4),
-  weightKg: z.number().nullable().default(null),
-  bodyFatPct: z.number().nullable().default(null),
-  waistCm: z.number().nullable().default(null),
-  chestCm: z.number().nullable().default(null),
-  hipCm: z.number().nullable().default(null),
-  armCm: z.number().nullable().default(null),
-  thighCm: z.number().nullable().default(null),
-  heightCm: z.number().nullable().default(null),
-  age: z.number().nullable().default(null),
-  sex: z.string().default(''),
-  activityLevel: z.string().default(''),
-  goal: z.string().default(''),
-  caloriesTarget: z.number().nullable().default(null),
-  basalMetabolism: z.number().nullable().default(null),
-  habitScore: z.number().nullable().default(null),
-  notes: z.string().default(''),
-})
-
-function parseList(value: string) {
-  return value.split(',').map((item) => item.trim()).filter(Boolean)
-}
-
-function toNumber(value: string) {
-  if (!value) return null
-  const parsed = Number(value.replace(',', '.'))
-  return Number.isFinite(parsed) ? parsed : null
-}
-
-export function BodyPage() {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const setStatusMessage = useUiStore((state) => state.setStatusMessage)
-  const [activeStep, setActiveStep] = useState<'perfil' | 'objetivo' | 'checkin' | 'seguimiento'>('perfil')
-  const bodyQuery = useQuery({
-    queryKey: ['body'],
-    queryFn: api.bodyCheckins,
-  })
-
-  const profileForm = useForm<z.infer<typeof profileSchema>>({
-    resolver: zodResolver(profileSchema) as never,
-    defaultValues: {
-      displayName: '',
-      primaryGoal: '',
-      experienceLevel: 'intermedio',
-      weeklyAvailability: 3,
-      equipmentAccess: '',
-      limitations: '',
-      laggingMuscles: '',
-      preferredFocus: '',
-      preferredUnit: 'metric',
-      coachingStyle: 'directo',
-      intensityPreference: 'moderada',
-      sex: '',
-      age: null,
-      heightCm: null,
-    },
-  })
-
-  const checkinForm = useForm<z.infer<typeof checkinSchema>>({
-    resolver: zodResolver(checkinSchema) as never,
-    defaultValues: {
-      checkinDate: new Date().toISOString().slice(0, 10),
-      weightKg: null,
-      bodyFatPct: null,
-      waistCm: null,
-      chestCm: null,
-      hipCm: null,
-      armCm: null,
-      thighCm: null,
-      heightCm: null,
-      age: null,
-      sex: '',
-      activityLevel: '',
-      goal: '',
-      caloriesTarget: null,
-      basalMetabolism: null,
-      habitScore: null,
-      notes: '',
-    },
-  })
-  const checkinValues = useWatch({ control: checkinForm.control })
+  const data = getSigmaProfileView({ session, profile, workout, progressHistory, preferences })
 
   useEffect(() => {
-    if (!bodyQuery.data) return
-    profileForm.reset({
-      ...bodyQuery.data.profile,
-      equipmentAccess: bodyQuery.data.profile.equipmentAccess.join(', '),
-      laggingMuscles: bodyQuery.data.profile.laggingMuscles.join(', '),
-    })
-    if (bodyQuery.data.latestCheckin) {
-      checkinForm.reset(bodyQuery.data.latestCheckin)
-    }
-  }, [bodyQuery.data, checkinForm, profileForm])
+    setDraft(profile)
+  }, [profile])
 
-  const saveProfileMutation = useMutation({
-    mutationFn: async (values: z.infer<typeof profileSchema>) => api.saveBodyProfile({
-      ...values,
-      equipmentAccess: parseList(values.equipmentAccess),
-      laggingMuscles: parseList(values.laggingMuscles),
-    }),
-    onSuccess: () => {
-      setStatusMessage('Perfil fitness actualizado.')
-      void queryClient.invalidateQueries({ queryKey: ['body'] })
-      void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-    },
-  })
+  function saveProfile() {
+    updateProfile(draft)
+    setSaved(true)
+    window.setTimeout(() => setSaved(false), 1800)
+  }
 
-  const saveCheckinMutation = useMutation({
-    mutationFn: api.saveBodyCheckin,
-    onSuccess: () => {
-      setStatusMessage('Check-in corporal guardado.')
-      void queryClient.invalidateQueries({ queryKey: ['body'] })
-      void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-    },
-  })
-
-  if (!bodyQuery.data) {
-    return <div className="rounded-[28px] border border-white/8 bg-white/[0.04] p-8 text-zinc-400">Cargando cuerpo y perfil fitness...</div>
+  function togglePreference(key: 'adaptiveCoach' | 'reminders' | 'recoveryAlerts') {
+    updatePreferences({ [key]: !preferences[key] })
   }
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Cuerpo"
-        title="Perfil y seguimiento corporal"
-        subtitle="El onboarding ya crea la base del atleta. Aqui revisas, ajustas y das seguimiento al perfil y al progreso corporal."
-        actions={(
-          <button type="button" onClick={() => void navigate({ to: '/welcome' })} className="rounded-full border border-red-500/30 bg-red-500/12 px-4 py-2 text-sm text-red-50 transition hover:bg-red-500/18">
-            Editar perfil base
-          </button>
-        )}
+        eyebrow="Profile"
+        title="Perfil, preferencias y base del coach."
+        subtitle="Body y settings se consolidan aqui usando tabs y persistencia local para que el siguiente sprint solo conecte adapters reales."
+        actions={
+          <Link
+            to="/register"
+            className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+          >
+            Reabrir onboarding
+          </Link>
+        }
       />
 
-      <PanelCard title="Ruta guiada" subtitle="Sigue este orden para que plan, coach y progreso tengan contexto desde el primer dia.">
-        <div className="grid gap-3 md:grid-cols-4">
-          {[
-            { key: 'perfil', label: '1. Perfil base', note: 'Nombre, nivel y disponibilidad.' },
-            { key: 'objetivo', label: '2. Objetivo', note: 'Meta fisica, foco y limitaciones.' },
-            { key: 'checkin', label: '3. Check-in', note: 'Peso, medidas y notas del momento.' },
-            { key: 'seguimiento', label: '4. Seguimiento', note: 'Tendencia y revision continua.' },
-          ].map((step) => (
-            <button
-              key={step.key}
-              type="button"
-              onClick={() => setActiveStep(step.key as typeof activeStep)}
-              className={`rounded-2xl border px-4 py-4 text-left transition ${activeStep === step.key ? 'border-red-500/35 bg-red-500/12' : 'border-white/6 bg-black/20 hover:border-white/10 hover:bg-white/[0.04]'}`}
-            >
-              <p className="font-medium text-white">{step.label}</p>
-              <p className="mt-2 text-sm text-zinc-400">{step.note}</p>
-            </button>
-          ))}
-        </div>
-      </PanelCard>
+      <Tabs.Root defaultValue="summary" className="space-y-6">
+        <Tabs.List className="inline-flex rounded-full border border-white/8 bg-white/[0.04] p-1">
+          <Tabs.Trigger value="summary" className="rounded-full px-4 py-2 text-sm text-slate-300 data-[state=active]:bg-cyan-400/12 data-[state=active]:text-white">
+            Resumen
+          </Tabs.Trigger>
+          <Tabs.Trigger value="preferences" className="rounded-full px-4 py-2 text-sm text-slate-300 data-[state=active]:bg-cyan-400/12 data-[state=active]:text-white">
+            Preferencias
+          </Tabs.Trigger>
+        </Tabs.List>
 
-      <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <PanelCard title="Seguimiento" subtitle="Lo importante para revisar tu estado sin abrir mil pantallas.">
-          <div className="space-y-3">
-            {bodyQuery.data.insights.map((item) => (
-              <div key={item} className="rounded-2xl border border-white/6 bg-black/20 px-4 py-3 text-sm text-zinc-300">
-                {item}
+        <Tabs.Content value="summary" className="space-y-6">
+          <div className="grid gap-6 xl:grid-cols-[1.02fr_0.98fr]">
+            <PanelCard title="Base del atleta" subtitle="Ajustes que alimentan dashboard, progress y workout.">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Nombre</span>
+                  <input
+                    value={draft.displayName}
+                    onChange={(event) => setDraft((current) => ({ ...current, displayName: event.target.value }))}
+                    className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Email</span>
+                  <input
+                    value={draft.email}
+                    onChange={(event) => setDraft((current) => ({ ...current, email: event.target.value }))}
+                    className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Objetivo</span>
+                  <select
+                    value={draft.objective}
+                    onChange={(event) => setDraft((current) => ({ ...current, objective: event.target.value as SigmaProfile['objective'] }))}
+                    className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                  >
+                    <option value="Hipertrofia">Hipertrofia</option>
+                    <option value="Fuerza">Fuerza</option>
+                    <option value="Recomposicion">Recomposicion</option>
+                    <option value="Resistencia">Resistencia</option>
+                  </select>
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Disponibilidad</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={7}
+                    value={draft.availability}
+                    onChange={(event) => setDraft((current) => ({ ...current, availability: Number(event.target.value) || 1 }))}
+                    className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Coach</span>
+                  <select
+                    value={draft.coachingStyle}
+                    onChange={(event) => setDraft((current) => ({ ...current, coachingStyle: event.target.value as SigmaProfile['coachingStyle'] }))}
+                    className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                  >
+                    <option value="Directo">Directo</option>
+                    <option value="Analitico">Analitico</option>
+                    <option value="Motivador">Motivador</option>
+                  </select>
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Unidad</span>
+                  <select
+                    value={draft.preferredUnit}
+                    onChange={(event) => setDraft((current) => ({ ...current, preferredUnit: event.target.value as SigmaProfile['preferredUnit'] }))}
+                    className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                  >
+                    <option value="metric">Metric</option>
+                    <option value="imperial">Imperial</option>
+                  </select>
+                </label>
               </div>
-            ))}
-            <MiniChart points={bodyQuery.data.weightSeries} />
+
+              <label className="mt-4 block space-y-2">
+                <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Notas base</span>
+                <textarea
+                  rows={4}
+                  value={draft.notes}
+                  onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))}
+                  className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                />
+              </label>
+
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={resetDemo}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-slate-300 transition hover:bg-white/[0.08]"
+                >
+                  <RefreshCcw size={16} />
+                  Reset demo
+                </button>
+                <button
+                  type="button"
+                  onClick={saveProfile}
+                  className="inline-flex items-center gap-2 rounded-full border border-cyan-400/16 bg-cyan-400/10 px-4 py-2.5 text-sm text-cyan-200 transition hover:bg-cyan-400/16"
+                >
+                  <Save size={16} />
+                  {saved ? 'Guardado local' : 'Guardar cambios'}
+                </button>
+              </div>
+            </PanelCard>
+
+            <PanelCard title="Resumen conectado" subtitle="Lectura directa del estado del atleta.">
+              <div className="space-y-3">
+                {data.weeklySummary.map((item) => (
+                  <div key={item.label} className="flex items-center justify-between gap-3 rounded-[22px] border border-white/8 bg-black/20 px-4 py-4">
+                    <span className="text-sm text-slate-400">{item.label}</span>
+                    <span className="text-sm font-medium text-white">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <span className="text-sm text-slate-300">Readiness actual</span>
+                  <span className="text-sm text-cyan-200">{workout.readiness}%</span>
+                </div>
+                <ProgressBar value={workout.readiness} />
+              </div>
+            </PanelCard>
           </div>
-        </PanelCard>
+        </Tabs.Content>
 
-        <PanelCard title="Ultimo check-in" subtitle="Resumen rapido antes de abrir el coach o el plan.">
-          {bodyQuery.data.latestCheckin ? (
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="rounded-2xl border border-white/6 bg-black/20 px-4 py-4">
-                <p className="text-sm text-zinc-400">Peso</p>
-                <p className="mt-2 font-['Space_Grotesk'] text-3xl font-semibold text-white">{bodyQuery.data.latestCheckin.weightKg ?? '-'} kg</p>
+        <Tabs.Content value="preferences" className="space-y-6">
+          <PanelCard title="Preferencias SigmaFit" subtitle="Todo se guarda localmente para validar la experiencia.">
+            <div className="grid gap-4 md:grid-cols-2">
+              {[
+                {
+                  key: 'adaptiveCoach' as const,
+                  label: 'Coach adaptativo',
+                  value: preferences.adaptiveCoach,
+                },
+                {
+                  key: 'reminders' as const,
+                  label: 'Recordatorios',
+                  value: preferences.reminders,
+                },
+                {
+                  key: 'recoveryAlerts' as const,
+                  label: 'Alertas de recuperacion',
+                  value: preferences.recoveryAlerts,
+                },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => togglePreference(item.key)}
+                  className="rounded-[24px] border border-white/8 bg-black/20 px-5 py-5 text-left transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="font-medium text-white">{item.label}</span>
+                    <span className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.18em] ${
+                      item.value ? 'bg-cyan-400/12 text-cyan-200' : 'bg-white/[0.06] text-slate-400'
+                    }`}>
+                      {item.value ? 'Activo' : 'Off'}
+                    </span>
+                  </div>
+                </button>
+              ))}
+
+              <div className="rounded-[24px] border border-white/8 bg-black/20 px-5 py-5">
+                <div className="flex items-center gap-3">
+                  <Bell className="h-4 w-4 text-cyan-300" />
+                  <p className="font-medium text-white">Minutos de recordatorio</p>
+                </div>
+                <input
+                  type="number"
+                  value={preferences.reminderMinutes}
+                  onChange={(event) => updatePreferences({ reminderMinutes: Number(event.target.value) || 0 })}
+                  className="mt-4 w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                />
               </div>
-              <div className="rounded-2xl border border-white/6 bg-black/20 px-4 py-4">
-                <p className="text-sm text-zinc-400">Grasa corporal</p>
-                <p className="mt-2 font-['Space_Grotesk'] text-3xl font-semibold text-white">{bodyQuery.data.latestCheckin.bodyFatPct ?? '-'}%</p>
-              </div>
             </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-white/8 bg-black/20 px-4 py-16 text-center text-zinc-500">Aun no hay check-ins corporales.</div>
-          )}
-        </PanelCard>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <PanelCard title="Perfil fitness" subtitle={activeStep === 'perfil' ? 'Empieza aqui con la base del atleta.' : activeStep === 'objetivo' ? 'Aqui aterrizas objetivo, foco y contexto.' : 'Datos que alimentan plan, coach y recomendaciones.'}>
-          <form onSubmit={profileForm.handleSubmit((values) => saveProfileMutation.mutate(values as never))} className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-2">
-              <input {...profileForm.register('displayName')} placeholder="Nombre visible" className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none" />
-              <input {...profileForm.register('primaryGoal')} placeholder="Objetivo principal" className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none" />
-              <input {...profileForm.register('experienceLevel')} placeholder="Nivel" className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none" />
-              <input type="number" {...profileForm.register('weeklyAvailability', { valueAsNumber: true })} placeholder="Dias por semana" className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none" />
-              <input {...profileForm.register('preferredFocus')} placeholder="Foco preferido" className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none" />
-              <input {...profileForm.register('preferredUnit')} placeholder="Unidad" className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none" />
-            </div>
-            <textarea {...profileForm.register('equipmentAccess')} rows={2} placeholder="Equipo disponible, separado por comas" className="w-full rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none" />
-            <textarea {...profileForm.register('laggingMuscles')} rows={2} placeholder="Musculos rezagados, separado por comas" className="w-full rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none" />
-            <textarea {...profileForm.register('limitations')} rows={3} placeholder="Lesiones o limitaciones" className="w-full rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none" />
-            <div className="flex flex-wrap gap-3">
-              <button type="submit" className="rounded-full border border-red-500/30 bg-red-500/12 px-4 py-2 text-sm text-red-50 transition hover:bg-red-500/18">
-                {saveProfileMutation.isPending ? 'Guardando...' : 'Guardar perfil'}
-              </button>
-              <button type="button" onClick={() => setActiveStep('checkin')} className="rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-zinc-200 transition hover:border-red-500/30 hover:bg-red-500/10">
-                Seguir con check-in
-              </button>
-            </div>
-          </form>
-        </PanelCard>
-
-        <PanelCard title="Nuevo check-in" subtitle={activeStep === 'checkin' ? 'Ahora registra el estado corporal del momento.' : 'Registro rapido de peso, medidas y notas del momento.'}>
-          <form onSubmit={checkinForm.handleSubmit((values) => saveCheckinMutation.mutate(values as never))} className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-2">
-              <input type="date" {...checkinForm.register('checkinDate')} className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none" />
-              <input value={checkinValues.weightKg ?? ''} onChange={(event) => checkinForm.setValue('weightKg', toNumber(event.target.value))} placeholder="Peso kg" className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none" />
-              <input value={checkinValues.bodyFatPct ?? ''} onChange={(event) => checkinForm.setValue('bodyFatPct', toNumber(event.target.value))} placeholder="% grasa" className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none" />
-              <input value={checkinValues.waistCm ?? ''} onChange={(event) => checkinForm.setValue('waistCm', toNumber(event.target.value))} placeholder="Cintura cm" className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none" />
-              <input value={checkinValues.armCm ?? ''} onChange={(event) => checkinForm.setValue('armCm', toNumber(event.target.value))} placeholder="Brazo cm" className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none" />
-              <input value={checkinValues.thighCm ?? ''} onChange={(event) => checkinForm.setValue('thighCm', toNumber(event.target.value))} placeholder="Pierna cm" className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none" />
-            </div>
-            <textarea {...checkinForm.register('notes')} rows={4} placeholder="Notas del estado corporal o habitos recientes" className="w-full rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none" />
-            <div className="flex flex-wrap gap-3">
-              <button type="submit" className="rounded-full border border-red-500/30 bg-red-500/12 px-4 py-2 text-sm text-red-50 transition hover:bg-red-500/18">
-                {saveCheckinMutation.isPending ? 'Guardando...' : 'Guardar check-in'}
-              </button>
-              <button type="button" onClick={() => setActiveStep('seguimiento')} className="rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-zinc-200 transition hover:border-red-500/30 hover:bg-red-500/10">
-                Ir a seguimiento
-              </button>
-            </div>
-          </form>
-        </PanelCard>
-      </div>
+          </PanelCard>
+        </Tabs.Content>
+      </Tabs.Root>
     </div>
   )
 }
+

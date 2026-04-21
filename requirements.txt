@@ -1,6 +1,0 @@
-PySide6>=6.11,<7
-fastapi>=0.118,<1
-pydantic>=2.11,<3
-uvicorn>=0.37,<1
-pytest>=8.4,<9
-httpx>=0.28,<1

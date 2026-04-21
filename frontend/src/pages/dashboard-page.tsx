@@ -1,142 +1,124 @@
-import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
-import { Sparkles, TrendingUp } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { ArrowRight, Sparkles, TrendingUp } from 'lucide-react'
 
-import { MetricCard } from '../components/metric-card'
-import { MiniChart } from '../components/mini-chart'
-import { PageHeader } from '../components/page-header'
-import { PanelCard } from '../components/panel-card'
-import { api } from '../lib/api'
-import { formatNumber } from '../lib/utils'
+import { MetricCard } from '@/components/metric-card'
+import { MiniChart } from '@/components/mini-chart'
+import { PageHeader } from '@/components/page-header'
+import { PanelCard } from '@/components/panel-card'
+import { ProgressBar } from '@/components/ui/progress-bar'
+import { getSigmaDashboardView } from '@/lib/sigmafit/mock-adapter'
+import { useSigmafitStore } from '@/store/sigmafit-store'
 
 export function DashboardPage() {
-  const navigate = useNavigate()
-  const { data, isLoading } = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: api.dashboard,
-  })
+  const session = useSigmafitStore((state) => state.session)
+  const profile = useSigmafitStore((state) => state.profile)
+  const workout = useSigmafitStore((state) => state.workout)
+  const progressHistory = useSigmafitStore((state) => state.progressHistory)
+  const preferences = useSigmafitStore((state) => state.preferences)
 
-  if (isLoading || !data) {
-    return <div className="rounded-[28px] border border-white/8 bg-white/[0.04] p-8 text-zinc-400">Cargando dashboard premium...</div>
-  }
+  const data = getSigmaDashboardView({ session, profile, workout, progressHistory, preferences })
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Inicio"
-        title={data.heroTitle}
-        subtitle={data.heroSubtitle}
+        eyebrow="Dashboard"
+        title={data.headline}
+        subtitle={data.subheadline}
         actions={
           <>
-            {data.heroBadges.map((badge) => (
-              <div key={badge.label} className="rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-zinc-300">
-                <span className="text-zinc-500">{badge.label}: </span>
-                <strong className="text-white">{badge.value}</strong>
-              </div>
-            ))}
-            <button type="button" onClick={() => void navigate({ to: '/training' })} className="rounded-full border border-red-500/30 bg-red-500/12 px-4 py-2 text-sm text-red-50 transition hover:bg-red-500/18">
-              Abrir rutina
-            </button>
-            <button type="button" onClick={() => void navigate({ to: '/coach' })} className="rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-zinc-200 transition hover:border-red-500/30 hover:bg-red-500/10">
-              Ver coach
-            </button>
+            <Link
+              to="/workout"
+              className="inline-flex items-center gap-2 rounded-full border border-cyan-400/16 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-200 transition hover:bg-cyan-400/16"
+            >
+              Abrir workout
+              <ArrowRight size={16} />
+            </Link>
+            <Link
+              to="/progress"
+              className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+            >
+              Ver progreso
+            </Link>
           </>
         }
       />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {data.cards.map((card) => (
+        {data.metrics.map((card) => (
           <MetricCard
             key={card.title}
             title={card.title}
             value={card.value}
             caption={card.caption}
-            icon={<TrendingUp size={18} className="text-red-200" />}
+            icon={<TrendingUp size={18} className="text-cyan-200" />}
           />
         ))}
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
+      <section className="grid gap-6 xl:grid-cols-[1.12fr_0.88fr]">
         <PanelCard
-          title={data.nextSession.title}
-          subtitle={data.nextSession.summary}
-          action={(
-            <div className="flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-red-100">
+          title={`Sesion activa / ${workout.title}`}
+          subtitle={workout.notes}
+          action={
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/14 bg-cyan-400/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-cyan-200">
               <Sparkles size={14} />
               Coach listo
             </div>
-          )}
+          }
         >
-          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="space-y-3">
-              {data.nextSession.items.map((item) => (
-                <div key={item.exercise} className="rounded-2xl border border-white/6 bg-black/20 px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-medium text-white">{item.exercise}</p>
-                    <p className="text-sm text-zinc-400">{item.sets} sets</p>
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-[1.25fr_0.75fr]">
+              <div className="space-y-3">
+                {data.nextSession.map((exercise) => (
+                  <div key={exercise.id} className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-white">{exercise.name}</p>
+                        <p className="mt-1 text-sm text-slate-400">{exercise.focus}</p>
+                      </div>
+                      <p className="text-sm text-slate-500">{exercise.sets.length} sets</p>
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-slate-400">{exercise.note}</p>
                   </div>
-                  <p className="mt-2 text-sm text-zinc-400">
-                    {item.reps} reps · {item.weight ? `${formatNumber(Number(item.weight), ' kg')}` : 'carga por sensaciones'} · RIR {item.rir || '-'}
-                  </p>
-                </div>
-              ))}
+                ))}
+              </div>
+
+              <div className="space-y-3">
+                {data.insightCards.map((line) => (
+                  <div key={line} className="rounded-[22px] border border-cyan-400/12 bg-cyan-400/8 px-4 py-4 text-sm leading-7 text-slate-200">
+                    {line}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="space-y-3">
-              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Lo que vigilaria hoy</p>
-              {data.coachInsight.map((line) => (
-                <div key={line} className="rounded-2xl border border-red-500/15 bg-red-500/8 px-4 py-3 text-sm leading-6 text-red-50/90">
-                  {line}
-                </div>
-              ))}
+
+            <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <span className="text-sm text-slate-300">Readiness del bloque</span>
+                <span className="text-sm text-cyan-200">{workout.readiness}%</span>
+              </div>
+              <ProgressBar value={workout.readiness} />
             </div>
           </div>
         </PanelCard>
 
-        <PanelCard title="Progreso reciente" subtitle="Lectura rapida de carga y peso corporal sin saturar la pantalla.">
+        <PanelCard title="Preview semanal" subtitle="El shell interno ya refleja volumen, consistencia y fuerza proyectada.">
           <div className="space-y-6">
             <div>
-              <p className="mb-3 text-sm text-zinc-400">Volumen por sesion</p>
-              <MiniChart points={data.volumeSeries} />
+              <p className="mb-3 text-sm text-slate-400">Volumen</p>
+              <MiniChart points={data.progressPreview.map((point) => ({ date: point.week, value: point.volume }))} />
             </div>
             <div>
-              <p className="mb-3 text-sm text-zinc-400">Tendencia corporal</p>
-              <MiniChart points={data.weightSeries} strokeClassName="stroke-red-300" />
+              <p className="mb-3 text-sm text-slate-400">1RM proyectado</p>
+              <MiniChart
+                points={data.progressPreview.map((point) => ({ date: point.week, value: point.projectedOneRm }))}
+                strokeClassName="stroke-sky-300"
+              />
             </div>
-          </div>
-        </PanelCard>
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-        <PanelCard title="Cargas recientes" subtitle="Los levantamientos mas utiles para abrir la semana con contexto.">
-          <div className="space-y-3">
-            {data.recentLoads.map((item) => (
-              <div key={`${item.exercise}-${item.date}`} className="flex items-center justify-between gap-4 rounded-2xl border border-white/6 bg-black/20 px-4 py-3">
-                <div>
-                  <p className="font-medium text-white">{item.exercise}</p>
-                  <p className="text-sm text-zinc-400">{item.date}</p>
-                </div>
-                <p className="text-right text-sm text-zinc-300">{formatNumber(item.weight, ' kg')} x {item.reps}</p>
-              </div>
-            ))}
-          </div>
-        </PanelCard>
-
-        <PanelCard title="Musculos trabajados" subtitle="Mapa simple de estimulo reciente para evitar sesgos al planear la siguiente sesion.">
-          <div className="grid gap-3 md:grid-cols-2">
-            {data.musclesWorked.map((item) => (
-              <div key={item.name} className="rounded-2xl border border-white/6 bg-black/20 px-4 py-3">
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="font-medium text-white">{item.name}</p>
-                  <p className="text-sm text-zinc-400">{item.count} hits</p>
-                </div>
-                <div className="h-2 rounded-full bg-white/6">
-                  <div className="h-2 rounded-full bg-gradient-to-r from-red-700 via-red-500 to-rose-300" style={{ width: `${Math.min(item.count * 18, 100)}%` }} />
-                </div>
-              </div>
-            ))}
           </div>
         </PanelCard>
       </section>
     </div>
   )
 }
+

@@ -1,28 +1,42 @@
 import { useEffect } from 'react'
 import type { PropsWithChildren } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 
-import { api } from '../lib/api'
+import { useSigmafitStore } from '@/store/sigmafit-store'
 import { AppShell } from './app-shell'
-
 
 export function RootLayout({ children }: PropsWithChildren) {
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const onboardingQuery = useQuery({
-    queryKey: ['onboarding-state'],
-    queryFn: api.onboardingState,
-  })
+  const isAuthenticated = useSigmafitStore((state) => state.session.isAuthenticated)
+  const onboardingComplete = useSigmafitStore((state) => state.session.onboardingComplete)
+
+  const appRoutes = new Set(['/dashboard', '/workout', '/progress', '/profile'])
+  const publicRoutes = new Set(['/', '/login', '/register'])
+  const isAppRoute = appRoutes.has(pathname)
 
   useEffect(() => {
-    if (!onboardingQuery.data) return
-    if (onboardingQuery.data.requiresOnboarding && pathname !== '/welcome') {
-      void navigate({ to: '/welcome', replace: true })
+    if (isAppRoute && !isAuthenticated) {
+      void navigate({ to: '/login', replace: true })
+      return
     }
-  }, [navigate, onboardingQuery.data, pathname])
 
-  if (pathname === '/welcome') {
+    if (isAppRoute && isAuthenticated && !onboardingComplete) {
+      void navigate({ to: '/register', replace: true })
+      return
+    }
+
+    if (pathname === '/login' && isAuthenticated && onboardingComplete) {
+      void navigate({ to: '/dashboard', replace: true })
+      return
+    }
+
+    if (pathname === '/login' && isAuthenticated && !onboardingComplete) {
+      void navigate({ to: '/register', replace: true })
+    }
+  }, [isAppRoute, isAuthenticated, navigate, onboardingComplete, pathname])
+
+  if (publicRoutes.has(pathname) || !isAppRoute) {
     return <>{children}</>
   }
 

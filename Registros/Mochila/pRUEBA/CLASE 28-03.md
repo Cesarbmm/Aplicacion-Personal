@@ -1,3 +1,0 @@
-# CLASE 28-03
-
-PRUEBA

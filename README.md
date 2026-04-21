@@ -1,110 +1,51 @@
-# Bapp Gym Coach
+# SigmaFit
 
-App de gimnasio desktop-first con:
+Landing page y app web de entrenamiento adaptativo construida con:
 
-- `FastAPI + SQLite` en Python
-- `React + TypeScript + Vite` para la nueva interfaz
-- base preparada para `Tauri`
+- `React 19`
+- `TypeScript`
+- `Vite`
+- `Tailwind CSS 4`
 
-## Requisitos
+El repo ya fue limpiado del backend Python/Tauri legado y ahora mantiene solo la base web activa de SigmaFit.
 
-- Windows + PowerShell
-- Python `3.14`
-- Node.js + npm
+## Desarrollo
 
-## Instalacion
-
-Desde la raiz del proyecto:
+Desde la raiz:
 
 ```powershell
-py -3.14 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
 cd frontend
 npm.cmd install
-```
-
-## Abrir para probar
-
-La forma mas simple:
-
-```powershell
-cd C:\Users\pc\Desktop\U\Bapp
-.\.venv\Scripts\Activate.ps1
-cd frontend
 npm.cmd run dev
 ```
 
-Eso levanta:
-
-- API local en `http://127.0.0.1:8765`
-- frontend en `http://127.0.0.1:5173`
-
-Abre en el navegador:
+Frontend local:
 
 ```text
-http://127.0.0.1:5173
+http://127.0.0.1:5180
 ```
 
-## Abrir API y frontend por separado
-
-Terminal 1:
-
-```powershell
-cd C:\Users\pc\Desktop\U\Bapp
-.\.venv\Scripts\Activate.ps1
-python Bapp.py --api --port 8765
-```
-
-Terminal 2:
-
-```powershell
-cd C:\Users\pc\Desktop\U\Bapp\frontend
-npm.cmd run dev:vite
-```
-
-## Version legacy
-
-Si quieres abrir la version anterior:
-
-```powershell
-cd C:\Users\pc\Desktop\U\Bapp
-.\.venv\Scripts\Activate.ps1
-python Bapp.py
-```
-
-## Verificaciones utiles
-
-Backend:
-
-```powershell
-python -m pytest tests/test_api.py
-```
-
-Frontend:
+## Scripts utiles
 
 ```powershell
 cd frontend
+npm.cmd run dev
 npm.cmd run lint
 npm.cmd run build
+npm.cmd run test
 ```
 
-## Nota sobre PowerShell y npm
+## Estructura actual
 
-Si `npm` falla por Execution Policy, usa `npm.cmd`:
+- `frontend/`: app web SigmaFit
+- `assets/fonts/`: tipografias locales usadas por la UI
+- `assets/iconos/`: assets graficos del proyecto
 
-```powershell
-npm.cmd install
-npm.cmd run dev
-```
+## Estado actual
 
-## Tauri
+- landing publica en `/`
+- login mock en `/login`
+- onboarding mock en `/register`
+- app interna en `/dashboard`, `/workout`, `/progress`, `/profile`
+- estado persistente con `zustand` + `localStorage`
 
-La base para `Tauri` ya existe, pero para usarla necesitas Rust instalado.
-
-```powershell
-.\scripts\build-api-sidecar.ps1
-cd frontend
-npm.cmd run tauri:dev
-```
