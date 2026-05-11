@@ -26,6 +26,8 @@ type ExerciseCatalogRow = {
   muscle_group: string
   movement_pattern: string
   equipment: string
+  tracking_type: ExerciseCatalogEntry['trackingType']
+  coaching_cue: string
   difficulty: ExerciseCatalogEntry['difficulty']
   goal_focus: ExerciseCatalogEntry['goalFocus']
 }
@@ -36,6 +38,7 @@ type RoutineRow = {
   routine_name: string
   goal: Routine['goal']
   days_per_week: number
+  creation_mode: Routine['creationMode']
   is_active: boolean
   routine_created_at: Date
   routine_day_id: string | null
@@ -47,6 +50,8 @@ type RoutineRow = {
   muscle_group: string | null
   movement_pattern: string | null
   equipment: string | null
+  tracking_type: ExerciseCatalogEntry['trackingType'] | null
+  coaching_cue: string | null
   exercise_order: number | null
   sets: number | null
   reps: string | null
@@ -67,6 +72,9 @@ type WorkoutSessionRow = {
   exercise_id: string
   exercise_name: string
   muscle_group: string
+  equipment: string
+  tracking_type: ExerciseCatalogEntry['trackingType']
+  coaching_cue: string
   exercise_order: number
   sets: number
   reps: string
@@ -74,6 +82,8 @@ type WorkoutSessionRow = {
   set_id: string
   set_number: number
   target_reps: number
+  actual_reps: number | null
+  actual_seconds: number | null
   completed: boolean
   weight: string | null
   unit: WorkoutSessionSet['unit']
@@ -92,6 +102,7 @@ function hydrateRoutine(rows: RoutineRow[]) {
     name: firstRow.routine_name,
     goal: firstRow.goal,
     daysPerWeek: firstRow.days_per_week,
+    creationMode: firstRow.creation_mode,
     isActive: firstRow.is_active,
     createdAt: firstRow.routine_created_at.toISOString(),
     days: [],
@@ -123,6 +134,8 @@ function hydrateRoutine(rows: RoutineRow[]) {
       row.muscle_group &&
       row.movement_pattern &&
       row.equipment &&
+      row.tracking_type &&
+      row.coaching_cue &&
       row.exercise_order &&
       row.sets &&
       row.reps &&
@@ -135,6 +148,8 @@ function hydrateRoutine(rows: RoutineRow[]) {
         muscleGroup: row.muscle_group,
         movementPattern: row.movement_pattern,
         equipment: row.equipment,
+        trackingType: row.tracking_type,
+        coachingCue: row.coaching_cue,
         exerciseOrder: row.exercise_order,
         sets: row.sets,
         reps: row.reps,
@@ -178,6 +193,9 @@ function hydrateWorkoutSession(rows: WorkoutSessionRow[]) {
         exerciseId: row.exercise_id,
         name: row.exercise_name,
         muscleGroup: row.muscle_group,
+        equipment: row.equipment,
+        trackingType: row.tracking_type,
+        coachingCue: row.coaching_cue,
         exerciseOrder: row.exercise_order,
         sets: row.sets,
         reps: row.reps,
@@ -195,6 +213,8 @@ function hydrateWorkoutSession(rows: WorkoutSessionRow[]) {
       exerciseName: row.exercise_name,
       setNumber: row.set_number,
       targetReps: row.target_reps,
+      actualReps: row.actual_reps,
+      actualSeconds: row.actual_seconds,
       completed: row.completed,
       weight: row.weight === null ? null : Number(row.weight),
       unit: row.unit,
@@ -206,11 +226,17 @@ function hydrateWorkoutSession(rows: WorkoutSessionRow[]) {
 }
 
 function parseRepRangeToTargetReps(repRange: string) {
-  if (!repRange.includes('-')) {
-    return Number(repRange)
+  const values = repRange.match(/\d+/g)?.map((value) => Number(value)) ?? []
+
+  if (values.length === 0) {
+    return 1
   }
 
-  const [min, max] = repRange.split('-').map((value) => Number(value))
+  if (values.length === 1) {
+    return values[0]
+  }
+
+  const [min, max] = values
   return Math.round((min + max) / 2)
 }
 
@@ -223,6 +249,7 @@ async function fetchRoutineRows(queryable: Queryable, whereClause: string, param
         r.name AS routine_name,
         r.goal,
         r.days_per_week,
+        r.creation_mode,
         r.is_active,
         r.created_at AS routine_created_at,
         rd.id AS routine_day_id,
@@ -234,6 +261,8 @@ async function fetchRoutineRows(queryable: Queryable, whereClause: string, param
         e.muscle_group,
         e.movement_pattern,
         e.equipment,
+        e.tracking_type,
+        e.coaching_cue,
         re.exercise_order,
         re.sets,
         re.reps,
@@ -268,6 +297,9 @@ async function fetchWorkoutSessionRows(queryable: Queryable, sessionId: string) 
         e.id AS exercise_id,
         e.name AS exercise_name,
         e.muscle_group,
+        e.equipment,
+        e.tracking_type,
+        e.coaching_cue,
         re.exercise_order,
         re.sets,
         re.reps,
@@ -275,6 +307,8 @@ async function fetchWorkoutSessionRows(queryable: Queryable, sessionId: string) 
         wss.id AS set_id,
         wss.set_number,
         wss.target_reps,
+        wss.actual_reps,
+        wss.actual_seconds,
         wss.completed,
         wss.weight,
         wss.unit,
@@ -306,6 +340,8 @@ export function createPostgresTrainingRepository(pool: Pool): TrainingRepository
             muscle_group,
             movement_pattern,
             equipment,
+            tracking_type,
+            coaching_cue,
             difficulty,
             goal_focus
           FROM exercises
@@ -319,6 +355,8 @@ export function createPostgresTrainingRepository(pool: Pool): TrainingRepository
         muscleGroup: row.muscle_group,
         movementPattern: row.movement_pattern,
         equipment: row.equipment,
+        trackingType: row.tracking_type,
+        coachingCue: row.coaching_cue,
         difficulty: row.difficulty,
         goalFocus: row.goal_focus,
       }))
@@ -343,11 +381,17 @@ export function createPostgresTrainingRepository(pool: Pool): TrainingRepository
           id: string
         }>(
           `
-            INSERT INTO routines (user_id, name, goal, days_per_week, is_active)
-            VALUES ($1, $2, $3, $4, TRUE)
+            INSERT INTO routines (user_id, name, goal, days_per_week, creation_mode, is_active)
+            VALUES ($1, $2, $3, $4, $5, TRUE)
             RETURNING id
           `,
-          [userId, routineDraft.name, routineDraft.goal, routineDraft.daysPerWeek],
+          [
+            userId,
+            routineDraft.name,
+            routineDraft.goal,
+            routineDraft.daysPerWeek,
+            routineDraft.creationMode,
+          ],
         )
 
         const routineId = routineResult.rows[0]?.id
@@ -541,12 +585,22 @@ export function createPostgresTrainingRepository(pool: Pool): TrainingRepository
             completed = $3,
             weight = $4,
             unit = $5,
+            actual_reps = $6,
+            actual_seconds = $7,
             completed_at = CASE WHEN $3 THEN NOW() ELSE NULL END
           WHERE workout_session_id = $1
             AND id = $2
           RETURNING id
         `,
-        [sessionId, setId, input.completed, input.weight, input.unit],
+        [
+          sessionId,
+          setId,
+          input.completed,
+          input.weight,
+          input.unit,
+          input.actualReps ?? null,
+          input.actualSeconds ?? null,
+        ],
       )
 
       if (updateResult.rowCount === 0) {
@@ -563,40 +617,70 @@ export function createPostgresTrainingRepository(pool: Pool): TrainingRepository
       return session
     },
 
-    async finishWorkoutSession(sessionId) {
+    async finishWorkoutSession(sessionId, input = {}) {
       const result = await pool.query<{
         session_id: string
         status: WorkoutSessionSummary['status']
         completed_sets: string
         total_volume: string
+        total_reps: string
+        total_seconds: string
+        fatigue_level: number | null
+        pain_level: number | null
+        athlete_notes: string | null
       }>(
         `
           WITH updated_session AS (
             UPDATE workout_sessions
             SET
               status = 'completed',
-              finished_at = COALESCE(finished_at, NOW())
+              finished_at = COALESCE(finished_at, NOW()),
+              perceived_fatigue = $2,
+              pain_level = $3,
+              athlete_notes = NULLIF($4, '')
             WHERE id = $1
-            RETURNING id, status
+            RETURNING id, status, perceived_fatigue, pain_level, athlete_notes
           )
           SELECT
             updated_session.id AS session_id,
             updated_session.status,
+            updated_session.perceived_fatigue AS fatigue_level,
+            updated_session.pain_level,
+            updated_session.athlete_notes,
             COUNT(*) FILTER (WHERE wss.completed = TRUE)::text AS completed_sets,
             COALESCE(
               SUM(
                 CASE
-                  WHEN wss.completed = TRUE THEN COALESCE(wss.weight, 0) * wss.target_reps
+                  WHEN wss.completed = TRUE THEN COALESCE(wss.weight, 0) * COALESCE(wss.actual_reps, wss.target_reps)
                   ELSE 0
                 END
               ),
               0
             )::text AS total_volume
+            ,
+            COALESCE(
+              SUM(CASE WHEN wss.completed = TRUE THEN COALESCE(wss.actual_reps, wss.target_reps) ELSE 0 END),
+              0
+            )::text AS total_reps,
+            COALESCE(
+              SUM(CASE WHEN wss.completed = TRUE THEN COALESCE(wss.actual_seconds, 0) ELSE 0 END),
+              0
+            )::text AS total_seconds
           FROM updated_session
           LEFT JOIN workout_session_sets wss ON wss.workout_session_id = updated_session.id
-          GROUP BY updated_session.id, updated_session.status
+          GROUP BY
+            updated_session.id,
+            updated_session.status,
+            updated_session.perceived_fatigue,
+            updated_session.pain_level,
+            updated_session.athlete_notes
         `,
-        [sessionId],
+        [
+          sessionId,
+          input.fatigueLevel ?? null,
+          input.painLevel ?? null,
+          input.athleteNotes?.trim() ?? null,
+        ],
       )
 
       const row = result.rows[0]
@@ -610,6 +694,11 @@ export function createPostgresTrainingRepository(pool: Pool): TrainingRepository
         status: 'completed',
         completedSets: Number(row.completed_sets),
         totalVolume: Number(row.total_volume),
+        totalReps: Number(row.total_reps),
+        totalSeconds: Number(row.total_seconds),
+        fatigueLevel: row.fatigue_level,
+        painLevel: row.pain_level,
+        athleteNotes: row.athlete_notes,
       }
     },
   }

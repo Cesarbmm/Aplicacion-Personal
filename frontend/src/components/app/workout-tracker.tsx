@@ -19,6 +19,8 @@ type WorkoutTrackerProps = {
       weight: number | null
       unit: SigmaUnit
       completed: boolean
+      actualReps: number | null
+      actualSeconds: number | null
     }>,
   ) => void
   onCompleteSet: (
@@ -26,11 +28,20 @@ type WorkoutTrackerProps = {
     setId: string,
     payload: {
       completed: boolean
-      weight: number
+      weight: number | null
       unit: SigmaUnit
+      actualReps?: number | null
+      actualSeconds?: number | null
     },
   ) => Promise<void> | void
-  onFinishSession: (sessionId: string) => Promise<void> | void
+  onFinishSession: (
+    sessionId: string,
+    payload: {
+      fatigueLevel: number | null
+      painLevel: number | null
+      athleteNotes: string | null
+    },
+  ) => Promise<void> | void
 }
 
 function formatSeconds(value: number) {
@@ -59,6 +70,9 @@ export function WorkoutTracker({
     exerciseName: null,
     value: 0,
   })
+  const [fatigueLevel, setFatigueLevel] = useState(5)
+  const [painLevel, setPainLevel] = useState(0)
+  const [athleteNotes, setAthleteNotes] = useState('')
 
   useEffect(() => {
     if (restTimer.value <= 0) {
@@ -115,8 +129,10 @@ export function WorkoutTracker({
       sessionId: string
       setId: string
       completed: boolean
-      weight: number
+      weight: number | null
       unit: SigmaUnit
+      actualReps?: number | null
+      actualSeconds?: number | null
       exerciseName: string
       restSeconds: number
     },
@@ -125,6 +141,8 @@ export function WorkoutTracker({
       completed: payload.completed,
       weight: payload.weight,
       unit: payload.unit,
+      actualReps: payload.actualReps,
+      actualSeconds: payload.actualSeconds,
     })
 
     if (payload.completed) {
@@ -161,7 +179,7 @@ export function WorkoutTracker({
 
         {!routine ? (
           <div className="mt-5 rounded-[24px] border border-white/8 bg-black/20 px-4 py-4 text-sm leading-7 text-slate-300">
-            Genera una rutina desde el dashboard para desbloquear el tracker en vivo.
+            Crea o acepta una rutina desde el dashboard para desbloquear el tracker en vivo.
           </div>
         ) : (
           <div className="mt-5 space-y-3">
@@ -265,8 +283,10 @@ export function WorkoutTracker({
                     <div>
                       <p className="font-medium text-white">{exercise.name}</p>
                       <p className="mt-1 text-sm text-slate-400">
-                        {exercise.muscleGroup} - {exercise.reps} reps - {exercise.restSeconds}s de descanso
+                        {exercise.muscleGroup} - {exercise.equipment} - {exercise.reps}{' '}
+                        {exercise.trackingType === 'time' ? 'objetivo' : 'reps'} - {exercise.restSeconds}s descanso
                       </p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">{exercise.coachingCue}</p>
                     </div>
                     <button
                       type="button"
@@ -279,31 +299,60 @@ export function WorkoutTracker({
                   </div>
 
                   <div className="space-y-3">
-                    {exercise.sessionSets.map((setItem) => (
-                      <div
-                        key={setItem.setId}
-                        className="grid gap-3 rounded-[24px] border border-white/8 bg-white/[0.03] p-4 md:grid-cols-[auto_1fr_120px_auto]"
-                      >
+                    {exercise.sessionSets.map((setItem) => {
+                      const isTimeBased = exercise.trackingType === 'time'
+
+                      return (
+                        <div
+                          key={setItem.setId}
+                          className="grid gap-3 rounded-[24px] border border-white/8 bg-white/[0.03] p-4 md:grid-cols-[auto_1fr_1fr_120px_auto]"
+                        >
                         <div>
                           <p className="font-medium text-white">Set {setItem.setNumber}</p>
                           <p className="text-sm text-slate-500">
-                            {setItem.completed ? 'Completado' : `Objetivo ${setItem.targetReps} reps`}
+                            {setItem.completed
+                              ? 'Completado'
+                              : isTimeBased
+                                ? `Objetivo ${setItem.targetReps}s`
+                                : `Objetivo ${setItem.targetReps} reps`}
                           </p>
                         </div>
 
                         <label className="space-y-2">
-                          <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Peso levantado</span>
+                          <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                            {isTimeBased ? 'Tiempo real seg' : 'Reps reales'}
+                          </span>
+                          <input
+                            aria-label={`${isTimeBased ? 'segundos' : 'reps'} set ${setItem.setNumber}`}
+                            type="number"
+                            min={0}
+                            value={isTimeBased ? (setItem.actualSeconds ?? setItem.targetReps) : (setItem.actualReps ?? setItem.targetReps)}
+                            onChange={(event) =>
+                              onSetDraftChange(activeSession.sessionId, setItem.setId, {
+                                actualSeconds: isTimeBased ? Number(event.target.value) || 0 : setItem.actualSeconds,
+                                actualReps: isTimeBased ? setItem.actualReps : Number(event.target.value) || 0,
+                              })
+                            }
+                            className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                          />
+                        </label>
+
+                        <label className="space-y-2">
+                          <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                            {isTimeBased ? 'Carga' : 'Peso levantado'}
+                          </span>
                           <input
                             aria-label={`peso set ${setItem.setNumber}`}
                             type="number"
                             min={0}
-                            value={setItem.weight ?? 0}
+                            value={isTimeBased ? 0 : (setItem.weight ?? 0)}
+                            disabled={isTimeBased}
                             onChange={(event) =>
                               onSetDraftChange(activeSession.sessionId, setItem.setId, {
                                 weight: Number(event.target.value) || 0,
                               })
                             }
-                            className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                            className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none disabled:opacity-45"
                           />
                         </label>
 
@@ -331,8 +380,10 @@ export function WorkoutTracker({
                               sessionId: activeSession.sessionId,
                               setId: setItem.setId,
                               completed: !setItem.completed,
-                              weight: setItem.weight ?? 0,
+                              weight: isTimeBased ? null : (setItem.weight ?? 0),
                               unit: setItem.unit,
+                              actualReps: isTimeBased ? null : (setItem.actualReps ?? setItem.targetReps),
+                              actualSeconds: isTimeBased ? (setItem.actualSeconds ?? setItem.targetReps) : null,
                               exerciseName: exercise.name,
                               restSeconds: exercise.restSeconds,
                             })
@@ -348,16 +399,62 @@ export function WorkoutTracker({
                           {setItem.completed ? 'Reabrir' : 'Completar serie'}
                         </button>
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               ))}
             </div>
 
+            <div className="mt-6 rounded-[26px] border border-white/8 bg-black/20 p-4">
+              <p className="font-medium text-white">Cierre de sesion</p>
+              <p className="mt-1 text-sm leading-6 text-slate-400">
+                Estos datos explican fatiga, dolor y observaciones para que el coach pueda ajustar mejor despues.
+              </p>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <label className="space-y-2">
+                  <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Fatiga percibida 1-10</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={fatigueLevel}
+                    onChange={(event) => setFatigueLevel(Math.max(1, Math.min(10, Number(event.target.value) || 1)))}
+                    className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Dolor o molestia 0-10</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={10}
+                    value={painLevel}
+                    onChange={(event) => setPainLevel(Math.max(0, Math.min(10, Number(event.target.value) || 0)))}
+                    className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                  />
+                </label>
+              </div>
+              <label className="mt-4 block space-y-2">
+                <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Observacion del atleta</span>
+                <textarea
+                  value={athleteNotes}
+                  onChange={(event) => setAthleteNotes(event.target.value)}
+                  rows={3}
+                  placeholder="Ejemplo: mucha fatiga en pierna, dolor leve de hombro, falto energia en la ultima serie..."
+                  className="w-full resize-none rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                />
+              </label>
+            </div>
+
             <button
               type="button"
               onClick={() => {
-                void onFinishSession(activeSession.sessionId)
+                void onFinishSession(activeSession.sessionId, {
+                  fatigueLevel,
+                  painLevel,
+                  athleteNotes,
+                })
               }}
               disabled={isFinishing}
               className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full border border-cyan-400/16 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100 transition hover:bg-cyan-400/16 disabled:cursor-not-allowed disabled:opacity-50"
@@ -393,8 +490,10 @@ export function WorkoutTracker({
                     <div>
                       <p className="font-medium text-white">{exercise.name}</p>
                       <p className="mt-1 text-sm text-slate-400">
-                        {exercise.muscleGroup} - {exercise.reps} reps - {exercise.restSeconds}s descanso
+                        {exercise.muscleGroup} - {exercise.equipment} - {exercise.reps}{' '}
+                        {exercise.trackingType === 'time' ? 'objetivo' : 'reps'} - {exercise.restSeconds}s descanso
                       </p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">{exercise.coachingCue}</p>
                     </div>
                     <p className="text-sm text-cyan-200">{exercise.sets} sets</p>
                   </div>

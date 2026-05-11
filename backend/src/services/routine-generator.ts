@@ -60,6 +60,14 @@ function getRepPrescription(goal: RoutineGenerationProfile['goal']) {
   }
 }
 
+function getExercisePrescription(goal: RoutineGenerationProfile['goal'], exercise: ExerciseCatalogEntry) {
+  if (exercise.trackingType === 'time') {
+    return goal === 'weight_loss' ? '35-50s' : '30-45s'
+  }
+
+  return getRepPrescription(goal)
+}
+
 function getRestSeconds(profile: RoutineGenerationProfile) {
   switch (profile.goal) {
     case 'strength':
@@ -294,7 +302,6 @@ function buildRoutineDay(
   const usedExerciseIds = new Set<string>()
   const exercises: RoutineDraftExercise[] = []
   const sets = getSetPrescription(profile)
-  const reps = getRepPrescription(profile.goal)
   const restSeconds = getRestSeconds(profile)
 
   selectors.forEach((selector, index) => {
@@ -311,9 +318,11 @@ function buildRoutineDay(
       muscleGroup: selectedExercise.muscleGroup,
       movementPattern: selectedExercise.movementPattern,
       equipment: selectedExercise.equipment,
+      trackingType: selectedExercise.trackingType,
+      coachingCue: selectedExercise.coachingCue,
       exerciseOrder: index + 1,
       sets,
-      reps,
+      reps: getExercisePrescription(profile.goal, selectedExercise),
       restSeconds,
     })
   })
@@ -339,6 +348,7 @@ export function generateRoutineDraft(
     name: `Rutina semanal - ${getGoalLabel(profile.goal)}`,
     goal: profile.goal,
     daysPerWeek: profile.daysPerWeek,
+    creationMode: 'coach',
     days,
   }
 }

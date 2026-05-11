@@ -139,10 +139,19 @@ function createProgressHistory(): SigmaProgressPoint[] {
 export function createDefaultSigmafitState(): SigmafitStateSnapshot {
   const routineState: SigmaRoutineState = {
     currentRoutine: null,
+    proposedRoutine: null,
+    exerciseCatalog: [],
     isLoading: false,
+    isCatalogLoading: false,
+    isSavingManual: false,
     error: null,
     source: 'none',
+    proposalSource: 'none',
     lastGeneratedAt: null,
+    hasUserChosenRoutineFlow: false,
+    proposalPendingAcceptance: false,
+    pendingRoutineId: null,
+    selectedCreationFlow: null,
   }
 
   const trainingState: SigmaTrainingState = {
@@ -176,6 +185,10 @@ export function createDefaultSigmafitState(): SigmafitStateSnapshot {
       notes: 'Priorizar consistencia y tecnica bajo fatiga moderada.',
       heightCm: 176,
       weightKg: 78,
+      targetWeightKg: 74,
+      benchEstimateKg: 60,
+      squatEstimateKg: 80,
+      deadliftEstimateKg: 90,
     },
     routine: routineState,
     training: trainingState,
@@ -221,7 +234,11 @@ export function onboardingToStatePatch(payload: SigmaOnboardingPayload) {
       focus: payload.goal === 'strength' ? 'Upper strength' : payload.goal === 'weight_loss' ? 'Full body density' : 'Push A',
       notes: 'Perfil inicial generado desde onboarding SigmaFit.',
       heightCm: 176,
-      weightKg: 78,
+      weightKg: payload.currentWeightKg,
+      targetWeightKg: payload.targetWeightKg,
+      benchEstimateKg: payload.benchEstimateKg,
+      squatEstimateKg: payload.squatEstimateKg,
+      deadliftEstimateKg: payload.deadliftEstimateKg,
     },
   }
 }

@@ -24,10 +24,19 @@ describe('SigmaFit workout tracker', () => {
       },
       routine: {
         currentRoutine: routine,
+        proposedRoutine: null,
+        exerciseCatalog: [],
         isLoading: false,
+        isCatalogLoading: false,
+        isSavingManual: false,
         error: null,
-        source: 'local',
+        source: 'fallback',
+        proposalSource: 'none',
         lastGeneratedAt: new Date('2026-01-05T00:00:00.000Z').toISOString(),
+        hasUserChosenRoutineFlow: true,
+        proposalPendingAcceptance: false,
+        pendingRoutineId: null,
+        selectedCreationFlow: 'coach',
       },
       profile: {
         ...baseState.profile,
@@ -44,7 +53,7 @@ describe('SigmaFit workout tracker', () => {
     expect(screen.getAllByText(/sets/i).length).toBeGreaterThan(0)
   })
 
-  it('stores lifted weight and starts the rest timer when a set is completed', async () => {
+  it('stores real reps, lifted weight and starts the rest timer when a set is completed', async () => {
     const baseState = createDefaultSigmafitState()
     const routine = generateLocalRoutine(baseState.profile, demoUserId)
     const activeSession = createLocalWorkoutSession(routine, routine.days[0].routineDayId, 'kg')
@@ -53,10 +62,19 @@ describe('SigmaFit workout tracker', () => {
       ...useSigmafitStore.getState(),
       routine: {
         currentRoutine: routine,
+        proposedRoutine: null,
+        exerciseCatalog: [],
         isLoading: false,
+        isCatalogLoading: false,
+        isSavingManual: false,
         error: null,
-        source: 'local',
+        source: 'fallback',
+        proposalSource: 'none',
         lastGeneratedAt: new Date('2026-01-05T00:00:00.000Z').toISOString(),
+        hasUserChosenRoutineFlow: true,
+        proposalPendingAcceptance: false,
+        pendingRoutineId: null,
+        selectedCreationFlow: 'coach',
       },
       training: {
         activeSession,
@@ -73,12 +91,16 @@ describe('SigmaFit workout tracker', () => {
     const user = userEvent.setup()
 
     const weightInput = (await screen.findAllByLabelText(/peso set 1/i))[0]
+    const repsInput = (await screen.findAllByLabelText(/reps set 1/i))[0]
+    await user.clear(repsInput)
+    await user.type(repsInput, '11')
     await user.clear(weightInput)
     await user.type(weightInput, '50')
     await user.click(screen.getAllByRole('button', { name: /completar serie/i })[0])
 
     await waitFor(() => {
       expect(useSigmafitStore.getState().training.activeSession?.exercises[0].sessionSets[0].completed).toBe(true)
+      expect(useSigmafitStore.getState().training.activeSession?.exercises[0].sessionSets[0].actualReps).toBe(11)
       expect(useSigmafitStore.getState().training.activeSession?.exercises[0].sessionSets[0].weight).toBe(50)
       expect(screen.getByText('1:30')).toBeTruthy()
     })

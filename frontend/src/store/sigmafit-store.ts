@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 
-import { SIGMAFIT_DEMO_USER_ID } from '@/lib/sigmafit/catalog'
+import { SIGMAFIT_DEMO_USER_ID, sigmaExerciseCatalogFallback } from '@/lib/sigmafit/catalog'
 import {
+  createLocalManualRoutine,
   createLocalWorkoutSession,
   finishLocalWorkoutSession,
   generateLocalRoutine,
@@ -12,16 +13,20 @@ import {
 } from '@/lib/sigmafit/local-coach'
 import { createDefaultSigmafitState, onboardingToStatePatch } from '@/lib/sigmafit/mock-data'
 import type {
+  SigmaManualRoutinePayload,
   SigmaOnboardingPayload,
   SigmaPreferences,
   SigmaProfile,
   SigmaRoutine,
+  SigmaRoutineCreationMode,
+  SigmaRoutineSource,
   SigmaWorkoutSession,
   SigmaWorkoutSessionSet,
   SigmaWorkoutSet,
   SigmafitStateSnapshot,
 } from '@/lib/sigmafit/types'
 import type {
+  FinishWorkoutSessionPayload,
   StartWorkoutSessionPayload,
   UpdateWorkoutSessionSetPayload,
   UserProfileResponse,
@@ -41,15 +46,31 @@ type CompleteOnboardingResult = {
 }
 
 type LoadRoutineResult = {
-  routineAvailable: boolean
-  source: 'backend' | 'local' | 'none'
+  routineState: 'current' | 'proposal' | 'none'
+  source: SigmaRoutineSource
   warning: string | null
 }
 
-type GenerateRoutineResult = {
-  routineAvailable: boolean
-  source: 'backend' | 'local'
+type LoadExerciseCatalogResult = {
+  loaded: boolean
+  source: 'backend' | 'fallback'
   warning: string | null
+}
+
+type GenerateRoutineProposalResult = {
+  proposed: boolean
+  source: 'backend' | 'fallback'
+  warning: string | null
+}
+
+type CreateManualRoutineResult = {
+  routineAvailable: boolean
+  source: 'backend' | 'fallback'
+  warning: string | null
+}
+
+type AcceptRoutineProposalResult = {
+  accepted: boolean
 }
 
 type StartWorkoutSessionResult = {
@@ -75,19 +96,25 @@ type SigmafitActions = {
   logout: () => void
   completeOnboarding: (payload: SigmaOnboardingPayload) => Promise<CompleteOnboardingResult>
   loadCurrentRoutine: () => Promise<LoadRoutineResult>
-  generateRoutine: () => Promise<GenerateRoutineResult>
+  loadExerciseCatalog: (force?: boolean) => Promise<LoadExerciseCatalogResult>
+  selectRoutineFlow: (flow: SigmaRoutineCreationMode) => void
+  generateRoutineProposal: () => Promise<GenerateRoutineProposalResult>
+  acceptRoutineProposal: () => AcceptRoutineProposalResult
+  regenerateRoutineProposal: () => Promise<GenerateRoutineProposalResult>
+  createManualRoutine: (payload: SigmaManualRoutinePayload) => Promise<CreateManualRoutineResult>
+  clearRoutineProposal: () => void
   startWorkoutSession: (payload: StartWorkoutSessionPayload) => Promise<StartWorkoutSessionResult>
   updateSessionSetDraft: (
     sessionId: string,
     setId: string,
-    patch: Partial<Pick<SigmaWorkoutSessionSet, 'weight' | 'unit' | 'completed'>>,
+    patch: Partial<Pick<SigmaWorkoutSessionSet, 'weight' | 'unit' | 'completed' | 'actualReps' | 'actualSeconds'>>,
   ) => void
   completeWorkoutSet: (
     sessionId: string,
     setId: string,
     payload: UpdateWorkoutSessionSetPayload,
   ) => Promise<CompleteWorkoutSetResult>
-  finishWorkoutSession: (sessionId: string) => Promise<FinishWorkoutSessionResult>
+  finishWorkoutSession: (sessionId: string, payload?: FinishWorkoutSessionPayload) => Promise<FinishWorkoutSessionResult>
   updateWorkoutSet: (exerciseId: string, setId: string, patch: Partial<SigmaWorkoutSet>) => void
   setActiveExercise: (exerciseId: string) => void
   submitWorkoutRpe: (rpe: number) => void
@@ -101,8 +128,41 @@ type SigmafitActions = {
 
 export type SigmafitStore = SigmafitStateSnapshot & SigmafitActions
 
+const SIGMAFIT_STORE_VERSION = 3
+
 function buildInitialState(): SigmafitStateSnapshot {
   return createDefaultSigmafitState()
+}
+
+function migratePersistedState(persistedState: unknown): SigmafitStateSnapshot {
+  const defaults = buildInitialState()
+
+  if (!persistedState || typeof persistedState !== 'object') {
+    return defaults
+  }
+
+  const persisted = persistedState as Partial<SigmafitStateSnapshot>
+
+  return {
+    ...defaults,
+    ...persisted,
+    profile: {
+      ...defaults.profile,
+      ...persisted.profile,
+    },
+    routine: defaults.routine,
+    training: defaults.training,
+    workout: defaults.workout,
+  }
+}
+
+function getResetSlices() {
+  const defaults = buildInitialState()
+  return {
+    routine: defaults.routine,
+    training: defaults.training,
+    workout: defaults.workout,
+  }
 }
 
 function isApiUnavailable(error: unknown) {
@@ -127,15 +187,26 @@ function applyRemoteProfile(profile: SigmaProfile, payload: UserProfileResponse)
   }
 }
 
-function applyRoutineToState(state: SigmafitStateSnapshot, routine: SigmaRoutine, source: 'backend' | 'local') {
+function applyCurrentRoutineToState(
+  state: SigmafitStateSnapshot,
+  routine: SigmaRoutine,
+  source: Exclude<SigmaRoutineSource, 'none'>,
+): Pick<SigmafitStateSnapshot, 'routine' | 'workout'> {
   return {
     routine: {
       ...state.routine,
       currentRoutine: routine,
+      proposedRoutine: null,
       isLoading: false,
+      isSavingManual: false,
       error: null,
       source,
+      proposalSource: 'none',
       lastGeneratedAt: new Date().toISOString(),
+      hasUserChosenRoutineFlow: true,
+      proposalPendingAcceptance: false,
+      pendingRoutineId: null,
+      selectedCreationFlow: routine.creationMode,
     },
     workout: state.training.activeSession
       ? state.workout
@@ -143,11 +214,86 @@ function applyRoutineToState(state: SigmafitStateSnapshot, routine: SigmaRoutine
   }
 }
 
+function applyProposedRoutineToState(
+  state: SigmafitStateSnapshot,
+  routine: SigmaRoutine,
+  source: Exclude<SigmaRoutineSource, 'none'>,
+): Pick<SigmafitStateSnapshot, 'routine'> {
+  return {
+    routine: {
+      ...state.routine,
+      currentRoutine: null,
+      proposedRoutine: routine,
+      isLoading: false,
+      isSavingManual: false,
+      error: null,
+      source: 'none',
+      proposalSource: source,
+      lastGeneratedAt: new Date().toISOString(),
+      hasUserChosenRoutineFlow: true,
+      proposalPendingAcceptance: true,
+      pendingRoutineId: routine.routineId,
+      selectedCreationFlow: 'coach',
+    },
+  }
+}
+
+function applyFetchedRoutineToState(
+  state: SigmafitStateSnapshot,
+  routine: SigmaRoutine,
+  source: Exclude<SigmaRoutineSource, 'none'>,
+): Partial<SigmafitStateSnapshot> {
+  if (state.routine.proposalPendingAcceptance && state.routine.pendingRoutineId === routine.routineId) {
+    return applyProposedRoutineToState(state, routine, source)
+  }
+
+  return applyCurrentRoutineToState(state, routine, source)
+}
+
+function clearRoutineState(
+  state: SigmafitStateSnapshot,
+  options?: { keepCatalog?: boolean; keepFlowSelection?: boolean },
+): Pick<SigmafitStateSnapshot, 'routine'> {
+  return {
+    routine: {
+      ...state.routine,
+      currentRoutine: null,
+      proposedRoutine: null,
+      exerciseCatalog: options?.keepCatalog ? state.routine.exerciseCatalog : [],
+      isLoading: false,
+      isCatalogLoading: false,
+      isSavingManual: false,
+      error: null,
+      source: 'none',
+      proposalSource: 'none',
+      lastGeneratedAt: null,
+      hasUserChosenRoutineFlow: options?.keepFlowSelection ? state.routine.hasUserChosenRoutineFlow : false,
+      proposalPendingAcceptance: false,
+      pendingRoutineId: null,
+      selectedCreationFlow: options?.keepFlowSelection ? state.routine.selectedCreationFlow : null,
+    },
+  }
+}
+
+function promoteProposedRoutine(state: SigmafitStateSnapshot): Partial<SigmafitStateSnapshot> {
+  if (!state.routine.proposedRoutine) {
+    return state
+  }
+
+  return {
+    ...applyCurrentRoutineToState(
+      state,
+      state.routine.proposedRoutine,
+      state.routine.proposalSource === 'none' ? 'fallback' : state.routine.proposalSource,
+    ),
+  }
+}
+
 function applyWorkoutSessionToState(
   state: SigmafitStateSnapshot,
   activeSession: SigmaWorkoutSession,
   source: 'backend' | 'local',
-) {
+): Pick<SigmafitStateSnapshot, 'training' | 'workout'> {
   return {
     training: {
       ...state.training,
@@ -165,7 +311,7 @@ function applyWorkoutSessionToState(
 function updateSessionSetDraftInSession(
   session: SigmaWorkoutSession,
   setId: string,
-  patch: Partial<Pick<SigmaWorkoutSessionSet, 'weight' | 'unit' | 'completed'>>,
+  patch: Partial<Pick<SigmaWorkoutSessionSet, 'weight' | 'unit' | 'completed' | 'actualReps' | 'actualSeconds'>>,
 ) {
   return {
     ...session,
@@ -181,6 +327,18 @@ function updateSessionSetDraftInSession(
       ),
     })),
   }
+}
+
+function resolveRoutineSourceFromState(state: SigmafitStateSnapshot): SigmaRoutineSource {
+  if (state.routine.currentRoutine) {
+    return state.routine.source
+  }
+
+  if (state.routine.proposedRoutine) {
+    return state.routine.proposalSource
+  }
+
+  return 'none'
 }
 
 export const useSigmafitStore = create<SigmafitStore>()(
@@ -217,6 +375,12 @@ export const useSigmafitStore = create<SigmafitStore>()(
               lastSyncError: null,
             },
             profile: applyRemoteProfile(state.profile, remoteProfile),
+            ...(remoteProfile.onboardingCompleted
+              ? {}
+              : {
+                  ...getResetSlices(),
+                  ...clearRoutineState(state),
+                }),
           }))
 
           return {
@@ -265,6 +429,8 @@ export const useSigmafitStore = create<SigmafitStore>()(
 
         set((state) => {
           const patch = onboardingToStatePatch(payload)
+          const defaults = getResetSlices()
+
           return {
             session: {
               ...state.session,
@@ -275,6 +441,12 @@ export const useSigmafitStore = create<SigmafitStore>()(
               ...state.profile,
               ...patch.profile,
             },
+            routine: {
+              ...defaults.routine,
+              exerciseCatalog: state.routine.exerciseCatalog,
+            },
+            training: defaults.training,
+            workout: defaults.workout,
           }
         })
 
@@ -327,8 +499,12 @@ export const useSigmafitStore = create<SigmafitStore>()(
 
         if (!state.session.userId || !state.session.onboardingComplete) {
           return {
-            routineAvailable: Boolean(state.routine.currentRoutine),
-            source: state.routine.currentRoutine ? state.routine.source : 'none',
+            routineState: state.routine.currentRoutine
+              ? 'current'
+              : state.routine.proposedRoutine
+                ? 'proposal'
+                : 'none',
+            source: resolveRoutineSourceFromState(state),
             warning: null,
           }
         }
@@ -345,7 +521,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
           const routine = await sigmafitApi.getCurrentRoutine(state.session.userId)
 
           set((current) => ({
-            ...applyRoutineToState(current, routine, 'backend'),
+            ...applyFetchedRoutineToState(current, routine, 'backend'),
             session: {
               ...current.session,
               backendStatus: 'online',
@@ -354,24 +530,21 @@ export const useSigmafitStore = create<SigmafitStore>()(
           }))
 
           return {
-            routineAvailable: true,
+            routineState:
+              get().routine.proposedRoutine && get().routine.pendingRoutineId === routine.routineId
+                ? 'proposal'
+                : 'current',
             source: 'backend',
             warning: null,
           }
         } catch (error) {
           if (error instanceof ApiRequestError && error.code === 'ROUTINE_NOT_FOUND') {
             set((current) => ({
-              routine: {
-                ...current.routine,
-                currentRoutine: null,
-                isLoading: false,
-                error: null,
-                source: 'none',
-              },
+              ...clearRoutineState(current, { keepCatalog: true }),
             }))
 
             return {
-              routineAvailable: false,
+              routineState: 'none',
               source: 'none',
               warning: null,
             }
@@ -393,9 +566,14 @@ export const useSigmafitStore = create<SigmafitStore>()(
               },
             }))
 
+            const latestState = get()
             return {
-              routineAvailable: Boolean(get().routine.currentRoutine),
-              source: get().routine.currentRoutine ? get().routine.source : 'none',
+              routineState: latestState.routine.currentRoutine
+                ? 'current'
+                : latestState.routine.proposedRoutine
+                  ? 'proposal'
+                  : 'none',
+              source: resolveRoutineSourceFromState(latestState),
               warning,
             }
           }
@@ -408,15 +586,113 @@ export const useSigmafitStore = create<SigmafitStore>()(
             },
           }))
 
+          const latestState = get()
           return {
-            routineAvailable: Boolean(get().routine.currentRoutine),
-            source: get().routine.currentRoutine ? get().routine.source : 'none',
+            routineState: latestState.routine.currentRoutine
+              ? 'current'
+              : latestState.routine.proposedRoutine
+                ? 'proposal'
+                : 'none',
+            source: resolveRoutineSourceFromState(latestState),
             warning: null,
           }
         }
       },
 
-      generateRoutine: async () => {
+      loadExerciseCatalog: async (force = false) => {
+        const state = get()
+
+        if (!force && state.routine.exerciseCatalog.length > 0) {
+          return {
+            loaded: true,
+            source: state.session.backendStatus === 'offline' ? 'fallback' : 'backend',
+            warning: null,
+          }
+        }
+
+        set((current) => ({
+          routine: {
+            ...current.routine,
+            isCatalogLoading: true,
+            error: null,
+          },
+        }))
+
+        try {
+          const catalog = await sigmafitApi.getExercises()
+
+          set((current) => ({
+            routine: {
+              ...current.routine,
+              exerciseCatalog: catalog,
+              isCatalogLoading: false,
+              error: null,
+            },
+            session: {
+              ...current.session,
+              backendStatus: 'online',
+              lastSyncError: null,
+            },
+          }))
+
+          return {
+            loaded: true,
+            source: 'backend',
+            warning: null,
+          }
+        } catch (error) {
+          if (isApiUnavailable(error)) {
+            const warning =
+              'No se pudo cargar el catalogo desde backend. SigmaFit usara el catalogo local de respaldo.'
+
+            set((current) => ({
+              routine: {
+                ...current.routine,
+                exerciseCatalog: sigmaExerciseCatalogFallback,
+                isCatalogLoading: false,
+                error: null,
+              },
+              session: {
+                ...current.session,
+                backendStatus: 'offline',
+                lastSyncError: warning,
+              },
+            }))
+
+            return {
+              loaded: true,
+              source: 'fallback',
+              warning,
+            }
+          }
+
+          set((current) => ({
+            routine: {
+              ...current.routine,
+              isCatalogLoading: false,
+              error: error instanceof Error ? error.message : 'No se pudo cargar el catalogo.',
+            },
+          }))
+
+          return {
+            loaded: false,
+            source: 'backend',
+            warning: null,
+          }
+        }
+      },
+
+      selectRoutineFlow: (flow) =>
+        set((state) => ({
+          routine: {
+            ...state.routine,
+            hasUserChosenRoutineFlow: true,
+            selectedCreationFlow: flow,
+            error: null,
+          },
+        })),
+
+      generateRoutineProposal: async () => {
         const state = get()
         const userId = state.session.userId || SIGMAFIT_DEMO_USER_ID
 
@@ -429,8 +705,8 @@ export const useSigmafitStore = create<SigmafitStore>()(
           }))
 
           return {
-            routineAvailable: false,
-            source: 'local',
+            proposed: false,
+            source: 'fallback',
             warning: null,
           }
         }
@@ -440,23 +716,137 @@ export const useSigmafitStore = create<SigmafitStore>()(
             ...current.routine,
             isLoading: true,
             error: null,
+            hasUserChosenRoutineFlow: true,
+            selectedCreationFlow: 'coach',
           },
         }))
 
         try {
-          const routine = await sigmafitApi.generateRoutine(userId)
+          const routine = await sigmafitApi.generateRoutineProposal(userId)
 
           set((current) => ({
-            ...applyRoutineToState(current, routine, 'backend'),
+            ...applyProposedRoutineToState(current, routine, 'backend'),
+            training: {
+              ...current.training,
+              activeSession: null,
+            },
             session: {
               ...current.session,
               backendStatus: 'online',
               lastSyncError: null,
             },
+          }))
+
+          return {
+            proposed: true,
+            source: 'backend',
+            warning: null,
+          }
+        } catch (error) {
+          if (isApiUnavailable(error)) {
+            const fallbackRoutine = generateLocalRoutine(state.profile, userId)
+            const warning =
+              'No se pudo generar la propuesta en backend. SigmaFit activo una propuesta local controlada.'
+
+            set((current) => ({
+              ...applyProposedRoutineToState(current, fallbackRoutine, 'fallback'),
+              training: {
+                ...current.training,
+                activeSession: null,
+              },
+              session: {
+                ...current.session,
+                backendStatus: 'offline',
+                lastSyncError: warning,
+              },
+            }))
+
+            return {
+              proposed: true,
+              source: 'fallback',
+              warning,
+            }
+          }
+
+          set((current) => ({
+            routine: {
+              ...current.routine,
+              isLoading: false,
+              error: error instanceof Error ? error.message : 'No se pudo generar la propuesta.',
+            },
+          }))
+
+          return {
+            proposed: false,
+            source: 'backend',
+            warning: null,
+          }
+        }
+      },
+
+      acceptRoutineProposal: () => {
+        const state = get()
+
+        if (!state.routine.proposedRoutine) {
+          return {
+            accepted: false,
+          }
+        }
+
+        set((current) => ({
+          ...promoteProposedRoutine(current),
+        }))
+
+        return {
+          accepted: true,
+        }
+      },
+
+      regenerateRoutineProposal: async () => get().generateRoutineProposal(),
+
+      createManualRoutine: async (payload) => {
+        const state = get()
+        const userId = state.session.userId || SIGMAFIT_DEMO_USER_ID
+
+        if (!state.session.onboardingComplete) {
+          set((current) => ({
+            routine: {
+              ...current.routine,
+              error: 'Completa onboarding antes de guardar una rutina manual.',
+            },
+          }))
+
+          return {
+            routineAvailable: false,
+            source: 'fallback',
+            warning: null,
+          }
+        }
+
+        set((current) => ({
+          routine: {
+            ...current.routine,
+            isSavingManual: true,
+            error: null,
+            hasUserChosenRoutineFlow: true,
+            selectedCreationFlow: 'manual',
+          },
+        }))
+
+        try {
+          const routine = await sigmafitApi.createManualRoutine(userId, payload)
+
+          set((current) => ({
+            ...applyCurrentRoutineToState(current, routine, 'backend'),
             training: {
               ...current.training,
               activeSession: null,
               lastCompletedSummary: null,
+            },
+            session: {
+              ...current.session,
+              backendStatus: 'online',
+              lastSyncError: null,
             },
           }))
 
@@ -467,27 +857,31 @@ export const useSigmafitStore = create<SigmafitStore>()(
           }
         } catch (error) {
           if (isApiUnavailable(error)) {
-            const fallbackRoutine = generateLocalRoutine(state.profile, userId)
+            const catalog =
+              get().routine.exerciseCatalog.length > 0
+                ? get().routine.exerciseCatalog
+                : sigmaExerciseCatalogFallback
+            const fallbackRoutine = createLocalManualRoutine(payload, userId, catalog)
             const warning =
-              'No se pudo generar la rutina en backend. SigmaFit activo una rutina local controlada.'
+              'No se pudo guardar la rutina manual en backend. SigmaFit la activo localmente como respaldo.'
 
             set((current) => ({
-              ...applyRoutineToState(current, fallbackRoutine, 'local'),
-              session: {
-                ...current.session,
-                backendStatus: 'offline',
-                lastSyncError: warning,
-              },
+              ...applyCurrentRoutineToState(current, fallbackRoutine, 'fallback'),
               training: {
                 ...current.training,
                 activeSession: null,
                 lastCompletedSummary: null,
               },
+              session: {
+                ...current.session,
+                backendStatus: 'offline',
+                lastSyncError: warning,
+              },
             }))
 
             return {
               routineAvailable: true,
-              source: 'local',
+              source: 'fallback',
               warning,
             }
           }
@@ -495,8 +889,8 @@ export const useSigmafitStore = create<SigmafitStore>()(
           set((current) => ({
             routine: {
               ...current.routine,
-              isLoading: false,
-              error: error instanceof Error ? error.message : 'No se pudo generar la rutina.',
+              isSavingManual: false,
+              error: error instanceof Error ? error.message : 'No se pudo guardar la rutina manual.',
             },
           }))
 
@@ -508,6 +902,18 @@ export const useSigmafitStore = create<SigmafitStore>()(
         }
       },
 
+      clearRoutineProposal: () =>
+        set((state) => ({
+          routine: {
+            ...state.routine,
+            proposedRoutine: null,
+            proposalSource: 'none',
+            proposalPendingAcceptance: false,
+            pendingRoutineId: null,
+            isLoading: false,
+          },
+        })),
+
       startWorkoutSession: async (payload) => {
         const state = get()
         const routine = state.routine.currentRoutine
@@ -517,7 +923,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
           set((current) => ({
             training: {
               ...current.training,
-              error: 'Genera o carga una rutina antes de iniciar una sesion.',
+              error: 'Activa una rutina antes de iniciar una sesion.',
             },
           }))
 
@@ -704,7 +1110,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
         }
       },
 
-      finishWorkoutSession: async (sessionId) => {
+      finishWorkoutSession: async (sessionId, payload = {}) => {
         const state = get()
         const activeSession = state.training.activeSession
 
@@ -732,7 +1138,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
         }))
 
         if (state.training.source === 'local' || state.session.backendStatus === 'offline') {
-          const localResult = finishLocalWorkoutSession(activeSession)
+          const localResult = finishLocalWorkoutSession(activeSession, payload)
 
           set((current) => {
             const lastPointIndex = current.progressHistory.length - 1
@@ -770,7 +1176,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
         }
 
         try {
-          const summary = await sigmafitApi.finishWorkoutSession(sessionId)
+          const summary = await sigmafitApi.finishWorkoutSession(sessionId, payload)
 
           set((current) => {
             const lastPointIndex = current.progressHistory.length - 1
@@ -806,7 +1212,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
           }
         } catch (error) {
           if (isApiUnavailable(error)) {
-            const localResult = finishLocalWorkoutSession(activeSession)
+            const localResult = finishLocalWorkoutSession(activeSession, payload)
             const warning =
               'No se pudo cerrar la sesion en backend. SigmaFit guardo el resumen localmente.'
 
@@ -972,7 +1378,9 @@ export const useSigmafitStore = create<SigmafitStore>()(
     }),
     {
       name: 'sigmafit-state',
+      version: SIGMAFIT_STORE_VERSION,
       storage: createJSONStorage(() => localStorage),
+      migrate: (persistedState) => migratePersistedState(persistedState),
     },
   ),
 )

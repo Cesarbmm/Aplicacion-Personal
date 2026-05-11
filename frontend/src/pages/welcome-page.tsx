@@ -14,12 +14,14 @@ import {
 import type { SigmaExperienceLevel, SigmaGoal } from '@/lib/sigmafit/types'
 import { useSigmafitStore } from '@/store/sigmafit-store'
 
-const steps = ['Objetivo', 'Nivel', 'Disponibilidad'] as const
+const steps = ['Objetivo', 'Nivel', 'Disponibilidad', 'Datos base'] as const
 
 type ValidationErrors = {
   goal?: string
   experienceLevel?: string
   daysPerWeek?: string
+  currentWeightKg?: string
+  targetWeightKg?: string
 }
 
 export function RegisterPage() {
@@ -37,6 +39,11 @@ export function RegisterPage() {
   const [daysPerWeek, setDaysPerWeek] = useState<number | null>(
     session.onboardingComplete ? profile.daysPerWeek : null,
   )
+  const [currentWeightKg, setCurrentWeightKg] = useState(profile.weightKg || 78)
+  const [targetWeightKg, setTargetWeightKg] = useState(profile.targetWeightKg || profile.weightKg || 74)
+  const [benchEstimateKg, setBenchEstimateKg] = useState(profile.benchEstimateKg || 0)
+  const [squatEstimateKg, setSquatEstimateKg] = useState(profile.squatEstimateKg || 0)
+  const [deadliftEstimateKg, setDeadliftEstimateKg] = useState(profile.deadliftEstimateKg || 0)
   const [errors, setErrors] = useState<ValidationErrors>({})
   const [submissionMessage, setSubmissionMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -48,8 +55,9 @@ export function RegisterPage() {
       { label: 'Objetivo', value: goal ? formatSigmaGoal(goal) : 'Pendiente' },
       { label: 'Nivel', value: experienceLevel ? formatSigmaExperienceLevel(experienceLevel) : 'Pendiente' },
       { label: 'Dias', value: daysPerWeek ? `${daysPerWeek} por semana` : 'Pendiente' },
+      { label: 'Peso', value: `${currentWeightKg || 0} kg -> ${targetWeightKg || 0} kg` },
     ],
-    [daysPerWeek, displayName, experienceLevel, goal],
+    [currentWeightKg, daysPerWeek, displayName, experienceLevel, goal, targetWeightKg],
   )
 
   function updateErrors(nextErrors: ValidationErrors) {
@@ -74,6 +82,14 @@ export function RegisterPage() {
       nextErrors.daysPerWeek = 'Selecciona cuántos días puedes entrenar por semana.'
     }
 
+    if (stepToValidate === 3 && currentWeightKg <= 0) {
+      nextErrors.currentWeightKg = 'Ingresa tu peso actual para contextualizar el progreso.'
+    }
+
+    if (stepToValidate === 3 && targetWeightKg <= 0) {
+      nextErrors.targetWeightKg = 'Ingresa un peso objetivo aproximado.'
+    }
+
     updateErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
   }
@@ -91,6 +107,14 @@ export function RegisterPage() {
 
     if (!daysPerWeek) {
       nextErrors.daysPerWeek = 'Selecciona tu disponibilidad semanal antes de guardar.'
+    }
+
+    if (currentWeightKg <= 0) {
+      nextErrors.currentWeightKg = 'Ingresa tu peso actual antes de guardar.'
+    }
+
+    if (targetWeightKg <= 0) {
+      nextErrors.targetWeightKg = 'Ingresa un peso objetivo antes de guardar.'
     }
 
     setErrors(nextErrors)
@@ -130,6 +154,11 @@ export function RegisterPage() {
       return
     }
 
+    if (validationErrors.currentWeightKg || validationErrors.targetWeightKg) {
+      setStep(3)
+      return
+    }
+
     setIsSubmitting(true)
     setSubmissionMessage(null)
 
@@ -140,6 +169,11 @@ export function RegisterPage() {
         goal: goal!,
         experienceLevel: experienceLevel!,
         daysPerWeek: daysPerWeek!,
+        currentWeightKg,
+        targetWeightKg,
+        benchEstimateKg,
+        squatEstimateKg,
+        deadliftEstimateKg,
       })
 
       if (result.warning) {
@@ -176,7 +210,7 @@ export function RegisterPage() {
             </Link>
           </div>
 
-          <div className="mt-8 grid gap-3 md:grid-cols-3">
+          <div className="mt-8 grid gap-3 md:grid-cols-4">
             {steps.map((label, index) => (
               <button
                 key={label}
@@ -315,6 +349,83 @@ export function RegisterPage() {
                   <p className="mt-3 text-sm leading-7 text-slate-300">
                     Al cerrar este paso, SigmaFit persiste el perfil inicial, actualiza el estado del
                     onboarding y habilita el acceso al dashboard.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {step === 3 ? (
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="space-y-2">
+                    <span className="text-xs uppercase tracking-[0.2em] text-slate-500">Peso actual kg</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={currentWeightKg}
+                      onChange={(event) => {
+                        setCurrentWeightKg(Number(event.target.value) || 0)
+                        updateErrors({ currentWeightKg: undefined })
+                      }}
+                      className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                    />
+                    {errors.currentWeightKg ? <p className="text-sm text-rose-300">{errors.currentWeightKg}</p> : null}
+                  </label>
+
+                  <label className="space-y-2">
+                    <span className="text-xs uppercase tracking-[0.2em] text-slate-500">Peso objetivo kg</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={targetWeightKg}
+                      onChange={(event) => {
+                        setTargetWeightKg(Number(event.target.value) || 0)
+                        updateErrors({ targetWeightKg: undefined })
+                      }}
+                      className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                    />
+                    {errors.targetWeightKg ? <p className="text-sm text-rose-300">{errors.targetWeightKg}</p> : null}
+                  </label>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <label className="space-y-2">
+                    <span className="text-xs uppercase tracking-[0.2em] text-slate-500">Press banca aprox kg</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={benchEstimateKg}
+                      onChange={(event) => setBenchEstimateKg(Number(event.target.value) || 0)}
+                      className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                    />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-xs uppercase tracking-[0.2em] text-slate-500">Sentadilla aprox kg</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={squatEstimateKg}
+                      onChange={(event) => setSquatEstimateKg(Number(event.target.value) || 0)}
+                      className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                    />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-xs uppercase tracking-[0.2em] text-slate-500">Peso muerto aprox kg</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={deadliftEstimateKg}
+                      onChange={(event) => setDeadliftEstimateKg(Number(event.target.value) || 0)}
+                      className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                    />
+                  </label>
+                </div>
+
+                <div className="rounded-[28px] border border-cyan-400/14 bg-cyan-400/8 p-5">
+                  <p className="font-medium text-white">Base para recomendaciones de carga</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-300">
+                    Si no sabes tus pesos aproximados, dejalos en 0. SigmaFit usara los registros reales del tracker
+                    para aprender con el tiempo.
                   </p>
                 </div>
               </div>

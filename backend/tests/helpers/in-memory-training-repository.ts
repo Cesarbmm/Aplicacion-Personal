@@ -35,6 +35,8 @@ function createExerciseCatalog(): ExerciseCatalogEntry[] {
       muscleGroup: 'Pecho',
       movementPattern: 'Empuje horizontal',
       equipment: 'Barra',
+      trackingType: 'weight_reps',
+      coachingCue: 'Usa banco plano y barra controlada.',
       difficulty: 'intermediate',
       goalFocus: 'strength',
     },
@@ -44,6 +46,8 @@ function createExerciseCatalog(): ExerciseCatalogEntry[] {
       muscleGroup: 'Piernas',
       movementPattern: 'Dominante de rodilla',
       equipment: 'Barra',
+      trackingType: 'weight_reps',
+      coachingCue: 'Controla profundidad y brace.',
       difficulty: 'intermediate',
       goalFocus: 'strength',
     },
@@ -53,6 +57,8 @@ function createExerciseCatalog(): ExerciseCatalogEntry[] {
       muscleGroup: 'Posterior',
       movementPattern: 'Bisagra de cadera',
       equipment: 'Barra',
+      trackingType: 'weight_reps',
+      coachingCue: 'Barra cerca del cuerpo.',
       difficulty: 'advanced',
       goalFocus: 'strength',
     },
@@ -62,6 +68,8 @@ function createExerciseCatalog(): ExerciseCatalogEntry[] {
       muscleGroup: 'Hombros',
       movementPattern: 'Empuje vertical',
       equipment: 'Barra',
+      trackingType: 'weight_reps',
+      coachingCue: 'Evita hiperextension lumbar.',
       difficulty: 'intermediate',
       goalFocus: 'strength',
     },
@@ -71,6 +79,8 @@ function createExerciseCatalog(): ExerciseCatalogEntry[] {
       muscleGroup: 'Espalda',
       movementPattern: 'Tiron horizontal',
       equipment: 'Barra',
+      trackingType: 'weight_reps',
+      coachingCue: 'Torso estable y codos atras.',
       difficulty: 'intermediate',
       goalFocus: 'hypertrophy',
     },
@@ -80,6 +90,8 @@ function createExerciseCatalog(): ExerciseCatalogEntry[] {
       muscleGroup: 'Espalda',
       movementPattern: 'Tiron vertical',
       equipment: 'Polea',
+      trackingType: 'weight_reps',
+      coachingCue: 'Baja hacia clavicula sin balanceo.',
       difficulty: 'beginner',
       goalFocus: 'hypertrophy',
     },
@@ -89,6 +101,8 @@ function createExerciseCatalog(): ExerciseCatalogEntry[] {
       muscleGroup: 'Biceps',
       movementPattern: 'Aislamiento',
       equipment: 'Mancuernas',
+      trackingType: 'weight_reps',
+      coachingCue: 'Codos quietos y recorrido completo.',
       difficulty: 'beginner',
       goalFocus: 'hypertrophy',
     },
@@ -98,6 +112,8 @@ function createExerciseCatalog(): ExerciseCatalogEntry[] {
       muscleGroup: 'Triceps',
       movementPattern: 'Aislamiento',
       equipment: 'Polea',
+      trackingType: 'weight_reps',
+      coachingCue: 'Codos fijos en la extension.',
       difficulty: 'beginner',
       goalFocus: 'hypertrophy',
     },
@@ -107,6 +123,8 @@ function createExerciseCatalog(): ExerciseCatalogEntry[] {
       muscleGroup: 'Piernas',
       movementPattern: 'Dominante de rodilla',
       equipment: 'Maquina',
+      trackingType: 'weight_reps',
+      coachingCue: 'No bloquees rodillas violentamente.',
       difficulty: 'beginner',
       goalFocus: 'weight_loss',
     },
@@ -116,6 +134,8 @@ function createExerciseCatalog(): ExerciseCatalogEntry[] {
       muscleGroup: 'Core',
       movementPattern: 'Estabilidad',
       equipment: 'Peso corporal',
+      trackingType: 'time',
+      coachingCue: 'Controla por segundos con pelvis neutra.',
       difficulty: 'beginner',
       goalFocus: 'general',
     },
@@ -149,6 +169,7 @@ export function createInMemoryTrainingRepository(seedRoutine?: Routine): Trainin
         name: routineDraft.name,
         goal: routineDraft.goal,
         daysPerWeek: routineDraft.daysPerWeek,
+        creationMode: routineDraft.creationMode,
         isActive: true,
         createdAt: new Date('2026-01-03T00:00:00.000Z').toISOString(),
         days: routineDraft.days.map((day) => ({
@@ -206,6 +227,9 @@ export function createInMemoryTrainingRepository(seedRoutine?: Routine): Trainin
           exerciseId: exercise.exerciseId,
           name: exercise.name,
           muscleGroup: exercise.muscleGroup,
+          equipment: exercise.equipment,
+          trackingType: exercise.trackingType,
+          coachingCue: exercise.coachingCue,
           exerciseOrder: exercise.exerciseOrder,
           sets: exercise.sets,
           reps: exercise.reps,
@@ -217,6 +241,8 @@ export function createInMemoryTrainingRepository(seedRoutine?: Routine): Trainin
             exerciseName: exercise.name,
             setNumber: index + 1,
             targetReps: parseRepRangeToTargetReps(exercise.reps),
+            actualReps: null,
+            actualSeconds: null,
             completed: false,
             weight: null,
             unit: input.unit,
@@ -252,6 +278,8 @@ export function createInMemoryTrainingRepository(seedRoutine?: Routine): Trainin
             completed: input.completed,
             weight: input.weight,
             unit: input.unit,
+            actualReps: input.actualReps ?? null,
+            actualSeconds: input.actualSeconds ?? null,
             completedAt: input.completed ? new Date('2026-01-04T10:15:00.000Z').toISOString() : null,
           }
         }),
@@ -265,7 +293,7 @@ export function createInMemoryTrainingRepository(seedRoutine?: Routine): Trainin
       return structuredClone(session)
     },
 
-    async finishWorkoutSession(sessionId) {
+    async finishWorkoutSession(sessionId, input = {}) {
       const session = sessions.get(sessionId)
 
       if (!session) {
@@ -289,8 +317,30 @@ export function createInMemoryTrainingRepository(seedRoutine?: Routine): Trainin
               return exerciseTotal
             }
 
-            return exerciseTotal + setItem.weight * setItem.targetReps
+            return exerciseTotal + setItem.weight * (setItem.actualReps ?? setItem.targetReps)
           }, 0),
+        0,
+      )
+
+      const totalReps = session.exercises.reduce(
+        (total, exercise) =>
+          total +
+          exercise.sessionSets.reduce(
+            (exerciseTotal, setItem) =>
+              setItem.completed ? exerciseTotal + (setItem.actualReps ?? setItem.targetReps) : exerciseTotal,
+            0,
+          ),
+        0,
+      )
+
+      const totalSeconds = session.exercises.reduce(
+        (total, exercise) =>
+          total +
+          exercise.sessionSets.reduce(
+            (exerciseTotal, setItem) =>
+              setItem.completed ? exerciseTotal + (setItem.actualSeconds ?? 0) : exerciseTotal,
+            0,
+          ),
         0,
       )
 
@@ -299,6 +349,11 @@ export function createInMemoryTrainingRepository(seedRoutine?: Routine): Trainin
         status: 'completed',
         completedSets,
         totalVolume,
+        totalReps,
+        totalSeconds,
+        fatigueLevel: input.fatigueLevel ?? null,
+        painLevel: input.painLevel ?? null,
+        athleteNotes: input.athleteNotes ?? null,
       }
 
       return summary

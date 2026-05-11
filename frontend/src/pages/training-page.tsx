@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
+import { Link } from '@tanstack/react-router'
 import { Activity, CalendarRange, Dumbbell, Timer, Trophy } from 'lucide-react'
 
 import { WorkoutTracker } from '@/components/app/workout-tracker'
 import { PageHeader } from '@/components/page-header'
 import { PanelCard } from '@/components/panel-card'
-import { LiquidButton } from '@/components/ui/liquid-glass-button'
 import { useSigmafitStore } from '@/store/sigmafit-store'
 
 export function WorkoutPage() {
@@ -13,24 +13,16 @@ export function WorkoutPage() {
   const training = useSigmafitStore((state) => state.training)
   const workout = useSigmafitStore((state) => state.workout)
   const loadCurrentRoutine = useSigmafitStore((state) => state.loadCurrentRoutine)
-  const generateRoutine = useSigmafitStore((state) => state.generateRoutine)
   const startWorkoutSession = useSigmafitStore((state) => state.startWorkoutSession)
   const updateSessionSetDraft = useSigmafitStore((state) => state.updateSessionSetDraft)
   const completeWorkoutSet = useSigmafitStore((state) => state.completeWorkoutSet)
   const finishWorkoutSession = useSigmafitStore((state) => state.finishWorkoutSession)
 
-  const [isGenerating, setIsGenerating] = useState(false)
-
   useEffect(() => {
-    if (session.isAuthenticated && session.onboardingComplete && !routine.currentRoutine) {
+    if (session.isAuthenticated && session.onboardingComplete) {
       void loadCurrentRoutine()
     }
-  }, [
-    loadCurrentRoutine,
-    routine.currentRoutine,
-    session.isAuthenticated,
-    session.onboardingComplete,
-  ])
+  }, [loadCurrentRoutine, session.isAuthenticated, session.onboardingComplete])
 
   const workoutMetrics = useMemo(() => {
     const completedSets = training.activeSession
@@ -49,7 +41,11 @@ export function WorkoutPage() {
 
     return [
       { icon: Activity, label: 'Readiness', value: `${workout.readiness}%` },
-      { icon: Dumbbell, label: 'Rutina', value: routine.currentRoutine ? `${routine.currentRoutine.days.length} dias` : 'Sin bloque' },
+      {
+        icon: Dumbbell,
+        label: 'Rutina',
+        value: routine.currentRoutine ? `${routine.currentRoutine.days.length} dias` : 'Sin rutina activa',
+      },
       {
         icon: Timer,
         label: 'Sesion activa',
@@ -58,19 +54,17 @@ export function WorkoutPage() {
       {
         icon: CalendarRange,
         label: 'Fuente',
-        value: routine.currentRoutine ? routine.source : 'Pendiente',
+        value: routine.currentRoutine ? routine.source : routine.proposedRoutine ? routine.proposalSource : 'Pendiente',
       },
     ]
-  }, [routine.currentRoutine, routine.source, training.activeSession, workout.readiness])
-
-  async function handleGenerateRoutine() {
-    setIsGenerating(true)
-    try {
-      await generateRoutine()
-    } finally {
-      setIsGenerating(false)
-    }
-  }
+  }, [
+    routine.currentRoutine,
+    routine.proposalSource,
+    routine.proposedRoutine,
+    routine.source,
+    training.activeSession,
+    workout.readiness,
+  ])
 
   return (
     <div className="space-y-6">
@@ -80,13 +74,33 @@ export function WorkoutPage() {
         subtitle={
           training.activeSession
             ? 'Marca series, registra peso y deja que SigmaFit gestione el descanso y el resumen de la sesion.'
-            : 'Selecciona un dia del bloque semanal, inicia una sesion y lleva el control detallado del entrenamiento.'
+            : routine.currentRoutine
+              ? 'La rutina ya fue aceptada o creada manualmente. Selecciona un dia y comienza la sesion.'
+              : 'Todavia no hay una rutina activa. Primero crea o acepta un plan desde el dashboard.'
         }
         actions={
-          routine.currentRoutine ? null : (
-            <LiquidButton size="md" onClick={() => void handleGenerateRoutine()} disabled={isGenerating || routine.isLoading}>
-              {isGenerating || routine.isLoading ? 'Generando rutina...' : 'Generar rutina semanal'}
-            </LiquidButton>
+          routine.currentRoutine ? (
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+            >
+              Volver al dashboard
+            </Link>
+          ) : (
+            <>
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center gap-2 rounded-full border border-cyan-400/16 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-200 transition hover:bg-cyan-400/16"
+              >
+                Elegir flujo de rutina
+              </Link>
+              <Link
+                to="/routine-builder"
+                className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+              >
+                Crear manualmente
+              </Link>
+            </>
           )
         }
       />
@@ -117,18 +131,20 @@ export function WorkoutPage() {
           onCompleteSet={async (sessionId, setId, payload) => {
             await completeWorkoutSet(sessionId, setId, payload)
           }}
-          onFinishSession={async (sessionId) => {
-            await finishWorkoutSession(sessionId)
+          onFinishSession={async (sessionId, payload) => {
+            await finishWorkoutSession(sessionId, payload)
           }}
         />
 
         <div className="space-y-6">
-          <PanelCard title="Estado del Coach" subtitle="La rutina se consulta desde backend y usa fallback local solo si es necesario.">
+          <PanelCard title="Estado del flujo" subtitle="Workout solo opera sobre rutinas activas, no sobre propuestas pendientes.">
             <div className="space-y-3">
               {[
                 routine.currentRoutine
-                  ? `Rutina actual: ${routine.currentRoutine.name}.`
-                  : 'No hay rutina generada todavia.',
+                  ? `Rutina activa: ${routine.currentRoutine.name}.`
+                  : routine.proposedRoutine
+                    ? 'Hay una propuesta pendiente. Debes aceptarla desde el dashboard.'
+                    : 'No hay rutina activa todavia.',
                 training.activeSession
                   ? `Sesion activa: ${training.activeSession.title}.`
                   : 'No hay una sesion activa en este momento.',
@@ -151,11 +167,23 @@ export function WorkoutPage() {
                   </div>
                   <p className="mt-3 text-sm leading-7 text-slate-300">
                     {training.lastCompletedSummary.completedSets} series completadas y un volumen aproximado de{' '}
-                    {training.lastCompletedSummary.totalVolume.toLocaleString('es-EC')}.
+                    {training.lastCompletedSummary.totalVolume.toLocaleString('es-EC')} kg. Tambien registraste{' '}
+                    {training.lastCompletedSummary.totalReps} reps reales
+                    {training.lastCompletedSummary.totalSeconds > 0
+                      ? ` y ${training.lastCompletedSummary.totalSeconds}s de trabajo por tiempo`
+                      : ''}
+                    .
                   </p>
                 </div>
                 <div className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-sm text-slate-300">
                   Estado: {training.lastCompletedSummary.status}
+                </div>
+                <div className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-sm leading-7 text-slate-300">
+                  Fatiga {training.lastCompletedSummary.fatigueLevel ?? 'sin dato'}/10, dolor{' '}
+                  {training.lastCompletedSummary.painLevel ?? 'sin dato'}/10.
+                  {training.lastCompletedSummary.athleteNotes
+                    ? ` Nota: ${training.lastCompletedSummary.athleteNotes}`
+                    : ' Sin observaciones registradas.'}
                 </div>
               </div>
             ) : (
@@ -166,15 +194,26 @@ export function WorkoutPage() {
           </PanelCard>
 
           {!routine.currentRoutine ? (
-            <PanelCard title="Desbloqueo del Sprint 2" subtitle="Ruta minima para activar el tracker.">
+            <PanelCard title="Antes del tracker" subtitle="Primero define como quieres crear tu plan.">
               <div className="space-y-4">
                 <p className="text-sm leading-7 text-slate-300">
-                  El onboarding ya define objetivo, nivel y dias disponibles. Usa ese perfil para generar la rutina
-                  semanal y habilitar las sesiones en vivo.
+                  El onboarding solo define objetivo, nivel y disponibilidad. El dashboard ahora separa la decision
+                  entre propuesta del Coach Virtual y rutina manual.
                 </p>
-                <LiquidButton size="md" onClick={() => void handleGenerateRoutine()} disabled={isGenerating || routine.isLoading}>
-                  {isGenerating || routine.isLoading ? 'Generando rutina...' : 'Generar rutina semanal'}
-                </LiquidButton>
+                <div className="flex flex-wrap gap-3">
+                  <Link
+                    to="/dashboard"
+                    className="inline-flex items-center gap-2 rounded-full border border-cyan-400/16 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100 transition hover:bg-cyan-400/16"
+                  >
+                    Ir al dashboard
+                  </Link>
+                  <Link
+                    to="/routine-builder"
+                    className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+                  >
+                    Abrir builder manual
+                  </Link>
+                </div>
               </div>
             </PanelCard>
           ) : null}

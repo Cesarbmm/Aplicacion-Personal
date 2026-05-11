@@ -7,6 +7,7 @@ import { onboardingExperienceLevels, onboardingGoals } from './types/profile.js'
 import { type WorkoutUnit } from './types/routine.js'
 import { UserNotFoundError, type UserProfileRepository } from './repositories/user-profile-repository.js'
 import {
+  ExerciseNotFoundError,
   OnboardingRequiredError,
   RoutineDayNotFoundError,
   RoutineNotFoundError,
@@ -48,9 +49,56 @@ const startWorkoutSessionSchema = z.object({
 
 const updateWorkoutSetSchema = z.object({
   completed: z.boolean(),
-  weight: z.number().min(0),
+  weight: z.number().min(0).nullable().default(null),
   unit: workoutUnitSchema,
+  actualReps: z.number().int().min(0).nullable().optional(),
+  actualSeconds: z.number().int().min(0).nullable().optional(),
 })
+
+const finishWorkoutSessionSchema = z.object({
+  fatigueLevel: z.number().int().min(1).max(10).nullable().optional(),
+  painLevel: z.number().int().min(0).max(10).nullable().optional(),
+  athleteNotes: z.string().trim().max(1000).nullable().optional(),
+})
+
+const manualRoutineExerciseSchema = z.object({
+  exerciseId: z.string().min(1),
+  sets: z.number().int().min(1),
+  reps: z.string().trim().min(1),
+  restSeconds: z.number().int().positive(),
+})
+
+const manualRoutineDaySchema = z.object({
+  dayNumber: z.number().int().min(1).max(6),
+  title: z.string().trim().min(1),
+  exercises: z.array(manualRoutineExerciseSchema).min(1),
+})
+
+const manualRoutineSchema = z
+  .object({
+    name: z.string().trim().min(1),
+    goal: z.enum(onboardingGoals),
+    daysPerWeek: z.number().int().min(2).max(6),
+    days: z.array(manualRoutineDaySchema).min(1),
+  })
+  .superRefine((value, context) => {
+    if (value.days.length !== value.daysPerWeek) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['days'],
+        message: 'La rutina manual debe definir un dia por cada jornada disponible.',
+      })
+    }
+
+    const uniqueDayNumbers = new Set(value.days.map((day) => day.dayNumber))
+    if (uniqueDayNumbers.size !== value.days.length) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['days'],
+        message: 'No se permiten dias duplicados en la rutina manual.',
+      })
+    }
+  })
 
 function parseOrigins(origins: string) {
   return origins
@@ -82,6 +130,15 @@ export function createApp({
       status: 'ok',
       service: 'sigmafit-backend',
     })
+  })
+
+  app.get('/api/exercises', async (_request, response, next) => {
+    try {
+      const exerciseCatalog = await trainingRepository.getExerciseCatalog()
+      response.json(exerciseCatalog)
+    } catch (error) {
+      next(error)
+    }
   })
 
   app.get('/api/users/:id/profile', async (request, response, next) => {
@@ -129,6 +186,68 @@ export function createApp({
       )
       const routine = await trainingRepository.replaceActiveRoutine(id, routineDraft)
 
+      response.status(201).json(routine)
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  app.post('/api/users/:id/routines/manual', async (request, response, next) => {
+    try {
+      const { id } = userParamsSchema.parse(request.params)
+      const profile = await userProfileRepository.getProfile(id)
+
+      if (!profile) {
+        throw new UserNotFoundError(id)
+      }
+
+      if (!profile.onboardingCompleted) {
+        throw new OnboardingRequiredError(id)
+      }
+
+      const payload = manualRoutineSchema.parse(request.body)
+      const exerciseCatalog = await trainingRepository.getExerciseCatalog()
+      const exerciseById = new Map(
+        exerciseCatalog.map((exercise) => [exercise.exerciseId, exercise] as const),
+      )
+
+      const routineDraft = {
+        userId: id,
+        name: payload.name,
+        goal: payload.goal,
+        daysPerWeek: payload.daysPerWeek,
+        creationMode: 'manual' as const,
+        days: payload.days
+          .slice()
+          .sort((left, right) => left.dayNumber - right.dayNumber)
+          .map((day) => ({
+            dayNumber: day.dayNumber,
+            title: day.title,
+            exercises: day.exercises.map((exercise, index) => {
+              const catalogExercise = exerciseById.get(exercise.exerciseId)
+
+              if (!catalogExercise) {
+                throw new ExerciseNotFoundError(exercise.exerciseId)
+              }
+
+              return {
+                exerciseId: catalogExercise.exerciseId,
+                name: catalogExercise.name,
+                muscleGroup: catalogExercise.muscleGroup,
+                movementPattern: catalogExercise.movementPattern,
+                equipment: catalogExercise.equipment,
+                trackingType: catalogExercise.trackingType,
+                coachingCue: catalogExercise.coachingCue,
+                exerciseOrder: index + 1,
+                sets: exercise.sets,
+                reps: exercise.reps,
+                restSeconds: exercise.restSeconds,
+              }
+            }),
+          })),
+      }
+
+      const routine = await trainingRepository.replaceActiveRoutine(id, routineDraft)
       response.status(201).json(routine)
     } catch (error) {
       next(error)
@@ -217,7 +336,8 @@ export function createApp({
   app.patch('/api/workout-sessions/:sessionId/finish', async (request, response, next) => {
     try {
       const { sessionId } = workoutSessionParamsSchema.parse(request.params)
-      const summary = await trainingRepository.finishWorkoutSession(sessionId)
+      const payload = finishWorkoutSessionSchema.parse(request.body ?? {})
+      const summary = await trainingRepository.finishWorkoutSession(sessionId, payload)
 
       response.json(summary)
     } catch (error) {
@@ -295,6 +415,14 @@ export function createApp({
     if (error instanceof WorkoutSessionSetNotFoundError) {
       response.status(404).json({
         error: 'WORKOUT_SESSION_SET_NOT_FOUND',
+        message: error.message,
+      })
+      return
+    }
+
+    if (error instanceof ExerciseNotFoundError) {
+      response.status(400).json({
+        error: 'EXERCISE_NOT_FOUND',
         message: error.message,
       })
       return

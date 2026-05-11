@@ -21,6 +21,19 @@ function createTestApp(onboardingCompleted = true) {
 }
 
 describe('SigmaFit backend API', () => {
+  it('returns the official exercise catalog on GET /api/exercises', async () => {
+    const app = createTestApp()
+
+    const response = await request(app).get('/api/exercises')
+
+    expect(response.status).toBe(200)
+    expect(response.body.length).toBeGreaterThan(0)
+    expect(response.body[0]).toMatchObject({
+      exerciseId: expect.any(String),
+      name: expect.any(String),
+    })
+  })
+
   it('responds on GET /api/health', async () => {
     const app = createTestApp()
 
@@ -122,6 +135,221 @@ describe('SigmaFit backend API', () => {
     expect(response.body.error).toBe('ONBOARDING_REQUIRED')
   })
 
+  it('creates a manual routine with valid data', async () => {
+    const app = createTestApp(true)
+    const catalogResponse = await request(app).get('/api/exercises')
+    const exerciseId = catalogResponse.body[0].exerciseId as string
+
+    const response = await request(app)
+      .post(`/api/users/${demoUserId}/routines/manual`)
+      .send({
+        name: 'Rutina personalizada avanzada',
+        goal: 'hypertrophy',
+        daysPerWeek: 2,
+        days: [
+          {
+            dayNumber: 1,
+            title: 'Push A',
+            exercises: [
+              {
+                exerciseId,
+                sets: 4,
+                reps: '8-10',
+                restSeconds: 90,
+              },
+            ],
+          },
+          {
+            dayNumber: 2,
+            title: 'Pull A',
+            exercises: [
+              {
+                exerciseId,
+                sets: 3,
+                reps: '10-12',
+                restSeconds: 75,
+              },
+            ],
+          },
+        ],
+      })
+
+    expect(response.status).toBe(201)
+    expect(response.body).toMatchObject({
+      userId: demoUserId,
+      name: 'Rutina personalizada avanzada',
+      creationMode: 'manual',
+      daysPerWeek: 2,
+    })
+    expect(response.body.days[0].exercises.length).toBe(1)
+  })
+
+  it('rejects manual routines when onboarding is incomplete', async () => {
+    const app = createTestApp(false)
+
+    const response = await request(app)
+      .post(`/api/users/${demoUserId}/routines/manual`)
+      .send({
+        name: 'Rutina manual',
+        goal: 'hypertrophy',
+        daysPerWeek: 2,
+        days: [
+          {
+            dayNumber: 1,
+            title: 'Dia 1',
+            exercises: [
+              {
+                exerciseId: 'exercise-bench',
+                sets: 3,
+                reps: '8-10',
+                restSeconds: 90,
+              },
+            ],
+          },
+          {
+            dayNumber: 2,
+            title: 'Dia 2',
+            exercises: [
+              {
+                exerciseId: 'exercise-row',
+                sets: 3,
+                reps: '10-12',
+                restSeconds: 75,
+              },
+            ],
+          },
+        ],
+      })
+
+    expect(response.status).toBe(409)
+    expect(response.body.error).toBe('ONBOARDING_REQUIRED')
+  })
+
+  it('rejects manual routines when an exercise does not exist in the catalog', async () => {
+    const app = createTestApp(true)
+
+    const response = await request(app)
+      .post(`/api/users/${demoUserId}/routines/manual`)
+      .send({
+        name: 'Rutina manual',
+        goal: 'hypertrophy',
+        daysPerWeek: 2,
+        days: [
+          {
+            dayNumber: 1,
+            title: 'Dia 1',
+            exercises: [
+              {
+                exerciseId: 'exercise-does-not-exist',
+                sets: 3,
+                reps: '8-10',
+                restSeconds: 90,
+              },
+            ],
+          },
+          {
+            dayNumber: 2,
+            title: 'Dia 2',
+            exercises: [
+              {
+                exerciseId: 'exercise-bench',
+                sets: 3,
+                reps: '10-12',
+                restSeconds: 75,
+              },
+            ],
+          },
+        ],
+      })
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBe('EXERCISE_NOT_FOUND')
+  })
+
+  it('rejects manual routines with duplicated days or invalid data', async () => {
+    const app = createTestApp(true)
+
+    const response = await request(app)
+      .post(`/api/users/${demoUserId}/routines/manual`)
+      .send({
+        name: '',
+        goal: 'hypertrophy',
+        daysPerWeek: 2,
+        days: [
+          {
+            dayNumber: 1,
+            title: 'Dia 1',
+            exercises: [],
+          },
+          {
+            dayNumber: 1,
+            title: '',
+            exercises: [
+              {
+                exerciseId: 'exercise-bench',
+                sets: 0,
+                reps: '',
+                restSeconds: 0,
+              },
+            ],
+          },
+        ],
+      })
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBe('VALIDATION_ERROR')
+  })
+
+  it('deactivates the previous active routine when a manual one is created', async () => {
+    const app = createTestApp(true)
+    const generatedRoutineResponse = await request(app).post(`/api/users/${demoUserId}/routines/generate`)
+    const previousRoutineId = generatedRoutineResponse.body.routineId as string
+    const catalogResponse = await request(app).get('/api/exercises')
+    const exerciseId = catalogResponse.body[0].exerciseId as string
+
+    const manualRoutineResponse = await request(app)
+      .post(`/api/users/${demoUserId}/routines/manual`)
+      .send({
+        name: 'Rutina manual',
+        goal: 'strength',
+        daysPerWeek: 2,
+        days: [
+          {
+            dayNumber: 1,
+            title: 'Upper',
+            exercises: [
+              {
+                exerciseId,
+                sets: 5,
+                reps: '3-5',
+                restSeconds: 180,
+              },
+            ],
+          },
+          {
+            dayNumber: 2,
+            title: 'Lower',
+            exercises: [
+              {
+                exerciseId,
+                sets: 4,
+                reps: '5-6',
+                restSeconds: 150,
+              },
+            ],
+          },
+        ],
+      })
+
+    const previousRoutineResponse = await request(app).get(`/api/routines/${previousRoutineId}`)
+    const currentRoutineResponse = await request(app).get(`/api/users/${demoUserId}/routines/current`)
+
+    expect(manualRoutineResponse.status).toBe(201)
+    expect(previousRoutineResponse.body.isActive).toBe(false)
+    expect(currentRoutineResponse.body.routineId).toBe(manualRoutineResponse.body.routineId)
+    expect(currentRoutineResponse.body.creationMode).toBe('manual')
+  })
+
   it('creates a workout session from a routine day', async () => {
     const app = createTestApp(true)
 
@@ -163,6 +391,7 @@ describe('SigmaFit backend API', () => {
         completed: true,
         weight: 50,
         unit: 'kg',
+        actualReps: 12,
       })
 
     expect(response.status).toBe(200)
@@ -171,6 +400,49 @@ describe('SigmaFit backend API', () => {
       completed: true,
       weight: 50,
       unit: 'kg',
+      actualReps: 12,
+    })
+  })
+
+  it('finishes a workout session with athlete feedback and real set summary', async () => {
+    const app = createTestApp(true)
+
+    const routineResponse = await request(app).post(`/api/users/${demoUserId}/routines/generate`)
+    const routineDayId = routineResponse.body.days[0].routineDayId as string
+    const routineId = routineResponse.body.routineId as string
+
+    const sessionResponse = await request(app).post(`/api/users/${demoUserId}/workout-sessions`).send({
+      routineId,
+      routineDayId,
+      unit: 'kg',
+    })
+
+    const sessionId = sessionResponse.body.sessionId as string
+    const setId = sessionResponse.body.exercises[0].sessionSets[0].setId as string
+
+    await request(app).patch(`/api/workout-sessions/${sessionId}/sets/${setId}`).send({
+      completed: true,
+      weight: 50,
+      unit: 'kg',
+      actualReps: 10,
+    })
+
+    const response = await request(app).patch(`/api/workout-sessions/${sessionId}/finish`).send({
+      fatigueLevel: 8,
+      painLevel: 2,
+      athleteNotes: 'Fatiga alta en el ultimo set.',
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toMatchObject({
+      sessionId,
+      status: 'completed',
+      completedSets: 1,
+      totalVolume: 500,
+      totalReps: 10,
+      fatigueLevel: 8,
+      painLevel: 2,
+      athleteNotes: 'Fatiga alta en el ultimo set.',
     })
   })
 })

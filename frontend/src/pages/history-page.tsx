@@ -22,8 +22,8 @@ export function ProgressPage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Progress"
-        title="Lectura semanal para decidir el siguiente bloque."
-        subtitle="Esta vista condensa lo mejor de historial y plan en una sola pantalla con charts reales y recomendaciones mock."
+        title="Progreso explicado para ajustar el siguiente bloque."
+        subtitle="Volumen, consistencia, fuerza proyectada y fatiga se leen como indicadores operativos, no como diagnosticos aislados."
       />
 
       <section className="grid gap-4 md:grid-cols-3">
@@ -53,6 +53,38 @@ export function ProgressPage() {
       </section>
 
       <ProgressChart data={data.trend} />
+
+      <PanelCard title="Que significan estas metricas" subtitle="Definiciones usadas por SigmaFit para evitar lecturas ambiguas.">
+        <div className="grid gap-3 md:grid-cols-2">
+          {data.metricDefinitions.map((item) => (
+            <div key={item} className="rounded-[24px] border border-white/8 bg-black/20 px-4 py-4 text-sm leading-7 text-slate-300">
+              {item}
+            </div>
+          ))}
+        </div>
+      </PanelCard>
+
+      <PanelCard
+        title="Objetivo corporal"
+        subtitle={profile.goal === 'weight_loss' ? 'La app registra peso objetivo, pero calorias queda pendiente para un sprint nutricional.' : 'Referencia corporal para interpretar el bloque actual.'}
+      >
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-[24px] border border-white/8 bg-black/20 px-4 py-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Peso actual</p>
+            <p className="mt-2 font-['Space_Grotesk'] text-3xl font-semibold text-white">{data.bodyTarget.currentWeightKg} kg</p>
+          </div>
+          <div className="rounded-[24px] border border-white/8 bg-black/20 px-4 py-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Peso objetivo</p>
+            <p className="mt-2 font-['Space_Grotesk'] text-3xl font-semibold text-white">{data.bodyTarget.targetWeightKg} kg</p>
+          </div>
+          <div className="rounded-[24px] border border-white/8 bg-black/20 px-4 py-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Calorias</p>
+            <p className="mt-2 text-sm leading-7 text-slate-300">
+              {data.bodyTarget.caloriesTracked ? 'Registro activo' : 'No se registran todavia; por ahora el progreso usa entrenamiento y peso.'}
+            </p>
+          </div>
+        </div>
+      </PanelCard>
 
       <PanelCard title="Recomendaciones del bloque" subtitle="Conclusion operativa del estado actual.">
         <div className="grid gap-3 md:grid-cols-3">

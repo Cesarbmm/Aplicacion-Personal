@@ -1,14 +1,123 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { ArrowRight, CalendarDays, Dumbbell, Sparkles, Waves } from 'lucide-react'
+import { ArrowRight, Bot, CalendarDays, Dumbbell, Sparkles, Waves, Wrench } from 'lucide-react'
 
 import { MetricCard } from '@/components/metric-card'
 import { MiniChart } from '@/components/mini-chart'
 import { PageHeader } from '@/components/page-header'
 import { PanelCard } from '@/components/panel-card'
 import { LiquidButton } from '@/components/ui/liquid-glass-button'
-import { formatSigmaExperienceLevel, formatSigmaGoal } from '@/lib/sigmafit/catalog'
+import {
+  formatSigmaExperienceLevel,
+  formatSigmaGoal,
+} from '@/lib/sigmafit/catalog'
+import type {
+  SigmaExperienceLevel,
+  SigmaRoutine,
+  SigmaRoutineCreationMode,
+} from '@/lib/sigmafit/types'
 import { useSigmafitStore } from '@/store/sigmafit-store'
+
+type RoutineRecommendation = {
+  badge: string
+  message: string
+  primaryFlow: SigmaRoutineCreationMode
+  primaryLabel: string
+  secondaryLabel: string
+  secondaryHint: string
+}
+
+function getRoutineRecommendation(experienceLevel: SigmaExperienceLevel): RoutineRecommendation {
+  if (experienceLevel === 'beginner') {
+    return {
+      badge: 'Recomendado para tu nivel',
+      message:
+        'Recomendado: usa el Coach Virtual para obtener una rutina estructurada y segura segun tu objetivo.',
+      primaryFlow: 'coach',
+      primaryLabel: 'Generar con Coach Virtual',
+      secondaryLabel: 'Crear rutina manual',
+      secondaryHint: 'Tambien puedes crearla manualmente, pero conviene partir de una base guiada.',
+    }
+  }
+
+  if (experienceLevel === 'intermediate') {
+    return {
+      badge: 'Coach sugerido',
+      message: 'Puedes usar el Coach Virtual como base y luego ajustar tu rutina.',
+      primaryFlow: 'coach',
+      primaryLabel: 'Generar con Coach Virtual',
+      secondaryLabel: 'Crear rutina manual',
+      secondaryHint: 'Si prefieres afinar tu propio bloque, el builder manual queda disponible.',
+    }
+  }
+
+  return {
+    badge: 'Opciones flexibles',
+    message: 'Puedes crear tu propia rutina o generar una propuesta inicial del Coach Virtual.',
+    primaryFlow: 'manual',
+    primaryLabel: 'Crear rutina manual',
+    secondaryLabel: 'Generar con Coach Virtual',
+    secondaryHint: 'El Coach puede servirte como base y luego puedes personalizarla.',
+  }
+}
+
+function getRoutineSourceLabel(source: 'backend' | 'fallback' | 'none') {
+  if (source === 'fallback') {
+    return 'fallback local'
+  }
+
+  if (source === 'backend') {
+    return 'backend'
+  }
+
+  return 'sin fuente'
+}
+
+function getRoutineModeLabel(mode: SigmaRoutineCreationMode) {
+  return mode === 'manual' ? 'Manual' : 'Coach Virtual'
+}
+
+function RoutineDaysGrid({ routine }: { routine: SigmaRoutine }) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {routine.days.map((day) => (
+        <div key={day.routineDayId} className="rounded-[24px] border border-white/8 bg-black/20 px-4 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-medium text-white">{day.title}</p>
+              <p className="mt-1 text-sm text-slate-400">{day.exercises.length} ejercicios</p>
+            </div>
+            <p className="text-sm text-cyan-200">
+              {day.exercises.reduce((total, exercise) => total + exercise.sets, 0)} sets
+            </p>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {day.exercises.map((exercise) => (
+              <div
+                key={exercise.routineExerciseId}
+                className="rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3 text-sm text-slate-300"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-white">{exercise.name}</p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">
+                      {exercise.muscleGroup}
+                    </p>
+                  </div>
+                  <p className="text-right text-xs text-cyan-200">
+                    {exercise.sets} x {exercise.reps}
+                  </p>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">Descanso recomendado: {exercise.restSeconds}s</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export function DashboardPage() {
   const profile = useSigmafitStore((state) => state.profile)
@@ -18,9 +127,16 @@ export function DashboardPage() {
   const progressHistory = useSigmafitStore((state) => state.progressHistory)
   const session = useSigmafitStore((state) => state.session)
   const loadCurrentRoutine = useSigmafitStore((state) => state.loadCurrentRoutine)
-  const generateRoutine = useSigmafitStore((state) => state.generateRoutine)
+  const generateRoutineProposal = useSigmafitStore((state) => state.generateRoutineProposal)
+  const acceptRoutineProposal = useSigmafitStore((state) => state.acceptRoutineProposal)
+  const regenerateRoutineProposal = useSigmafitStore((state) => state.regenerateRoutineProposal)
+  const selectRoutineFlow = useSigmafitStore((state) => state.selectRoutineFlow)
 
   const [isGenerating, setIsGenerating] = useState(false)
+  const recommendation = getRoutineRecommendation(profile.experienceLevel)
+  const latestProgressPoint = progressHistory[progressHistory.length - 1]
+  const activeRoutine = routine.currentRoutine
+  const proposedRoutine = routine.proposedRoutine
 
   useEffect(() => {
     if (session.isAuthenticated && session.onboardingComplete) {
@@ -28,72 +144,307 @@ export function DashboardPage() {
     }
   }, [loadCurrentRoutine, session.isAuthenticated, session.onboardingComplete])
 
-  const latestProgressPoint = progressHistory[progressHistory.length - 1]
-  const routineDays = routine.currentRoutine?.days ?? []
-  const todaysPreview = routineDays[0] ?? null
-
   const dashboardMetrics = useMemo(
     () => [
       {
         title: 'Perfil',
         value: formatSigmaGoal(profile.goal),
-        caption: `${formatSigmaExperienceLevel(profile.experienceLevel)} · ${profile.daysPerWeek} dias por semana`,
+        caption: `${formatSigmaExperienceLevel(profile.experienceLevel)} - ${profile.daysPerWeek} dias por semana`,
         icon: <Sparkles size={18} className="text-cyan-200" />,
       },
       {
-        title: 'Rutina activa',
-        value: routine.currentRoutine ? `${routine.currentRoutine.days.length} dias` : 'Sin generar',
-        caption: routine.currentRoutine
-          ? `${routine.currentRoutine.name} disponible desde ${routine.source}.`
-          : 'Genera el primer bloque semanal desde el coach virtual.',
+        title: 'Rutina',
+        value: activeRoutine ? getRoutineModeLabel(activeRoutine.creationMode) : proposedRoutine ? 'Propuesta lista' : 'Sin definir',
+        caption: activeRoutine
+          ? `${activeRoutine.name} activa desde ${getRoutineSourceLabel(routine.source)}.`
+          : proposedRoutine
+            ? `Propuesta pendiente desde ${getRoutineSourceLabel(routine.proposalSource)}.`
+            : 'Primero elige como quieres crear tu plan.',
         icon: <CalendarDays size={18} className="text-cyan-200" />,
       },
       {
         title: 'Readiness',
         value: `${workout.readiness}%`,
-        caption: 'Contexto actual del atleta para arrancar el microciclo.',
+        caption: 'Contexto actual del atleta antes de arrancar el siguiente bloque.',
         icon: <Waves size={18} className="text-cyan-200" />,
       },
       {
         title: 'Volumen',
         value: `${latestProgressPoint?.volume.toLocaleString('es-EC') ?? 0} kg`,
-        caption: 'Historial mock acumulado listo para convivir con las nuevas sesiones.',
+        caption: 'Historial mock acumulado que convivira con las nuevas sesiones.',
         icon: <Dumbbell size={18} className="text-cyan-200" />,
       },
     ],
     [
+      activeRoutine,
       latestProgressPoint?.volume,
       profile.daysPerWeek,
       profile.experienceLevel,
       profile.goal,
-      routine.currentRoutine,
+      proposedRoutine,
+      routine.proposalSource,
       routine.source,
       workout.readiness,
     ],
   )
 
-  async function handleGenerateRoutine() {
+  async function handleGenerateProposal() {
+    selectRoutineFlow('coach')
     setIsGenerating(true)
     try {
-      await generateRoutine()
+      await generateRoutineProposal()
     } finally {
       setIsGenerating(false)
     }
+  }
+
+  async function handleRegenerateProposal() {
+    selectRoutineFlow('coach')
+    setIsGenerating(true)
+    try {
+      await regenerateRoutineProposal()
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  function renderRoutineDecisionPanel() {
+    const primaryIsCoach = recommendation.primaryFlow === 'coach'
+
+    return (
+      <PanelCard
+        title="Crear mi rutina"
+        subtitle="Con estos datos SigmaFit puede generar una propuesta o permitirte crear tu propia rutina."
+        action={
+          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/14 bg-cyan-400/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-cyan-200">
+            <Sparkles size={14} />
+            {recommendation.badge}
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          <div className="rounded-[24px] border border-cyan-400/14 bg-cyan-400/8 px-4 py-4 text-sm leading-7 text-slate-200">
+            {recommendation.message}
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            {[
+              `Objetivo: ${formatSigmaGoal(profile.goal)}.`,
+              `Nivel: ${formatSigmaExperienceLevel(profile.experienceLevel)}.`,
+              `Disponibilidad: ${profile.daysPerWeek} dias por semana.`,
+            ].map((line) => (
+              <div key={line} className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-sm text-slate-300">
+                {line}
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => {
+                void handleGenerateProposal()
+              }}
+              className={`rounded-[28px] border px-5 py-5 text-left transition ${
+                primaryIsCoach
+                  ? 'border-cyan-400/22 bg-cyan-400/10'
+                  : 'border-white/8 bg-black/20 hover:border-cyan-400/20 hover:bg-cyan-400/10'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Bot className="h-5 w-5 text-cyan-300" />
+                <p className="font-medium text-white">Generar con Coach Virtual</p>
+              </div>
+              <p className="mt-3 text-sm leading-7 text-slate-300">
+                Propuesta estructurada desde tu objetivo, nivel y disponibilidad semanal.
+              </p>
+              <p className="mt-4 text-xs uppercase tracking-[0.18em] text-cyan-200">
+                {primaryIsCoach ? 'Accion principal' : 'Accion secundaria'}
+              </p>
+            </button>
+
+            <Link
+              to="/routine-builder"
+              onClick={() => {
+                selectRoutineFlow('manual')
+              }}
+              className={`rounded-[28px] border px-5 py-5 text-left transition ${
+                primaryIsCoach
+                  ? 'border-white/8 bg-black/20 hover:border-cyan-400/20 hover:bg-cyan-400/10'
+                  : 'border-cyan-400/22 bg-cyan-400/10'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Wrench className="h-5 w-5 text-cyan-300" />
+                <p className="font-medium text-white">Crear rutina manual</p>
+              </div>
+              <p className="mt-3 text-sm leading-7 text-slate-300">{recommendation.secondaryHint}</p>
+              <p className="mt-4 text-xs uppercase tracking-[0.18em] text-cyan-200">
+                {primaryIsCoach ? 'Accion secundaria' : 'Accion principal'}
+              </p>
+            </Link>
+          </div>
+
+          {routine.error ? (
+            <div className="rounded-[22px] border border-rose-400/18 bg-rose-400/10 px-4 py-4 text-sm text-rose-100">
+              {routine.error}
+            </div>
+          ) : null}
+
+          {(isGenerating || routine.isLoading) ? (
+            <div className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-sm text-slate-300">
+              Generando propuesta...
+            </div>
+          ) : null}
+        </div>
+      </PanelCard>
+    )
+  }
+
+  function renderProposalPanel() {
+    if (!proposedRoutine) {
+      return null
+    }
+
+    return (
+      <PanelCard
+        title="Propuesta del Coach Virtual"
+        subtitle="Esta rutina fue generada con tu perfil actual."
+        action={
+          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/14 bg-cyan-400/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-cyan-200">
+            <Bot size={14} />
+            {profile.experienceLevel === 'advanced' ? 'Base editable' : 'Recomendado para tu nivel'}
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          <div className="grid gap-3 md:grid-cols-4">
+            {[
+              `Rutina: ${proposedRoutine.name}.`,
+              `Objetivo: ${formatSigmaGoal(profile.goal)}.`,
+              `Nivel: ${formatSigmaExperienceLevel(profile.experienceLevel)}.`,
+              `Fuente: ${getRoutineSourceLabel(routine.proposalSource)}.`,
+            ].map((line) => (
+              <div key={line} className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-sm text-slate-300">
+                {line}
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-[24px] border border-cyan-400/14 bg-cyan-400/8 px-4 py-4 text-sm leading-7 text-slate-200">
+            {profile.experienceLevel === 'advanced'
+              ? 'Puedes usarla como base o crear una personalizada.'
+              : 'Esta propuesta ya respeta tu objetivo, tu nivel y los dias que declaraste en onboarding.'}
+          </div>
+
+          <RoutineDaysGrid routine={proposedRoutine} />
+
+          {routine.error ? (
+            <div className="rounded-[22px] border border-rose-400/18 bg-rose-400/10 px-4 py-4 text-sm text-rose-100">
+              {routine.error}
+            </div>
+          ) : null}
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <LiquidButton size="md" onClick={() => acceptRoutineProposal()}>
+              Usar esta rutina
+            </LiquidButton>
+
+            <button
+              type="button"
+              onClick={() => {
+                void handleRegenerateProposal()
+              }}
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+            >
+              Regenerar propuesta
+            </button>
+
+            <Link
+              to="/routine-builder"
+              onClick={() => {
+                selectRoutineFlow('manual')
+              }}
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/8 bg-black/20 px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+            >
+              Crear manualmente
+            </Link>
+          </div>
+        </div>
+      </PanelCard>
+    )
+  }
+
+  function renderActiveRoutinePanel() {
+    if (!activeRoutine) {
+      return null
+    }
+
+    return (
+      <PanelCard
+        title={activeRoutine.creationMode === 'manual' ? 'Rutina manual activa' : 'Rutina activa del Coach'}
+        subtitle="La rutina ya fue creada explicitamente por el usuario y esta lista para el tracker."
+        action={
+          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/14 bg-cyan-400/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-cyan-200">
+            <Sparkles size={14} />
+            {getRoutineModeLabel(activeRoutine.creationMode)} - {getRoutineSourceLabel(routine.source)}
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          <div className="grid gap-3 md:grid-cols-4">
+            {[
+              `Nombre: ${activeRoutine.name}.`,
+              `Dias: ${activeRoutine.daysPerWeek}.`,
+              `Creacion: ${getRoutineModeLabel(activeRoutine.creationMode)}.`,
+              `Backend: ${session.backendStatus}.`,
+            ].map((line) => (
+              <div key={line} className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-sm text-slate-300">
+                {line}
+              </div>
+            ))}
+          </div>
+
+          <RoutineDaysGrid routine={activeRoutine} />
+
+          <div className="flex flex-wrap gap-3">
+            <Link
+              to="/workout"
+              className="inline-flex items-center gap-2 rounded-full border border-cyan-400/16 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100 transition hover:bg-cyan-400/16"
+            >
+              Abrir workout
+              <ArrowRight size={16} />
+            </Link>
+            <Link
+              to="/routine-builder"
+              onClick={() => {
+                selectRoutineFlow('manual')
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+            >
+              Crear otra rutina manual
+            </Link>
+          </div>
+        </div>
+      </PanelCard>
+    )
   }
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Dashboard"
-        title={`Hola, ${profile.displayName}. El coach virtual ya puede darte bloque.`}
+        title={`Hola, ${profile.displayName}.`}
         subtitle={
-          routine.currentRoutine
-            ? 'La rutina semanal se genera desde backend cuando esta disponible y cae a fallback local cuando hace falta.'
-            : 'Completa la generación del primer bloque para desbloquear el flujo completo de entrenamiento en vivo.'
+          activeRoutine
+            ? 'Tu rutina activa ya esta definida y el tracker puede usarla sin pasos extra.'
+            : proposedRoutine
+              ? 'Ya tienes una propuesta del Coach. Revísala antes de activarla.'
+              : 'El onboarding solo define tu perfil. Ahora decide como quieres crear tu plan.'
         }
         actions={
           <>
-            {routine.currentRoutine ? (
+            {activeRoutine ? (
               <Link
                 to="/workout"
                 className="inline-flex items-center gap-2 rounded-full border border-cyan-400/16 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-200 transition hover:bg-cyan-400/16"
@@ -101,11 +452,7 @@ export function DashboardPage() {
                 Abrir workout
                 <ArrowRight size={16} />
               </Link>
-            ) : (
-              <LiquidButton size="md" onClick={() => void handleGenerateRoutine()} disabled={isGenerating || routine.isLoading}>
-                {isGenerating || routine.isLoading ? 'Generando rutina...' : 'Generar rutina semanal'}
-              </LiquidButton>
-            )}
+            ) : null}
             <Link
               to="/progress"
               className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
@@ -129,79 +476,18 @@ export function DashboardPage() {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.12fr_0.88fr]">
-        <PanelCard
-          title="Coach Virtual"
-          subtitle={
-            routine.currentRoutine
-              ? 'Tu rutina semanal ya fue generada. Puedes revisar los dias, ejercicios y volumen de cada bloque.'
-              : 'No hay rutina activa todavia. El backend la genera desde perfil + catalogo oficial de ejercicios.'
-          }
-          action={
-            routine.currentRoutine ? (
-              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/14 bg-cyan-400/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-cyan-200">
-                <Sparkles size={14} />
-                Fuente {routine.source}
-              </div>
-            ) : null
-          }
-        >
-          {!routine.currentRoutine ? (
-            <div className="space-y-4">
-              <div className="rounded-[24px] border border-white/8 bg-black/20 px-4 py-4 text-sm leading-7 text-slate-300">
-                El usuario ya tiene onboarding completo. El siguiente paso es generar el bloque semanal con base
-                en objetivo, nivel y dias disponibles.
-              </div>
+        {activeRoutine ? renderActiveRoutinePanel() : proposedRoutine ? renderProposalPanel() : renderRoutineDecisionPanel()}
 
-              <LiquidButton size="md" onClick={() => void handleGenerateRoutine()} disabled={isGenerating || routine.isLoading}>
-                {isGenerating || routine.isLoading ? 'Generando rutina...' : 'Generar rutina semanal'}
-              </LiquidButton>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                {routineDays.map((day) => (
-                  <div key={day.routineDayId} className="rounded-[24px] border border-white/8 bg-black/20 px-4 py-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-white">{day.title}</p>
-                        <p className="mt-1 text-sm text-slate-400">{day.exercises.length} ejercicios</p>
-                      </div>
-                      <p className="text-sm text-cyan-200">
-                        {day.exercises.reduce((total, exercise) => total + exercise.sets, 0)} sets
-                      </p>
-                    </div>
-
-                    <div className="mt-4 space-y-2">
-                      {day.exercises.slice(0, 3).map((exercise) => (
-                        <div
-                          key={exercise.routineExerciseId}
-                          className="rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3 text-sm text-slate-300"
-                        >
-                          {exercise.name} · {exercise.sets} x {exercise.reps}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {routine.error ? (
-                <div className="rounded-[22px] border border-rose-400/18 bg-rose-400/10 px-4 py-4 text-sm text-rose-100">
-                  {routine.error}
-                </div>
-              ) : null}
-            </div>
-          )}
-        </PanelCard>
-
-        <PanelCard title="Proxima accion" subtitle="Acceso rapido al entrenamiento del dia y lectura del estado actual.">
+        <PanelCard title="Proxima accion" subtitle="Estado del flujo de rutina y acceso al entrenamiento en vivo.">
           <div className="space-y-6">
             <div className="rounded-[24px] border border-cyan-400/14 bg-cyan-400/8 px-4 py-4 text-sm leading-7 text-slate-200">
               {training.activeSession
                 ? `Hay una sesion activa en ${training.activeSession.title}. Puedes retomarla desde Workout.`
-                : todaysPreview
-                  ? `La primera jornada lista es ${todaysPreview.title}. Entra a Workout para iniciar la sesion y registrar series.`
-                  : 'Primero genera una rutina para habilitar la sesion en vivo.'}
+                : activeRoutine
+                  ? `La rutina ${activeRoutine.name} ya esta activa. Entra a Workout para iniciar la sesion del dia.`
+                  : proposedRoutine
+                    ? 'Tienes una propuesta pendiente. Aceptala o regenerala antes de pasar al tracker.'
+                    : 'Aun no existe una rutina activa. Primero elige si quieres usar el Coach Virtual o crearla manualmente.'}
             </div>
 
             <div>

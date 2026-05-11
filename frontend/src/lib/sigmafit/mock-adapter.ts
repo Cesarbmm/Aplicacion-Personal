@@ -100,7 +100,22 @@ export function getSigmaProgressView(state: SigmafitStateSnapshot) {
       { label: '1RM proyectado', value: `${latestPoint?.projectedOneRm ?? 0} kg` },
     ],
     trend: state.progressHistory,
+    bodyTarget: {
+      currentWeightKg: state.profile.weightKg,
+      targetWeightKg: state.profile.targetWeightKg,
+      remainingKg: Number((state.profile.weightKg - state.profile.targetWeightKg).toFixed(1)),
+      caloriesTracked: false,
+    },
+    metricDefinitions: [
+      'Volumen semanal = suma aproximada de peso x reps reales en las series completadas.',
+      'Consistencia = adherencia estimada segun sesiones finalizadas y sets completados.',
+      '1RM proyectado = estimacion de fuerza basada en el trabajo registrado; no es un maximo real.',
+      'Fatiga = lectura subjetiva del cierre de sesion y carga acumulada, escala 0-100.',
+    ],
     recommendations: [
+      state.profile.goal === 'weight_loss'
+        ? `Objetivo corporal: ${state.profile.weightKg} kg actuales hacia ${state.profile.targetWeightKg} kg. Calorias aun no se registran en esta version.`
+        : `Peso corporal registrado: ${state.profile.weightKg} kg. Objetivo de referencia: ${state.profile.targetWeightKg} kg.`,
       volumeDelta >= 0
         ? `El volumen semanal subio ${volumeDelta.toLocaleString('es-EC')} kg frente a la semana anterior.`
         : 'El volumen semanal bajo; revisa si fue deload o perdida de adherencia.',

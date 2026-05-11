@@ -11,7 +11,7 @@ export function RootLayout({ children }: PropsWithChildren) {
   const isAuthenticated = useSigmafitStore((state) => state.session.isAuthenticated)
   const onboardingComplete = useSigmafitStore((state) => state.session.onboardingComplete)
 
-  const appRoutes = new Set(['/dashboard', '/workout', '/progress', '/profile'])
+  const appRoutes = new Set(['/dashboard', '/workout', '/progress', '/profile', '/routine-builder'])
   const publicRoutes = new Set(['/', '/login', '/register'])
   const isAppRoute = appRoutes.has(pathname)
 

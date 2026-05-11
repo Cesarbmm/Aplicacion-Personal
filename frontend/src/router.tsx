@@ -8,6 +8,7 @@ import { DashboardPage } from './pages/dashboard-page'
 import { ProgressPage } from './pages/history-page'
 import { LandingPage } from './pages/landing-page'
 import { LoginPage } from './pages/login-page'
+import { RoutineBuilderPage } from './pages/routine-builder-page'
 import { WorkoutPage } from './pages/training-page'
 import { RegisterPage } from './pages/welcome-page'
 
@@ -61,6 +62,12 @@ const profileRoute = createRoute({
   component: ProfilePage,
 })
 
+const routineBuilderRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/routine-builder',
+  component: RoutineBuilderPage,
+})
+
 function createRedirectRoute(path: string, to: string) {
   return createRoute({
     getParentRoute: () => rootRoute,
@@ -86,6 +93,7 @@ export const routeTree = rootRoute.addChildren([
   workoutRoute,
   progressRoute,
   profileRoute,
+  routineBuilderRoute,
   legacyWelcomeRoute,
   legacyTrainingRoute,
   legacyHistoryRoute,

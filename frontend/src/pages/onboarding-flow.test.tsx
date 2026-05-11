@@ -60,19 +60,29 @@ describe('SigmaFit onboarding flow', () => {
       },
     })
 
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      jsonResponse({
-        userId: demoUserId,
-        email: 'demo@sigmafit.app',
-        name: 'Demo Athlete',
-        onboardingCompleted: true,
-        goal: 'hypertrophy',
-        experienceLevel: 'intermediate',
-        daysPerWeek: 4,
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-02T00:00:00.000Z',
-      }),
-    )
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        jsonResponse({
+          userId: demoUserId,
+          email: 'demo@sigmafit.app',
+          name: 'Demo Athlete',
+          onboardingCompleted: true,
+          goal: 'hypertrophy',
+          experienceLevel: 'intermediate',
+          daysPerWeek: 4,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-02T00:00:00.000Z',
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            error: 'ROUTINE_NOT_FOUND',
+            message: 'No existe una rutina activa.',
+          },
+          404,
+        ),
+      )
 
     const router = await renderRoute('/register')
     const user = userEvent.setup()
@@ -82,6 +92,7 @@ describe('SigmaFit onboarding flow', () => {
     await user.click(screen.getByRole('button', { name: /intermedio/i }))
     await user.click(screen.getByRole('button', { name: /continuar/i }))
     await user.click(screen.getByRole('button', { name: /^4 dias por semana$/i }))
+    await user.click(screen.getByRole('button', { name: /continuar/i }))
     await user.click(screen.getByRole('button', { name: /guardar y abrir dashboard/i }))
 
     await waitFor(() => {

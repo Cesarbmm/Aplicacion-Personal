@@ -1,4 +1,6 @@
 import type {
+  SigmaExerciseCatalogEntry,
+  SigmaManualRoutinePayload,
   SigmaOnboardingPayload,
   SigmaRoutine,
   SigmaUnit,
@@ -35,8 +37,16 @@ export type StartWorkoutSessionPayload = {
 
 export type UpdateWorkoutSessionSetPayload = {
   completed: boolean
-  weight: number
+  weight: number | null
   unit: SigmaUnit
+  actualReps?: number | null
+  actualSeconds?: number | null
+}
+
+export type FinishWorkoutSessionPayload = {
+  fatigueLevel?: number | null
+  painLevel?: number | null
+  athleteNotes?: string | null
 }
 
 export class ApiRequestError extends Error {
@@ -118,13 +128,22 @@ export const sigmafitApi = {
   getCurrentRoutine(userId: string) {
     return request<SigmaRoutine>(`/users/${userId}/routines/current`)
   },
-  generateRoutine(userId: string) {
+  generateRoutineProposal(userId: string) {
     return request<SigmaRoutine>(`/users/${userId}/routines/generate`, {
       method: 'POST',
     })
   },
+  createManualRoutine(userId: string, payload: SigmaManualRoutinePayload) {
+    return request<SigmaRoutine>(`/users/${userId}/routines/manual`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
   getRoutine(routineId: string) {
     return request<SigmaRoutine>(`/routines/${routineId}`)
+  },
+  getExercises() {
+    return request<SigmaExerciseCatalogEntry[]>('/exercises')
   },
   startWorkoutSession(userId: string, payload: StartWorkoutSessionPayload) {
     return request<SigmaWorkoutSession>(`/users/${userId}/workout-sessions`, {
@@ -138,9 +157,10 @@ export const sigmafitApi = {
       body: JSON.stringify(payload),
     })
   },
-  finishWorkoutSession(sessionId: string) {
+  finishWorkoutSession(sessionId: string, payload: FinishWorkoutSessionPayload = {}) {
     return request<SigmaWorkoutSessionSummary>(`/workout-sessions/${sessionId}/finish`, {
       method: 'PATCH',
+      body: JSON.stringify(payload),
     })
   },
 }

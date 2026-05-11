@@ -1,6 +1,9 @@
 export type SigmaGoal = 'hypertrophy' | 'strength' | 'weight_loss'
 export type SigmaExperienceLevel = 'beginner' | 'intermediate' | 'advanced'
 export type SigmaUnit = 'kg' | 'lb'
+export type SigmaRoutineCreationMode = 'coach' | 'manual'
+export type SigmaRoutineSource = 'none' | 'backend' | 'fallback'
+export type SigmaExerciseTrackingType = 'weight_reps' | 'bodyweight_reps' | 'time'
 
 export type SigmaWorkoutSet = {
   id: string
@@ -32,6 +35,18 @@ export type SigmaWorkoutState = {
   exercises: SigmaWorkoutExercise[]
 }
 
+export type SigmaExerciseCatalogEntry = {
+  exerciseId: string
+  name: string
+  muscleGroup: string
+  movementPattern: string
+  equipment: string
+  trackingType: SigmaExerciseTrackingType
+  coachingCue: string
+  difficulty: SigmaExperienceLevel
+  goalFocus: SigmaGoal | 'general'
+}
+
 export type SigmaRoutineExercise = {
   routineExerciseId: string
   exerciseId: string
@@ -39,6 +54,8 @@ export type SigmaRoutineExercise = {
   muscleGroup: string
   movementPattern: string
   equipment: string
+  trackingType: SigmaExerciseTrackingType
+  coachingCue: string
   exerciseOrder: number
   sets: number
   reps: string
@@ -58,6 +75,7 @@ export type SigmaRoutine = {
   name: string
   goal: SigmaGoal
   daysPerWeek: number
+  creationMode: SigmaRoutineCreationMode
   isActive: boolean
   createdAt: string
   days: SigmaRoutineDay[]
@@ -65,10 +83,19 @@ export type SigmaRoutine = {
 
 export type SigmaRoutineState = {
   currentRoutine: SigmaRoutine | null
+  proposedRoutine: SigmaRoutine | null
+  exerciseCatalog: SigmaExerciseCatalogEntry[]
   isLoading: boolean
+  isCatalogLoading: boolean
+  isSavingManual: boolean
   error: string | null
-  source: 'none' | 'backend' | 'local'
+  source: SigmaRoutineSource
+  proposalSource: SigmaRoutineSource
   lastGeneratedAt: string | null
+  hasUserChosenRoutineFlow: boolean
+  proposalPendingAcceptance: boolean
+  pendingRoutineId: string | null
+  selectedCreationFlow: SigmaRoutineCreationMode | null
 }
 
 export type SigmaWorkoutSessionSet = {
@@ -78,6 +105,8 @@ export type SigmaWorkoutSessionSet = {
   exerciseName: string
   setNumber: number
   targetReps: number
+  actualReps: number | null
+  actualSeconds: number | null
   completed: boolean
   weight: number | null
   unit: SigmaUnit
@@ -89,6 +118,9 @@ export type SigmaWorkoutSessionExercise = {
   exerciseId: string
   name: string
   muscleGroup: string
+  equipment: string
+  trackingType: SigmaExerciseTrackingType
+  coachingCue: string
   exerciseOrder: number
   sets: number
   reps: string
@@ -114,6 +146,11 @@ export type SigmaWorkoutSessionSummary = {
   status: 'completed'
   completedSets: number
   totalVolume: number
+  totalReps: number
+  totalSeconds: number
+  fatigueLevel: number | null
+  painLevel: number | null
+  athleteNotes: string | null
 }
 
 export type SigmaTrainingState = {
@@ -124,6 +161,26 @@ export type SigmaTrainingState = {
   error: string | null
   source: 'none' | 'backend' | 'local'
   lastCompletedSummary: SigmaWorkoutSessionSummary | null
+}
+
+export type SigmaManualRoutineExerciseInput = {
+  exerciseId: string
+  sets: number
+  reps: string
+  restSeconds: number
+}
+
+export type SigmaManualRoutineDayInput = {
+  dayNumber: number
+  title: string
+  exercises: SigmaManualRoutineExerciseInput[]
+}
+
+export type SigmaManualRoutinePayload = {
+  name: string
+  goal: SigmaGoal
+  daysPerWeek: number
+  days: SigmaManualRoutineDayInput[]
 }
 
 export type SigmaProgressPoint = {
@@ -146,6 +203,10 @@ export type SigmaProfile = {
   notes: string
   heightCm: number
   weightKg: number
+  targetWeightKg: number
+  benchEstimateKg: number
+  squatEstimateKg: number
+  deadliftEstimateKg: number
 }
 
 export type SigmaPreferences = {
@@ -180,4 +241,9 @@ export type SigmaOnboardingPayload = {
   goal: SigmaGoal
   experienceLevel: SigmaExperienceLevel
   daysPerWeek: number
+  currentWeightKg: number
+  targetWeightKg: number
+  benchEstimateKg: number
+  squatEstimateKg: number
+  deadliftEstimateKg: number
 }

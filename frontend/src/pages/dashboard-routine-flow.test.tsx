@@ -13,6 +13,7 @@ const generatedRoutineResponse = {
   name: 'Rutina semanal - Hipertrofia',
   goal: 'hypertrophy',
   daysPerWeek: 3,
+  creationMode: 'coach',
   isActive: true,
   createdAt: '2026-01-05T00:00:00.000Z',
   days: [
@@ -64,7 +65,7 @@ describe('SigmaFit dashboard routine flow', () => {
     })
   })
 
-  it('shows the routine generation button when no active routine exists', async () => {
+  it('shows the create my routine panel when there is no active routine and hides generic mock routines', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       jsonResponse(
         {
@@ -77,10 +78,66 @@ describe('SigmaFit dashboard routine flow', () => {
 
     await renderRoute('/dashboard')
 
-    expect((await screen.findAllByRole('button', { name: /generar rutina semanal/i })).length).toBeGreaterThan(0)
+    expect(await screen.findByText(/crear mi rutina/i)).toBeTruthy()
+    expect(screen.getByText(/con estos datos sigmafit puede generar una propuesta/i)).toBeTruthy()
+    expect(screen.queryByText(/press de banca/i)).toBeNull()
+    expect(screen.queryByText(/abrir workout/i)).toBeNull()
   })
 
-  it('generates a routine and renders its days and exercises', async () => {
+  it('shows the coach recommendation for beginner and intermediate users', async () => {
+    useSigmafitStore.setState({
+      ...useSigmafitStore.getState(),
+      profile: {
+        ...useSigmafitStore.getState().profile,
+        experienceLevel: 'beginner',
+      },
+    })
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      jsonResponse(
+        {
+          error: 'ROUTINE_NOT_FOUND',
+          message: 'No existe una rutina activa.',
+        },
+        404,
+      ),
+    )
+
+    await renderRoute('/dashboard')
+
+    expect(
+      await screen.findByText(/recomendado: usa el coach virtual para obtener una rutina estructurada y segura/i),
+    ).toBeTruthy()
+  })
+
+  it('highlights the manual option for advanced users', async () => {
+    useSigmafitStore.setState({
+      ...useSigmafitStore.getState(),
+      profile: {
+        ...useSigmafitStore.getState().profile,
+        experienceLevel: 'advanced',
+      },
+    })
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      jsonResponse(
+        {
+          error: 'ROUTINE_NOT_FOUND',
+          message: 'No existe una rutina activa.',
+        },
+        404,
+      ),
+    )
+
+    await renderRoute('/dashboard')
+
+    expect(
+      await screen.findByText(/puedes crear tu propia rutina o generar una propuesta inicial del coach virtual/i),
+    ).toBeTruthy()
+    expect(screen.getAllByText(/crear rutina manual/i).length).toBeGreaterThan(0)
+  })
+
+  it('generates a coach proposal and only activates it after user confirmation', async () => {
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
         jsonResponse(
@@ -96,11 +153,20 @@ describe('SigmaFit dashboard routine flow', () => {
     await renderRoute('/dashboard')
     const user = userEvent.setup()
 
-    await user.click((await screen.findAllByRole('button', { name: /generar rutina semanal/i }))[0])
+    await user.click(screen.getAllByRole('button', { name: /generar con coach virtual/i })[0])
 
     await waitFor(() => {
-      expect(screen.getAllByText(/dia 1 - push/i).length).toBeGreaterThan(0)
+      expect(screen.getByText(/propuesta del coach virtual/i)).toBeTruthy()
+      expect(screen.getByText(/fuente: backend/i)).toBeTruthy()
       expect(screen.getByText(/press de banca/i)).toBeTruthy()
+      expect(screen.queryByText(/abrir workout/i)).toBeNull()
+    })
+
+    await user.click(screen.getByRole('button', { name: /usar esta rutina/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/rutina activa del coach/i)).toBeTruthy()
+      expect(screen.getAllByText(/abrir workout/i).length).toBeGreaterThan(0)
     })
   })
 })

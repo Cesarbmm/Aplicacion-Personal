@@ -1,6 +1,9 @@
+import { sigmaExerciseCatalogFallback } from './catalog'
 import type {
+  SigmaExerciseCatalogEntry,
   SigmaExperienceLevel,
   SigmaGoal,
+  SigmaManualRoutinePayload,
   SigmaProfile,
   SigmaRoutine,
   SigmaRoutineDay,
@@ -12,15 +15,7 @@ import type {
   SigmaWorkoutState,
 } from './types'
 
-type LocalExerciseCatalogEntry = {
-  exerciseId: string
-  name: string
-  muscleGroup: string
-  movementPattern: string
-  equipment: string
-  difficulty: SigmaExperienceLevel
-  goalFocus: SigmaGoal | 'general'
-}
+type LocalExerciseCatalogEntry = SigmaExerciseCatalogEntry
 
 type ExerciseSelector =
   | 'horizontalPush'
@@ -45,98 +40,7 @@ const difficultyRank = {
   advanced: 2,
 } as const
 
-const localExerciseCatalog: LocalExerciseCatalogEntry[] = [
-  {
-    exerciseId: 'local-press-banca',
-    name: 'Press de banca',
-    muscleGroup: 'Pecho',
-    movementPattern: 'Empuje horizontal',
-    equipment: 'Barra',
-    difficulty: 'intermediate',
-    goalFocus: 'strength',
-  },
-  {
-    exerciseId: 'local-sentadilla',
-    name: 'Sentadilla con barra',
-    muscleGroup: 'Piernas',
-    movementPattern: 'Dominante de rodilla',
-    equipment: 'Barra',
-    difficulty: 'intermediate',
-    goalFocus: 'strength',
-  },
-  {
-    exerciseId: 'local-peso-muerto',
-    name: 'Peso muerto',
-    muscleGroup: 'Posterior',
-    movementPattern: 'Bisagra de cadera',
-    equipment: 'Barra',
-    difficulty: 'advanced',
-    goalFocus: 'strength',
-  },
-  {
-    exerciseId: 'local-press-militar',
-    name: 'Press militar',
-    muscleGroup: 'Hombros',
-    movementPattern: 'Empuje vertical',
-    equipment: 'Barra',
-    difficulty: 'intermediate',
-    goalFocus: 'strength',
-  },
-  {
-    exerciseId: 'local-remo',
-    name: 'Remo con barra',
-    muscleGroup: 'Espalda',
-    movementPattern: 'Tiron horizontal',
-    equipment: 'Barra',
-    difficulty: 'intermediate',
-    goalFocus: 'hypertrophy',
-  },
-  {
-    exerciseId: 'local-jalon',
-    name: 'Jalon al pecho',
-    muscleGroup: 'Espalda',
-    movementPattern: 'Tiron vertical',
-    equipment: 'Polea',
-    difficulty: 'beginner',
-    goalFocus: 'hypertrophy',
-  },
-  {
-    exerciseId: 'local-curl',
-    name: 'Curl de biceps',
-    muscleGroup: 'Biceps',
-    movementPattern: 'Aislamiento',
-    equipment: 'Mancuernas',
-    difficulty: 'beginner',
-    goalFocus: 'hypertrophy',
-  },
-  {
-    exerciseId: 'local-triceps',
-    name: 'Extension de triceps',
-    muscleGroup: 'Triceps',
-    movementPattern: 'Aislamiento',
-    equipment: 'Polea',
-    difficulty: 'beginner',
-    goalFocus: 'hypertrophy',
-  },
-  {
-    exerciseId: 'local-prensa',
-    name: 'Prensa de piernas',
-    muscleGroup: 'Piernas',
-    movementPattern: 'Dominante de rodilla',
-    equipment: 'Maquina',
-    difficulty: 'beginner',
-    goalFocus: 'weight_loss',
-  },
-  {
-    exerciseId: 'local-plancha',
-    name: 'Plancha abdominal',
-    muscleGroup: 'Core',
-    movementPattern: 'Estabilidad',
-    equipment: 'Peso corporal',
-    difficulty: 'beginner',
-    goalFocus: 'general',
-  },
-]
+const localExerciseCatalog: LocalExerciseCatalogEntry[] = sigmaExerciseCatalogFallback
 
 function createId(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`
@@ -175,6 +79,14 @@ function getRepPrescription(goal: SigmaGoal) {
     default:
       return '8-12'
   }
+}
+
+function getExercisePrescription(goal: SigmaGoal, exercise: LocalExerciseCatalogEntry) {
+  if (exercise.trackingType === 'time') {
+    return goal === 'weight_loss' ? '35-50s' : '30-45s'
+  }
+
+  return getRepPrescription(goal)
 }
 
 function getRestSeconds(profile: Pick<SigmaProfile, 'goal' | 'experienceLevel'>) {
@@ -401,11 +313,17 @@ function pickExercise(
 }
 
 function parseRepRangeToTargetReps(repRange: string) {
-  if (!repRange.includes('-')) {
-    return Number(repRange)
+  const values = repRange.match(/\d+/g)?.map((value) => Number(value)) ?? []
+
+  if (values.length === 0) {
+    return 1
   }
 
-  const [min, max] = repRange.split('-').map((value) => Number(value))
+  if (values.length === 1) {
+    return values[0]
+  }
+
+  const [min, max] = values
   return Math.round((min + max) / 2)
 }
 
@@ -430,7 +348,6 @@ function mapRoutineDayToWorkoutExercises(day: SigmaRoutineDay): SigmaWorkoutExer
 export function generateLocalRoutine(profile: SigmaProfile, userId: string): SigmaRoutine {
   const split = buildRoutineSplit(profile)
   const sets = getSetPrescription(profile)
-  const reps = getRepPrescription(profile.goal)
   const restSeconds = getRestSeconds(profile)
 
   const days: SigmaRoutineDay[] = split.map((template, index) => {
@@ -452,9 +369,11 @@ export function generateLocalRoutine(profile: SigmaProfile, userId: string): Sig
           muscleGroup: exercise.muscleGroup,
           movementPattern: exercise.movementPattern,
           equipment: exercise.equipment,
+          trackingType: exercise.trackingType,
+          coachingCue: exercise.coachingCue,
           exerciseOrder: exerciseIndex + 1,
           sets,
-          reps,
+          reps: getExercisePrescription(profile.goal, exercise),
           restSeconds,
         }
       })
@@ -474,9 +393,59 @@ export function generateLocalRoutine(profile: SigmaProfile, userId: string): Sig
     name: `Rutina semanal - ${getGoalLabel(profile.goal)}`,
     goal: profile.goal,
     daysPerWeek: profile.daysPerWeek,
+    creationMode: 'coach',
     isActive: true,
     createdAt: new Date().toISOString(),
     days,
+  }
+}
+
+export function createLocalManualRoutine(
+  payload: SigmaManualRoutinePayload,
+  userId: string,
+  catalog: SigmaExerciseCatalogEntry[],
+): SigmaRoutine {
+  const exerciseById = new Map(catalog.map((exercise) => [exercise.exerciseId, exercise] as const))
+
+  return {
+    routineId: createId('local-manual-routine'),
+    userId,
+    name: payload.name,
+    goal: payload.goal,
+    daysPerWeek: payload.daysPerWeek,
+    creationMode: 'manual',
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    days: payload.days
+      .slice()
+      .sort((left, right) => left.dayNumber - right.dayNumber)
+      .map((day) => ({
+        routineDayId: createId(`local-manual-day-${day.dayNumber}`),
+        dayNumber: day.dayNumber,
+        title: day.title,
+        exercises: day.exercises.map((exercise, index) => {
+          const catalogExercise = exerciseById.get(exercise.exerciseId)
+
+          if (!catalogExercise) {
+            throw new Error(`No existe un ejercicio local con id ${exercise.exerciseId}.`)
+          }
+
+          return {
+            routineExerciseId: createId(`local-manual-exercise-${day.dayNumber}-${index + 1}`),
+            exerciseId: catalogExercise.exerciseId,
+            name: catalogExercise.name,
+            muscleGroup: catalogExercise.muscleGroup,
+            movementPattern: catalogExercise.movementPattern,
+            equipment: catalogExercise.equipment,
+            trackingType: catalogExercise.trackingType,
+            coachingCue: catalogExercise.coachingCue,
+            exerciseOrder: index + 1,
+            sets: exercise.sets,
+            reps: exercise.reps,
+            restSeconds: exercise.restSeconds,
+          }
+        }),
+      })),
   }
 }
 
@@ -502,6 +471,9 @@ export function createLocalWorkoutSession(
       exerciseId: exercise.exerciseId,
       name: exercise.name,
       muscleGroup: exercise.muscleGroup,
+      equipment: exercise.equipment,
+      trackingType: exercise.trackingType,
+      coachingCue: exercise.coachingCue,
       exerciseOrder: exercise.exerciseOrder,
       sets: exercise.sets,
       reps: exercise.reps,
@@ -513,6 +485,8 @@ export function createLocalWorkoutSession(
         exerciseName: exercise.name,
         setNumber: index + 1,
         targetReps: parseRepRangeToTargetReps(exercise.reps),
+        actualReps: null,
+        actualSeconds: null,
         completed: false,
         weight: null,
         unit,
@@ -527,8 +501,10 @@ export function updateLocalWorkoutSessionSet(
   setId: string,
   payload: {
     completed: boolean
-    weight: number
+    weight: number | null
     unit: SigmaUnit
+    actualReps?: number | null
+    actualSeconds?: number | null
   },
 ) {
   return {
@@ -542,6 +518,8 @@ export function updateLocalWorkoutSessionSet(
               completed: payload.completed,
               weight: payload.weight,
               unit: payload.unit,
+              actualReps: payload.actualReps ?? null,
+              actualSeconds: payload.actualSeconds ?? null,
               completedAt: payload.completed ? new Date().toISOString() : null,
             }
           : setItem,
@@ -550,7 +528,14 @@ export function updateLocalWorkoutSessionSet(
   }
 }
 
-export function finishLocalWorkoutSession(session: SigmaWorkoutSession) {
+export function finishLocalWorkoutSession(
+  session: SigmaWorkoutSession,
+  input: {
+    fatigueLevel?: number | null
+    painLevel?: number | null
+    athleteNotes?: string | null
+  } = {},
+) {
   const completedSession: SigmaWorkoutSession = {
     ...session,
     status: 'completed',
@@ -570,8 +555,30 @@ export function finishLocalWorkoutSession(session: SigmaWorkoutSession) {
           return exerciseTotal
         }
 
-        return exerciseTotal + setItem.weight * setItem.targetReps
+        return exerciseTotal + setItem.weight * (setItem.actualReps ?? setItem.targetReps)
       }, 0),
+    0,
+  )
+
+  const totalReps = completedSession.exercises.reduce(
+    (total, exercise) =>
+      total +
+      exercise.sessionSets.reduce(
+        (exerciseTotal, setItem) =>
+          setItem.completed ? exerciseTotal + (setItem.actualReps ?? setItem.targetReps) : exerciseTotal,
+        0,
+      ),
+    0,
+  )
+
+  const totalSeconds = completedSession.exercises.reduce(
+    (total, exercise) =>
+      total +
+      exercise.sessionSets.reduce(
+        (exerciseTotal, setItem) =>
+          setItem.completed ? exerciseTotal + (setItem.actualSeconds ?? 0) : exerciseTotal,
+        0,
+      ),
     0,
   )
 
@@ -580,6 +587,11 @@ export function finishLocalWorkoutSession(session: SigmaWorkoutSession) {
     status: 'completed',
     completedSets,
     totalVolume,
+    totalReps,
+    totalSeconds,
+    fatigueLevel: input.fatigueLevel ?? null,
+    painLevel: input.painLevel ?? null,
+    athleteNotes: input.athleteNotes?.trim() || null,
   }
 
   return {
@@ -626,13 +638,13 @@ export function sessionToWorkoutState(
       id: exercise.routineExerciseId,
       name: exercise.name,
       focus: exercise.muscleGroup,
-      note: `Descanso ${exercise.restSeconds}s. Reps objetivo ${exercise.reps}.`,
+      note: `${exercise.coachingCue} Equipo: ${exercise.equipment}.`,
       restSeconds: exercise.restSeconds,
       substitute: 'Usar variante equivalente del mismo patron.',
       targetRpe: exercise.reps === '3-6' ? 8 : exercise.reps === '12-15' ? 7 : 8,
       sets: exercise.sessionSets.map((setItem) => ({
         id: setItem.setId,
-        reps: setItem.targetReps,
+        reps: setItem.actualReps ?? setItem.actualSeconds ?? setItem.targetReps,
         weight: setItem.weight ?? 0,
         completed: setItem.completed,
       })),

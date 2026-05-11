@@ -1,16 +1,22 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { BarChart3, Dumbbell, LayoutDashboard, LogOut, RotateCcw, UserRound } from 'lucide-react'
+import { BarChart3, ChevronLeft, ChevronRight, Dumbbell, LayoutDashboard, LogOut, RotateCcw, UserRound, Wrench } from 'lucide-react'
 
 import { useSigmafitStore } from '@/store/sigmafit-store'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', subtitle: 'Resumen diario', icon: LayoutDashboard },
   { to: '/workout', label: 'Workout', subtitle: 'Tracker en vivo', icon: Dumbbell },
+  { to: '/routine-builder', label: 'Builder', subtitle: 'Rutina manual', icon: Wrench },
   { to: '/progress', label: 'Progress', subtitle: 'Tendencias y bloques', icon: BarChart3 },
   { to: '/profile', label: 'Profile', subtitle: 'Atleta y ajustes', icon: UserRound },
 ] as const
 
-export function Sidebar() {
+type SidebarProps = {
+  collapsed: boolean
+  onToggle: () => void
+}
+
+export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const athlete = useSigmafitStore((state) => state.profile.displayName)
   const focus = useSigmafitStore((state) => state.profile.focus)
@@ -25,17 +31,26 @@ export function Sidebar() {
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
             <Dumbbell size={22} />
           </div>
-          <div>
+          <div className={collapsed ? 'hidden' : 'block'}>
             <p className="font-['Space_Grotesk'] text-lg font-semibold text-white">SigmaFit</p>
             <p className="text-sm text-slate-500">Cold blue control</p>
           </div>
+          <button
+            type="button"
+            onClick={onToggle}
+            className="ml-auto hidden h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-slate-300 transition hover:border-cyan-400/20 hover:bg-cyan-400/10 xl:inline-flex"
+            aria-label={collapsed ? 'Expandir menu' : 'Colapsar menu'}
+            title={collapsed ? 'Expandir menu' : 'Colapsar menu'}
+          >
+            {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
         </div>
 
-        <div className="mb-6 rounded-[26px] border border-white/8 bg-white/[0.03] p-4">
+        <div className={`mb-6 rounded-[26px] border border-white/8 bg-white/[0.03] p-4 ${collapsed ? 'hidden xl:block xl:p-2' : ''}`}>
           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Atleta</p>
-          <p className="mt-2 font-['Space_Grotesk'] text-2xl font-semibold text-white">{athlete}</p>
-          <p className="mt-2 text-sm text-slate-400">Foco activo: {focus}</p>
-          <div className="mt-4 rounded-full border border-cyan-400/12 bg-cyan-400/8 px-4 py-2 text-sm text-cyan-200">
+          <p className={`mt-2 font-['Space_Grotesk'] text-2xl font-semibold text-white ${collapsed ? 'hidden' : ''}`}>{athlete}</p>
+          <p className={`mt-2 text-sm text-slate-400 ${collapsed ? 'hidden' : ''}`}>Foco activo: {focus}</p>
+          <div className={`mt-4 rounded-full border border-cyan-400/12 bg-cyan-400/8 px-4 py-2 text-sm text-cyan-200 ${collapsed ? 'px-2 text-center text-xs' : ''}`}>
             Readiness {readiness}%
           </div>
         </div>
@@ -48,13 +63,14 @@ export function Sidebar() {
               <Link
                 key={item.to}
                 to={item.to}
+                title={collapsed ? item.label : undefined}
                 className={`block rounded-[24px] border px-4 py-3.5 transition ${
                   active
                     ? 'border-cyan-400/22 bg-cyan-400/10'
                     : 'border-transparent bg-transparent hover:border-white/8 hover:bg-white/[0.04]'
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
                   <div className={`flex h-10 w-10 items-center justify-center rounded-2xl border ${
                     active
                       ? 'border-cyan-400/18 bg-cyan-400/10 text-cyan-200'
@@ -62,7 +78,7 @@ export function Sidebar() {
                   }`}>
                     <Icon size={18} />
                   </div>
-                  <div className="min-w-0">
+                  <div className={`min-w-0 ${collapsed ? 'hidden' : 'block'}`}>
                     <p className="font-medium text-white">{item.label}</p>
                     <p className="text-sm text-slate-500">{item.subtitle}</p>
                   </div>
@@ -76,22 +92,23 @@ export function Sidebar() {
           <button
             type="button"
             onClick={resetDemo}
+            title="Reset demo"
             className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
           >
             <RotateCcw size={16} />
-            Reset demo
+            <span className={collapsed ? 'hidden' : 'inline'}>Reset demo</span>
           </button>
           <button
             type="button"
             onClick={logout}
+            title="Cerrar sesion mock"
             className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-slate-300 transition hover:border-white/14 hover:bg-white/[0.05]"
           >
             <LogOut size={16} />
-            Cerrar sesion mock
+            <span className={collapsed ? 'hidden' : 'inline'}>Cerrar sesion mock</span>
           </button>
         </div>
       </div>
     </aside>
   )
 }
-

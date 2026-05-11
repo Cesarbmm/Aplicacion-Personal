@@ -1,5 +1,6 @@
 import type {
   ExerciseCatalogEntry,
+  FinishWorkoutSessionInput,
   Routine,
   RoutineDraft,
   StartWorkoutSessionInput,
@@ -19,7 +20,7 @@ export interface TrainingRepository {
     setId: string,
     input: UpdateWorkoutSessionSetInput,
   ): Promise<WorkoutSession>
-  finishWorkoutSession(sessionId: string): Promise<WorkoutSessionSummary>
+  finishWorkoutSession(sessionId: string, input?: FinishWorkoutSessionInput): Promise<WorkoutSessionSummary>
 }
 
 export class OnboardingRequiredError extends Error {
@@ -54,5 +55,12 @@ export class WorkoutSessionSetNotFoundError extends Error {
   constructor(setId: string) {
     super(`No existe una serie de sesion con id ${setId}.`)
     this.name = 'WorkoutSessionSetNotFoundError'
+  }
+}
+
+export class ExerciseNotFoundError extends Error {
+  constructor(exerciseId: string) {
+    super(`No existe un ejercicio con id ${exerciseId} en el catalogo oficial.`)
+    this.name = 'ExerciseNotFoundError'
   }
 }

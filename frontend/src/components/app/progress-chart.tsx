@@ -20,7 +20,7 @@ type ProgressChartProps = {
 export function ProgressChart({ data }: ProgressChartProps) {
   return (
     <div className="grid gap-6 xl:grid-cols-2">
-      <PanelCard title="Volumen y consistencia" subtitle="Lectura semanal del trabajo acumulado.">
+      <PanelCard title="Volumen semanal" subtitle="Carga aproximada: peso x reps reales completadas.">
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data}>
@@ -41,13 +41,13 @@ export function ProgressChart({ data }: ProgressChartProps) {
                   color: '#e2e8f0',
                 }}
               />
-              <Area type="monotone" dataKey="volume" stroke="#22d3ee" fill="url(#volumeFill)" strokeWidth={3} />
+              <Area name="Volumen kg" type="monotone" dataKey="volume" stroke="#22d3ee" fill="url(#volumeFill)" strokeWidth={3} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       </PanelCard>
 
-      <PanelCard title="1RM y fatiga" subtitle="Fuerza proyectada y carga de recuperacion.">
+      <PanelCard title="Fuerza y fatiga" subtitle="1RM estimado frente a fatiga acumulada del bloque.">
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data}>
@@ -62,8 +62,8 @@ export function ProgressChart({ data }: ProgressChartProps) {
                   color: '#e2e8f0',
                 }}
               />
-              <Line type="monotone" dataKey="projectedOneRm" stroke="#38bdf8" strokeWidth={3} dot={{ fill: '#38bdf8' }} />
-              <Line type="monotone" dataKey="fatigue" stroke="#fbbf24" strokeWidth={2.5} dot={{ fill: '#fbbf24' }} />
+              <Line name="1RM proyectado kg" type="monotone" dataKey="projectedOneRm" stroke="#38bdf8" strokeWidth={3} dot={{ fill: '#38bdf8' }} />
+              <Line name="Fatiga 0-100" type="monotone" dataKey="fatigue" stroke="#fbbf24" strokeWidth={2.5} dot={{ fill: '#fbbf24' }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -71,4 +71,3 @@ export function ProgressChart({ data }: ProgressChartProps) {
     </div>
   )
 }
-

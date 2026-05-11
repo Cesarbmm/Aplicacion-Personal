@@ -4,6 +4,8 @@ export type ExerciseDifficulty = 'beginner' | 'intermediate' | 'advanced'
 export type ExerciseGoalFocus = OnboardingGoal | 'general'
 export type WorkoutUnit = 'kg' | 'lb'
 export type WorkoutSessionStatus = 'active' | 'completed'
+export type RoutineCreationMode = 'coach' | 'manual'
+export type ExerciseTrackingType = 'weight_reps' | 'bodyweight_reps' | 'time'
 
 export type ExerciseCatalogEntry = {
   exerciseId: string
@@ -11,6 +13,8 @@ export type ExerciseCatalogEntry = {
   muscleGroup: string
   movementPattern: string
   equipment: string
+  trackingType: ExerciseTrackingType
+  coachingCue: string
   difficulty: ExerciseDifficulty
   goalFocus: ExerciseGoalFocus
 }
@@ -22,6 +26,8 @@ export type RoutineExercise = {
   muscleGroup: string
   movementPattern: string
   equipment: string
+  trackingType: ExerciseTrackingType
+  coachingCue: string
   exerciseOrder: number
   sets: number
   reps: string
@@ -41,6 +47,7 @@ export type Routine = {
   name: string
   goal: OnboardingGoal
   daysPerWeek: number
+  creationMode: RoutineCreationMode
   isActive: boolean
   createdAt: string
   days: RoutineDay[]
@@ -69,6 +76,8 @@ export type WorkoutSessionSet = {
   exerciseName: string
   setNumber: number
   targetReps: number
+  actualReps: number | null
+  actualSeconds: number | null
   completed: boolean
   weight: number | null
   unit: WorkoutUnit
@@ -80,6 +89,9 @@ export type WorkoutSessionExercise = {
   exerciseId: string
   name: string
   muscleGroup: string
+  equipment: string
+  trackingType: ExerciseTrackingType
+  coachingCue: string
   exerciseOrder: number
   sets: number
   reps: string
@@ -105,6 +117,11 @@ export type WorkoutSessionSummary = {
   status: 'completed'
   completedSets: number
   totalVolume: number
+  totalReps: number
+  totalSeconds: number
+  fatigueLevel: number | null
+  painLevel: number | null
+  athleteNotes: string | null
 }
 
 export type StartWorkoutSessionInput = {
@@ -116,6 +133,14 @@ export type StartWorkoutSessionInput = {
 
 export type UpdateWorkoutSessionSetInput = {
   completed: boolean
-  weight: number
+  weight: number | null
   unit: WorkoutUnit
+  actualReps?: number | null
+  actualSeconds?: number | null
+}
+
+export type FinishWorkoutSessionInput = {
+  fatigueLevel?: number | null
+  painLevel?: number | null
+  athleteNotes?: string | null
 }

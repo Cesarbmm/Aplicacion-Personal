@@ -1,5 +1,6 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
+import { useState } from 'react'
 
 import { Sidebar } from '@/components/app/sidebar'
 import { useSigmafitStore } from '@/store/sigmafit-store'
@@ -21,6 +22,10 @@ const routeMeta: Record<string, { label: string; subtitle: string }> = {
     label: 'Profile',
     subtitle: 'Identidad del atleta, preferencias y base del coach adaptativo.',
   },
+  '/routine-builder': {
+    label: 'Routine Builder',
+    subtitle: 'Constructor manual de bloques usando el catalogo oficial de ejercicios.',
+  },
 }
 
 type AppShellProps = {
@@ -35,11 +40,16 @@ export function AppShell({ children }: AppShellProps) {
   const lastRpe = useSigmafitStore((state) => state.workout.lastSessionRpe)
   const readiness = useSigmafitStore((state) => state.workout.readiness)
   const clearSyncError = useSigmafitStore((state) => state.clearSyncError)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.14),transparent_28%),linear-gradient(180deg,#08111a_0%,#050a10_100%)] text-white">
-      <div className="mx-auto grid min-h-screen max-w-[1700px] xl:grid-cols-[310px_minmax(0,1fr)]">
-        <Sidebar />
+      <div
+        className={`mx-auto grid min-h-screen max-w-[1700px] ${
+          sidebarCollapsed ? 'xl:grid-cols-[96px_minmax(0,1fr)]' : 'xl:grid-cols-[310px_minmax(0,1fr)]'
+        }`}
+      >
+        <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((current) => !current)} />
 
         <div className="flex min-h-screen flex-col">
           <header className="sticky top-0 z-30 border-b border-white/8 bg-[#07111a]/82 px-5 py-5 backdrop-blur-xl md:px-8">

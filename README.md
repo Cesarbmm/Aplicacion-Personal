@@ -16,6 +16,7 @@ SigmaFit es una plataforma web de entrenamiento adaptativo con landing publica, 
 - `database/init/001_schema.sql`: esquema base Sprint 1
 - `database/init/002_seed.sql`: usuario demo y catalogo inicial de ejercicios
 - `database/init/003_routines_and_sessions.sql`: rutinas y sesiones de entrenamiento Sprint 2
+- `database/init/004_routine_creation_mode.sql`: diferencia entre rutinas del Coach y rutinas manuales
 - `assets/`: tipografias y recursos visuales
 
 ## Demo seed
@@ -104,7 +105,9 @@ npm.cmd run dev
 
 ### Sprint 2
 
+- `GET /api/exercises`
 - `POST /api/users/:id/routines/generate`
+- `POST /api/users/:id/routines/manual`
 - `GET /api/users/:id/routines/current`
 - `GET /api/routines/:routineId`
 - `POST /api/users/:id/workout-sessions`
@@ -117,6 +120,7 @@ npm.cmd run dev
 - `/login`: acceso mock
 - `/register`: onboarding y perfilado inicial
 - `/dashboard`: resumen del atleta y rutina activa
+- `/routine-builder`: constructor manual de rutina
 - `/workout`: rutina semanal y tracker en vivo
 - `/progress`: progreso y tendencias
 - `/profile`: perfil y preferencias
@@ -154,18 +158,101 @@ Probar el health check:
 curl http://localhost:3000/api/health
 ```
 
+Consultar el catalogo oficial de ejercicios:
+
+```powershell
+curl http://localhost:3000/api/exercises
+```
+
+Crear una rutina manual:
+
+```powershell
+curl -X POST http://localhost:3000/api/users/11111111-1111-4111-8111-111111111111/routines/manual ^
+  -H "Content-Type: application/json" ^
+  -d "{\"name\":\"Rutina personalizada avanzada\",\"goal\":\"hypertrophy\",\"daysPerWeek\":2,\"days\":[{\"dayNumber\":1,\"title\":\"Push A\",\"exercises\":[{\"exerciseId\":\"<EXERCISE_ID>\",\"sets\":4,\"reps\":\"8-10\",\"restSeconds\":90}]},{\"dayNumber\":2,\"title\":\"Pull A\",\"exercises\":[{\"exerciseId\":\"<EXERCISE_ID>\",\"sets\":4,\"reps\":\"8-10\",\"restSeconds\":90}]}]}"
+```
+
+## Fix de flujo de rutina - Sprint 2
+
+### Que cambia
+
+- el onboarding solo configura el perfil del atleta
+- el dashboard ya no muestra una rutina generica por defecto
+- la rutina no se asigna automaticamente despues del onboarding
+- el usuario debe elegir entre generar con Coach Virtual o crear manualmente
+- principiante e intermedio reciben recomendacion clara para usar el Coach
+- avanzado puede destacar el builder manual o usar el Coach como base
+
+### Flujo esperado
+
+1. Completa onboarding en `/register`.
+2. Entra a `/dashboard`.
+3. Veras el panel `Crear mi rutina`.
+4. Elige una opcion:
+   - `Generar con Coach Virtual`
+   - `Crear rutina manual`
+5. Si eliges Coach, SigmaFit muestra primero una propuesta.
+6. Desde esa propuesta puedes:
+   - usar la rutina
+   - regenerarla
+   - ir al builder manual
+7. Si eliges manual, entras a `/routine-builder`.
+8. La rutina solo queda activa cuando:
+   - aceptas la propuesta del Coach
+   - guardas la rutina manual
+
+### Como probar manualmente el fix
+
+1. Levanta el sistema con `docker compose up --build`.
+2. Abre `http://127.0.0.1:5180`.
+3. Inicia sesion y completa onboarding si hace falta.
+4. Entra al dashboard.
+5. Verifica que aparece `Crear mi rutina` y no una rutina generica por defecto.
+6. Si el perfil es principiante o intermedio, revisa la recomendacion del Coach.
+7. Si el perfil es avanzado, revisa que el builder manual queda destacado.
+8. Genera una propuesta del Coach y confirma que primero se muestra como propuesta.
+9. Acepta la propuesta y verifica que entonces aparece como rutina activa.
+10. Vuelve al dashboard y entra a `/routine-builder`.
+11. Crea una rutina manual con al menos un ejercicio por dia.
+12. Guarda y confirma que reemplaza la rutina activa anterior.
+
+## Ajustes de tracker y progreso
+
+### Que mejora
+
+- el tracker ahora registra reps reales por serie, no solo reps sugeridas
+- los ejercicios por tiempo, como `Plancha abdominal`, se controlan por segundos y no por peso
+- el catalogo de ejercicios incluye equipo recomendado, tipo de control y una indicacion tecnica breve
+- al finalizar una sesion se guardan fatiga percibida, dolor o molestia y observaciones del atleta
+- el resumen de sesion muestra series, volumen aproximado, reps reales, segundos por tiempo y feedback
+- `Progress` explica que significan volumen, consistencia, 1RM proyectado y fatiga
+- para perdida de peso se muestra peso actual y peso objetivo; el registro de calorias queda fuera de este sprint
+- el menu lateral de la app se puede colapsar en desktop para ganar espacio
+
+### Como probarlo
+
+1. Abre `http://127.0.0.1:5180`.
+2. Completa onboarding; ahora incluye peso actual, peso objetivo y pesos aproximados opcionales.
+3. Genera o crea una rutina.
+4. En `/workout`, inicia una sesion.
+5. En cada serie registra reps reales y peso; en plancha registra segundos.
+6. Finaliza la sesion agregando fatiga, dolor y una observacion.
+7. Verifica el resumen de sesion y luego revisa `/progress`.
+
 ### Flujo manual recomendado
 
 1. Abre `http://127.0.0.1:5180`.
 2. Inicia sesion con el usuario mock o entra por la landing.
 3. Si el perfil no esta completo, completa el onboarding en `/register`.
 4. Ve a `/dashboard`.
-5. Genera una rutina semanal si todavia no existe una activa.
-6. Entra a `/workout`.
-7. Selecciona un dia de rutina e inicia la sesion.
-8. Completa series, registra peso y unidad.
-9. Verifica que se active el temporizador de descanso.
-10. Finaliza la sesion y revisa el resumen guardado.
+5. Elige si quieres usar el Coach Virtual o crear la rutina manualmente.
+6. Si eliges Coach, revisa la propuesta y aceptala.
+7. Si eliges manual, entra a `/routine-builder`, define dias y ejercicios, y guarda.
+8. Entra a `/workout`.
+9. Selecciona un dia de rutina e inicia la sesion.
+10. Completa series, registra peso y unidad.
+11. Verifica que se active el temporizador de descanso.
+12. Finaliza la sesion y revisa el resumen guardado.
 
 ## Scripts de verificacion
 
@@ -193,5 +280,3 @@ Verificado localmente en este entorno:
 
 - `frontend`: `lint`, `build`, `test`
 - `backend`: `lint`, `build`, `test`
-
-La comprobacion de `docker compose up --build` debe hacerse en una maquina con Docker disponible.

@@ -1,0 +1,686 @@
+\documentclass[12pt,a4paper]{article}
+
+% =========================================================
+% PAQUETES
+% =========================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-tabla]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage[most]{tcolorbox}
+\usepackage{caption}
+\usepackage{listings}
+\usepackage{xurl}
+
+% =========================================================
+% CONFIGURACIÓN GENERAL
+% =========================================================
+\geometry{
+    left=2.4cm,
+    right=2.4cm,
+    top=2.5cm,
+    bottom=2.5cm
+}
+
+\graphicspath{{images/}}
+
+% =========================================================
+% COLORES
+% =========================================================
+\definecolor{SigmaDark}{HTML}{111827}
+\definecolor{SigmaGreen}{HTML}{0B3D2E}
+\definecolor{SigmaAccent}{HTML}{22C55E}
+\definecolor{SigmaSoft}{HTML}{F3F4F6}
+\definecolor{SigmaText}{HTML}{1F2937}
+\definecolor{SigmaLine}{HTML}{D1D5DB}
+
+% =========================================================
+% HIPERVÍNCULOS
+% =========================================================
+\hypersetup{
+    colorlinks=true,
+    linkcolor=SigmaGreen,
+    urlcolor=SigmaGreen,
+    citecolor=SigmaGreen,
+    pdftitle={Informe de Sprints - SigmaFit},
+    pdfauthor={Sigmas Devs}
+}
+
+% =========================================================
+% ENCABEZADO Y PIE
+% =========================================================
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\textbf{SigmaFit}}
+\rhead{Informe de Sprints}
+\cfoot{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% =========================================================
+% TÍTULOS
+% =========================================================
+\titleformat{\section}
+{\Large\bfseries\color{SigmaGreen}}
+{\thesection.}
+{0.5em}
+{}
+
+\titleformat{\subsection}
+{\large\bfseries\color{SigmaDark}}
+{\thesubsection.}
+{0.5em}
+{}
+
+\titleformat{\subsubsection}
+{\normalsize\bfseries\color{SigmaDark}}
+{\thesubsubsection.}
+{0.5em}
+{}
+
+\setlist[itemize]{leftmargin=1.2cm}
+\setlist[enumerate]{leftmargin=1.2cm}
+
+% =========================================================
+% CAJAS
+% =========================================================
+\tcbset{
+    colback=SigmaSoft,
+    colframe=SigmaGreen,
+    arc=2mm,
+    boxrule=0.6pt,
+    left=7pt,
+    right=7pt,
+    top=7pt,
+    bottom=7pt
+}
+
+% =========================================================
+% LISTINGS
+% =========================================================
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    columns=fullflexible,
+    backgroundcolor=\color{SigmaSoft},
+    rulecolor=\color{SigmaLine}
+}
+
+% =========================================================
+% COMANDO PARA CAPTURAS
+% =========================================================
+\newcommand{\captura}[4]{
+\begin{figure}[H]
+    \centering
+    \IfFileExists{images/#2}{
+        \includegraphics[width=#1]{#2}
+    }{
+        \fbox{
+        \begin{minipage}[c][#3][c]{#1}
+            \centering
+            \textbf{Espacio reservado para captura}\\[0.25cm]
+            Archivo esperado: \texttt{images/#2}
+        \end{minipage}
+        }
+    }
+    \caption{#4}
+\end{figure}
+}
+
+% =========================================================
+% DOCUMENTO
+% =========================================================
+\begin{document}
+
+% =========================================================
+% PORTADA
+% =========================================================
+\begin{titlepage}
+    \centering
+
+    \begin{figure}[H]
+        \centering
+        \begin{minipage}{0.42\textwidth}
+            \centering
+            \IfFileExists{images/LOGO_EPN.jpg}{
+                \includegraphics[width=0.72\textwidth]{images/LOGO_EPN.jpg}
+            }{
+                \fbox{\parbox[c][3cm][c]{0.72\textwidth}{\centering Logo EPN}}
+            }
+        \end{minipage}
+        \hfill
+        \begin{minipage}{0.42\textwidth}
+            \centering
+            \IfFileExists{images/LOGO_SIGMAFIT}{
+                \includegraphics[width=0.72\textwidth]{images/LOGO_SIGMAFIT.png}
+            }{
+                \fbox{\parbox[c][3cm][c]{0.72\textwidth}{\centering Logo Sigmas Devs}}
+            }
+        \end{minipage}
+    \end{figure}
+
+    \vspace{1.2cm}
+
+    {\Large \textbf{ESCUELA POLITÉCNICA NACIONAL}}\\[0.25cm]
+    {\large Facultad de Ingeniería de Sistemas}\\[0.25cm]
+    {\large Ingeniería de Software II}\\
+
+    \vspace{1.6cm}
+
+    \begin{tcolorbox}[colback=white, colframe=SigmaGreen, width=0.92\textwidth]
+        \centering
+        {\Huge \textbf{\color{SigmaGreen} Informe de Desarrollo}}\\[0.35cm]
+        {\LARGE \textbf{Sprint 1 y Sprint 2}}\\[0.3cm]
+        {\large Implementación inicial de SigmaFit}
+    \end{tcolorbox}
+
+    \vspace{1.1cm}
+
+    {\Large \textbf{Proyecto: SigmaFit}}\\[0.2cm]
+    {\large Equipo: Sigmas Devs}
+
+    \vspace{1.1cm}
+
+    \textbf{Integrantes}\\[0.25cm]
+    Chicaiza Sebastian\\
+    Condoy Estéfano\\
+    Cuasquer Alejandro\\
+    Cusme Juan\\
+    Zapata Cesar
+
+    \vfill
+
+    Quito, Ecuador\\
+    \today
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% =========================================================
+\section{Introducción}
+
+El presente informe describe el avance realizado en los dos primeros sprints del proyecto \textbf{SigmaFit}, una plataforma web de entrenamiento adaptativo. El objetivo principal del sistema es permitir que un usuario registre su perfil inicial, genere una rutina semanal personalizada y lleve seguimiento de sus entrenamientos mediante un tracker en vivo.
+
+El trabajo se organizó de forma incremental. En el \textbf{Sprint 1} se construyó la base técnica y funcional del sistema: entorno, base de datos, backend inicial y onboarding. En el \textbf{Sprint 2} se implementó el valor principal de la aplicación: el coach virtual para generar rutinas y el tracker de entrenamiento para registrar series, peso y descanso.
+
+% =========================================================
+\section{Idea base del proyecto}
+
+SigmaFit nace como una aplicación orientada a usuarios que desean organizar su entrenamiento de forma más estructurada. A diferencia de una aplicación estática de rutinas, la idea del proyecto es que el sistema use la información del usuario para generar una planificación acorde a su objetivo, experiencia y disponibilidad.
+
+\begin{tcolorbox}[title=\textbf{Idea central}]
+El usuario completa un perfil inicial, el sistema genera una rutina semanal y luego el usuario registra su entrenamiento real. Esta información servirá como base para futuras mejoras, como ajuste adaptativo por fatiga, RPE y sobrecarga progresiva.
+\end{tcolorbox}
+
+% =========================================================
+\section{Metodología de trabajo}
+
+El equipo trabajó siguiendo una organización por sprints. Primero se definió el backlog en Trello, separando las funcionalidades principales por prioridad. Luego se documentaron casos de prueba en TestRail para transformar las historias de usuario en criterios verificables.
+
+Posteriormente, se usó Codex como apoyo para implementar las funcionalidades planificadas. Cada sprint fue desarrollado con una meta concreta, manteniendo pruebas, documentación y compatibilidad con Docker.
+
+% =========================================================
+\section{Arquitectura general implementada}
+
+La aplicación quedó organizada en tres bloques principales:
+
+\begin{itemize}
+    \item \textbf{Frontend:} aplicación web desarrollada con React, TypeScript, Vite, Tailwind CSS, TanStack Router y Zustand.
+    \item \textbf{Backend:} API desarrollada con Node.js, TypeScript, Express, PostgreSQL mediante \texttt{pg} y validación con \texttt{zod}.
+    \item \textbf{Base de datos:} PostgreSQL con scripts SQL versionados para inicializar tablas y datos base.
+\end{itemize}
+
+Además, se integró \textbf{Docker Compose} para levantar el frontend, backend y base de datos con un solo comando.
+
+\begin{table}[H]
+\centering
+\caption{Componentes principales del sistema}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{>{\bfseries}p{3.2cm} X}
+\toprule
+Componente & Descripción \\
+\midrule
+Frontend & Interfaz web de SigmaFit, navegación, onboarding, dashboard y tracker. \\
+Backend & API REST para perfil de usuario, onboarding, rutinas y sesiones de entrenamiento. \\
+Base de datos & Persistencia de usuarios, perfiles, catálogo de ejercicios, rutinas y sesiones. \\
+Docker Compose & Orquestación local de los servicios del sistema. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% =========================================================
+\section{Sprint 1: Base del sistema y onboarding}
+
+\subsection{Objetivo del Sprint 1}
+
+El objetivo del Sprint 1 fue construir la base mínima funcional del sistema. Antes de implementar rutinas o seguimiento de entrenamiento, era necesario tener un entorno ejecutable, una base de datos inicial, un backend y una pantalla de perfilado.
+
+\subsection{Historia de usuario trabajada}
+
+\begin{tcolorbox}[title=\textbf{US-01: Onboarding y Perfilado}]
+Como usuario nuevo, quiero completar un cuestionario inicial para definir mi objetivo de entrenamiento, mi nivel de experiencia y los días disponibles, para que el sistema pueda generar rutinas acordes a mi perfil.
+\end{tcolorbox}
+
+\subsection{Por qué se implementó primero}
+
+Esta historia fue priorizada porque el perfil del usuario es la entrada principal para el resto del sistema. Sin conocer el objetivo, nivel y disponibilidad del usuario, el coach virtual no puede generar rutinas personalizadas.
+
+\subsection{Trabajo realizado}
+
+En este sprint se implementaron las siguientes actividades:
+
+\begin{itemize}
+    \item Configuración de Docker Compose para levantar frontend, backend y PostgreSQL.
+    \item Creación del backend mínimo con endpoints de salud, perfil y onboarding.
+    \item Diseño inicial de base de datos con tablas para usuarios, perfiles y ejercicios.
+    \item Script de datos iniciales con usuario demo y catálogo base de ejercicios.
+    \item Pantalla de onboarding para registrar objetivo, experiencia y días disponibles.
+    \item Validaciones del formulario de onboarding.
+    \item Persistencia del perfil inicial.
+    \item Redirección obligatoria al onboarding cuando el usuario no tiene perfil completo.
+    \item Acceso al dashboard cuando el usuario ya completó el onboarding.
+\end{itemize}
+
+\subsection{Criterios de aceptación cubiertos}
+
+\begin{table}[H]
+\centering
+\caption{Criterios de aceptación del Sprint 1}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{>{\bfseries}p{3cm} X}
+\toprule
+Criterio & Resultado implementado \\
+\midrule
+CA-01 & El usuario sin onboarding completo es redirigido a la vista de registro/perfilado. \\
+CA-02 & El formulario valida objetivo, nivel de experiencia y días disponibles. \\
+CA-03 & El perfil inicial se guarda en backend y base de datos cuando está disponible. \\
+CA-04 & Si el backend falla, existe fallback local controlado para no romper la UI. \\
+CA-05 & El usuario con onboarding completo puede acceder al dashboard. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Endpoints del Sprint 1}
+
+\begin{lstlisting}
+GET  /api/health
+GET  /api/users/:id/profile
+POST /api/users/:id/onboarding
+\end{lstlisting}
+
+\subsection{Resultado del Sprint 1}
+
+Al finalizar el Sprint 1, SigmaFit dejó de ser solo una interfaz estática y pasó a tener una base funcional. El usuario puede completar su perfil inicial, el sistema valida los datos y el backend queda preparado para usar esta información en la generación de rutinas.
+
+% =========================================================
+\section{Sprint 2: Coach virtual y tracker de entrenamiento}
+
+\subsection{Objetivo del Sprint 2}
+
+El objetivo del Sprint 2 fue implementar el núcleo funcional de SigmaFit: la generación de rutinas y el seguimiento del entrenamiento. Con el perfil del usuario ya disponible desde el Sprint 1, el sistema ahora puede generar una rutina semanal y permitir que el usuario registre su progreso.
+
+\subsection{Historias de usuario trabajadas}
+
+\begin{tcolorbox}[title=\textbf{US-02: Motor de generación de rutinas}]
+Como usuario con perfil configurado, quiero que el coach virtual genere automáticamente un bloque de entrenamiento semanal, para tener una rutina estructurada y basada en el catálogo oficial de ejercicios del sistema.
+\end{tcolorbox}
+
+\begin{tcolorbox}[title=\textbf{US-03: Tracker de entrenamiento en vivo}]
+Como usuario durante una sesión activa, quiero marcar series, registrar el peso levantado y visualizar un temporizador, para gestionar mis tiempos de descanso y llevar un registro exacto de mi progreso.
+\end{tcolorbox}
+
+\subsection{Por qué se implementó en segundo lugar}
+
+El Sprint 2 depende directamente del Sprint 1. Para generar una rutina, el sistema necesita conocer el objetivo, experiencia y días disponibles del usuario. Por eso, primero se implementó el perfilado y luego se construyó el coach virtual.
+
+\subsection{Trabajo realizado}
+
+En este sprint se implementaron las siguientes actividades:
+
+\begin{itemize}
+    \item Generación real de rutinas desde backend.
+    \item Algoritmo determinístico de coach virtual basado en objetivo, experiencia y días disponibles.
+    \item Consulta del catálogo de ejercicios desde la base de datos.
+    \item Persistencia de rutinas activas en PostgreSQL.
+    \item Consulta de rutina activa desde dashboard y workout.
+    \item Creación de sesiones de entrenamiento por día de rutina.
+    \item Registro de series completadas, peso levantado y unidad.
+    \item Temporizador de descanso en frontend al completar una serie.
+    \item Cierre de sesión con resumen básico.
+    \item Fallback local controlado para que la interfaz no se rompa si el backend falla.
+\end{itemize}
+
+\subsection{Reglas usadas por el coach virtual}
+
+El coach virtual no usa inteligencia artificial externa. Se implementó como un motor determinístico, simple y explicable para clase. La rutina se genera según tres variables principales:
+
+\begin{itemize}
+    \item \textbf{Objetivo:} hipertrofia, fuerza o pérdida de peso.
+    \item \textbf{Nivel:} principiante, intermedio o avanzado.
+    \item \textbf{Disponibilidad:} cantidad de días por semana.
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\caption{Reglas principales de generación de rutinas}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{>{\bfseries}p{3cm} p{3cm} p{3cm} X}
+\toprule
+Objetivo & Repeticiones & Descanso & Enfoque \\
+\midrule
+Hipertrofia & 8--12 & 90 segundos & Volumen moderado orientado a crecimiento muscular. \\
+Fuerza & 3--6 & 150--180 segundos & Menos repeticiones, mayor descanso y más series. \\
+Pérdida de peso & 12--15 & 45--60 segundos & Mayor densidad de trabajo y descansos más cortos. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+También se aplicaron divisiones semanales según días disponibles:
+
+\begin{itemize}
+    \item 2 días: Full Body A/B.
+    \item 3 días: Full Body o Push/Pull/Legs según perfil.
+    \item 4 días: Tren superior e inferior.
+    \item 5 o 6 días: Push/Pull/Legs adaptado.
+\end{itemize}
+
+\subsection{Criterios de aceptación cubiertos}
+
+\begin{table}[H]
+\centering
+\caption{Criterios de aceptación del Sprint 2}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{>{\bfseries}p{3cm} X}
+\toprule
+Criterio & Resultado implementado \\
+\midrule
+CA-01 & El backend genera rutinas usando perfil y catálogo de ejercicios. \\
+CA-02 & La rutina muestra días, ejercicios, series, repeticiones y descanso. \\
+CA-03 & El usuario puede consultar la rutina activa desde el dashboard y workout. \\
+CA-04 & El sistema bloquea generación si el usuario no completó onboarding. \\
+CA-05 & El usuario puede iniciar una sesión de entrenamiento. \\
+CA-06 & El usuario puede marcar series completadas y registrar peso. \\
+CA-07 & Al completar una serie, se activa un temporizador de descanso. \\
+CA-08 & El usuario puede finalizar la sesión y revisar un resumen. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Endpoints del Sprint 2}
+
+\begin{lstlisting}
+POST  /api/users/:id/routines/generate
+GET   /api/users/:id/routines/current
+GET   /api/routines/:routineId
+POST  /api/users/:id/workout-sessions
+PATCH /api/workout-sessions/:sessionId/sets/:setId
+PATCH /api/workout-sessions/:sessionId/finish
+\end{lstlisting}
+
+\subsection{Tablas agregadas en Sprint 2}
+
+\begin{table}[H]
+\centering
+\caption{Tablas agregadas para rutinas y sesiones}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{>{\bfseries}p{4cm} X}
+\toprule
+Tabla & Propósito \\
+\midrule
+\texttt{routines} & Guarda la rutina semanal del usuario. \\
+\texttt{routine\_days} & Guarda los días que componen una rutina. \\
+\texttt{routine\_exercises} & Guarda los ejercicios asignados a cada día. \\
+\texttt{workout\_sessions} & Guarda sesiones activas o finalizadas de entrenamiento. \\
+\texttt{workout\_session\_sets} & Guarda series, peso, unidad y estado de completado. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Resultado del Sprint 2}
+
+Al finalizar el Sprint 2, SigmaFit ya cuenta con su flujo principal: el usuario completa su perfil, genera una rutina semanal, consulta los días de entrenamiento e inicia una sesión para registrar su progreso. Esto convierte a la aplicación en un MVP funcional, no solamente una maqueta visual.
+
+% =========================================================
+\section{Flujo funcional actual}
+
+El flujo de uso actual de SigmaFit es el siguiente:
+
+\begin{enumerate}
+    \item El usuario abre la aplicación web.
+    \item Si no tiene perfil completo, el sistema lo dirige al onboarding.
+    \item El usuario selecciona objetivo, nivel y días disponibles.
+    \item El sistema guarda el perfil.
+    \item El usuario accede al dashboard.
+    \item Desde el dashboard genera una rutina semanal.
+    \item El sistema consulta el catálogo de ejercicios y genera una rutina.
+    \item El usuario entra a la sección de workout.
+    \item Selecciona un día de entrenamiento.
+    \item Marca series, registra peso y usa el temporizador de descanso.
+    \item Finaliza la sesión y revisa el resumen.
+\end{enumerate}
+
+% =========================================================
+\section{Estructura técnica actual}
+
+La estructura principal del repositorio quedó organizada de la siguiente forma:
+
+\begin{lstlisting}
+Aplicacion-Personal/
+|-- frontend/
+|   |-- src/
+|   |-- Dockerfile
+|
+|-- backend/
+|   |-- src/
+|   |-- tests/
+|   |-- Dockerfile
+|
+|-- database/
+|   |-- init/
+|       |-- 001_schema.sql
+|       |-- 002_seed.sql
+|       |-- 003_routines_and_sessions.sql
+|
+|-- docker-compose.yml
+|-- README.md
+\end{lstlisting}
+
+% =========================================================
+\section{Ejecución del sistema}
+
+Para levantar todo el sistema se utiliza Docker Compose:
+
+\begin{lstlisting}
+docker compose up --build
+\end{lstlisting}
+
+Los servicios principales quedan disponibles en:
+
+\begin{table}[H]
+\centering
+\caption{Servicios disponibles}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{>{\bfseries}p{3cm} X}
+\toprule
+Servicio & URL o puerto \\
+\midrule
+Frontend & \url{http://127.0.0.1:5180} \\
+Backend & \url{http://localhost:3000} \\
+PostgreSQL & \texttt{localhost:5432} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Para verificar el backend:
+
+\begin{lstlisting}
+curl http://localhost:3000/api/health
+\end{lstlisting}
+
+Para consultar la rutina activa del usuario demo:
+
+\begin{lstlisting}
+curl http://localhost:3000/api/users/11111111-1111-4111-8111-111111111111/routines/current
+\end{lstlisting}
+
+% =========================================================
+\section{Usuario demo}
+
+El sistema incluye un usuario demo creado desde el seed de base de datos:
+
+\begin{table}[H]
+\centering
+\caption{Usuario demo}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{>{\bfseries}p{3cm} X}
+\toprule
+Campo & Valor \\
+\midrule
+ID & \texttt{11111111-1111-4111-8111-111111111111} \\
+Email & \texttt{demo@sigmafit.app} \\
+Uso & Pruebas manuales del flujo de onboarding, dashboard, rutina y workout. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% =========================================================
+\section{Pruebas y verificación}
+
+Durante la implementación se mantuvieron pruebas para frontend y backend. Los comandos de verificación usados fueron:
+
+\subsection{Frontend}
+
+\begin{lstlisting}
+cd frontend
+npm.cmd run lint
+npm.cmd run build
+npm.cmd run test
+\end{lstlisting}
+
+\subsection{Backend}
+
+\begin{lstlisting}
+cd backend
+npm.cmd run lint
+npm.cmd run build
+npm.cmd run test
+\end{lstlisting}
+
+\subsection{Validación manual recomendada}
+
+\begin{enumerate}
+    \item Levantar el sistema con \texttt{docker compose up --build}.
+    \item Abrir \url{http://127.0.0.1:5180}.
+    \item Completar onboarding si el perfil no está configurado.
+    \item Entrar al dashboard.
+    \item Generar una rutina semanal.
+    \item Entrar a workout.
+    \item Seleccionar un día de entrenamiento.
+    \item Iniciar sesión de entrenamiento.
+    \item Completar una serie y registrar peso.
+    \item Verificar que se active el temporizador.
+    \item Finalizar la sesión.
+    \item Revisar el resumen.
+\end{enumerate}
+
+% =========================================================
+\section{Decisiones técnicas importantes}
+
+\begin{itemize}
+    \item Se decidió usar Docker Compose para facilitar que cualquier integrante pueda levantar el sistema completo.
+    \item Se usó PostgreSQL para mantener persistencia real y no depender solo de mocks.
+    \item El coach virtual se implementó con reglas determinísticas para que sea explicable y fácil de probar.
+    \item Se mantuvo fallback local controlado para evitar que la interfaz se rompa si el backend no está disponible.
+    \item No se implementó todavía RPE ni ajuste adaptativo avanzado, porque eso corresponde al Sprint 3.
+    \item El temporizador de descanso se dejó en frontend, mientras que el registro de series sí se persiste cuando el backend está disponible.
+\end{itemize}
+
+% =========================================================
+\section{Conclusiones}
+
+En el Sprint 1 se construyó la base necesaria para que SigmaFit funcione como una aplicación real: entorno con Docker, backend, base de datos, seed inicial y onboarding. Esto permitió que el sistema registre la información mínima del usuario.
+
+En el Sprint 2 se implementó el valor principal de la aplicación: la generación de rutinas mediante un coach virtual y el tracker de entrenamiento en vivo. Con esto, SigmaFit permite pasar del perfil del usuario a una rutina semanal y luego al registro práctico de una sesión de entrenamiento.
+
+El proyecto queda preparado para continuar con el Sprint 3, donde se puede implementar el ajuste adaptativo por RPE, sobrecarga progresiva y lógica de descarga según la fatiga reportada por el usuario.
+
+% =========================================================
+\newpage
+\section{Evidencias de ejecución}
+
+En esta sección se deben colocar las capturas de pantalla que muestran el funcionamiento del sistema.
+
+\captura{0.95\textwidth}
+{cap_01_docker_compose.png}
+{7cm}
+{Ejecución de Docker Compose levantando frontend, backend y PostgreSQL.}
+
+\captura{0.95\textwidth}
+{cap_02_frontend_landing.png}
+{7cm}
+{Página principal de SigmaFit en el navegador.}
+
+\captura{0.95\textwidth}
+{cap_03_onboarding.png}
+{7cm}
+{Formulario de onboarding para registrar objetivo, nivel y días disponibles.}
+
+\captura{0.95\textwidth}
+{cap_04_dashboard.png}
+{7cm}
+{Dashboard del usuario con perfil configurado.}
+
+\captura{0.95\textwidth}
+{cap_05_generar_rutina.png}
+{7cm}
+{Acción para generar rutina semanal desde el dashboard.}
+
+\captura{0.95\textwidth}
+{cap_06_rutina_generada.png}
+{7cm}
+{Rutina semanal generada con días, ejercicios, series, repeticiones y descanso.}
+
+\captura{0.95\textwidth}
+{cap_07_workout_tracker.png}
+{7cm}
+{Pantalla de workout con tracker de entrenamiento en vivo.}
+
+\captura{0.95\textwidth}
+{cap_08_serie_completada_timer.png}
+{7cm}
+{Serie completada con peso registrado y temporizador de descanso activo.}
+
+\captura{0.95\textwidth}
+{cap_09_resumen_sesion.png}
+{7cm}
+{Resumen mostrado al finalizar una sesión de entrenamiento.}
+
+\captura{0.95\textwidth}
+{cap_10_backend_health.png}
+{7cm}
+{Verificación del backend mediante el endpoint de salud.}
+
+\captura{0.95\textwidth}
+{cap_11_tests_backend.png}
+{7cm}
+{Ejecución de pruebas, build y lint del backend.}
+
+\captura{0.95\textwidth}
+{cap_12_tests_frontend.png}
+{7cm}
+{Ejecución de pruebas, build y lint del frontend.}
+
+\end{document}
