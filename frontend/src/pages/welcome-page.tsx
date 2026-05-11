@@ -1,54 +1,159 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { ArrowRight, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
+import { ArrowRight, ChevronLeft, ChevronRight, Sparkles, TriangleAlert } from 'lucide-react'
 
 import { LiquidButton } from '@/components/ui/liquid-glass-button'
 import { ProgressBar } from '@/components/ui/progress-bar'
-import { sigmaExperienceLevels, sigmaObjectives } from '@/lib/sigmafit/mock-data'
-import type { SigmaExperience, SigmaObjective } from '@/lib/sigmafit/types'
+import {
+  formatSigmaExperienceLevel,
+  formatSigmaGoal,
+  sigmaDaysPerWeekOptions,
+  sigmaExperienceOptions,
+  sigmaGoalOptions,
+} from '@/lib/sigmafit/catalog'
+import type { SigmaExperienceLevel, SigmaGoal } from '@/lib/sigmafit/types'
 import { useSigmafitStore } from '@/store/sigmafit-store'
 
 const steps = ['Objetivo', 'Nivel', 'Disponibilidad'] as const
+
+type ValidationErrors = {
+  goal?: string
+  experienceLevel?: string
+  daysPerWeek?: string
+}
 
 export function RegisterPage() {
   const navigate = useNavigate()
   const completeOnboarding = useSigmafitStore((state) => state.completeOnboarding)
   const profile = useSigmafitStore((state) => state.profile)
+  const session = useSigmafitStore((state) => state.session)
   const [step, setStep] = useState(0)
   const [displayName, setDisplayName] = useState(profile.displayName === 'Atleta' ? '' : profile.displayName)
   const [email, setEmail] = useState(profile.email)
-  const [objective, setObjective] = useState<SigmaObjective>(profile.objective)
-  const [experience, setExperience] = useState<SigmaExperience>(profile.experience)
-  const [availability, setAvailability] = useState(profile.availability)
+  const [goal, setGoal] = useState<SigmaGoal | null>(session.onboardingComplete ? profile.goal : null)
+  const [experienceLevel, setExperienceLevel] = useState<SigmaExperienceLevel | null>(
+    session.onboardingComplete ? profile.experienceLevel : null,
+  )
+  const [daysPerWeek, setDaysPerWeek] = useState<number | null>(
+    session.onboardingComplete ? profile.daysPerWeek : null,
+  )
+  const [errors, setErrors] = useState<ValidationErrors>({})
+  const [submissionMessage, setSubmissionMessage] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const completion = ((step + 1) / steps.length) * 100
   const summary = useMemo(
     () => [
       { label: 'Nombre', value: displayName || 'Pendiente' },
-      { label: 'Objetivo', value: objective },
-      { label: 'Nivel', value: experience },
-      { label: 'Dias', value: `${availability} por semana` },
+      { label: 'Objetivo', value: goal ? formatSigmaGoal(goal) : 'Pendiente' },
+      { label: 'Nivel', value: experienceLevel ? formatSigmaExperienceLevel(experienceLevel) : 'Pendiente' },
+      { label: 'Dias', value: daysPerWeek ? `${daysPerWeek} por semana` : 'Pendiente' },
     ],
-    [availability, displayName, experience, objective],
+    [daysPerWeek, displayName, experienceLevel, goal],
   )
 
+  function updateErrors(nextErrors: ValidationErrors) {
+    setErrors((current) => ({
+      ...current,
+      ...nextErrors,
+    }))
+  }
+
+  function validateStep(stepToValidate: number) {
+    const nextErrors: ValidationErrors = {}
+
+    if (stepToValidate === 0 && !goal) {
+      nextErrors.goal = 'Selecciona un objetivo antes de continuar.'
+    }
+
+    if (stepToValidate === 1 && !experienceLevel) {
+      nextErrors.experienceLevel = 'Selecciona tu nivel de experiencia antes de continuar.'
+    }
+
+    if (stepToValidate === 2 && !daysPerWeek) {
+      nextErrors.daysPerWeek = 'Selecciona cuántos días puedes entrenar por semana.'
+    }
+
+    updateErrors(nextErrors)
+    return Object.keys(nextErrors).length === 0
+  }
+
+  function validateAll() {
+    const nextErrors: ValidationErrors = {}
+
+    if (!goal) {
+      nextErrors.goal = 'Selecciona un objetivo antes de guardar.'
+    }
+
+    if (!experienceLevel) {
+      nextErrors.experienceLevel = 'Selecciona tu nivel de experiencia antes de guardar.'
+    }
+
+    if (!daysPerWeek) {
+      nextErrors.daysPerWeek = 'Selecciona tu disponibilidad semanal antes de guardar.'
+    }
+
+    setErrors(nextErrors)
+    return nextErrors
+  }
+
   function goNext() {
+    setSubmissionMessage(null)
+
+    if (!validateStep(step)) {
+      return
+    }
+
     setStep((current) => Math.min(current + 1, steps.length - 1))
   }
 
   function goBack() {
+    setSubmissionMessage(null)
     setStep((current) => Math.max(current - 1, 0))
   }
 
-  function finishOnboarding() {
-    completeOnboarding({
-      displayName: displayName || 'Atleta Sigma',
-      email: email || 'atleta@sigmafit.app',
-      objective,
-      experience,
-      availability,
-    })
-    void navigate({ to: '/dashboard' })
+  async function finishOnboarding() {
+    const validationErrors = validateAll()
+
+    if (validationErrors.goal) {
+      setStep(0)
+      return
+    }
+
+    if (validationErrors.experienceLevel) {
+      setStep(1)
+      return
+    }
+
+    if (validationErrors.daysPerWeek) {
+      setStep(2)
+      return
+    }
+
+    setIsSubmitting(true)
+    setSubmissionMessage(null)
+
+    try {
+      const result = await completeOnboarding({
+        displayName: displayName || 'Atleta Sigma',
+        email: email || 'demo@sigmafit.app',
+        goal: goal!,
+        experienceLevel: experienceLevel!,
+        daysPerWeek: daysPerWeek!,
+      })
+
+      if (result.warning) {
+        setSubmissionMessage(`${result.warning} Redirigiendo al dashboard.`)
+        window.setTimeout(() => {
+          void navigate({ to: '/dashboard' })
+        }, 900)
+        return
+      }
+
+      void navigate({ to: '/dashboard' })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -59,11 +164,11 @@ export function RegisterPage() {
             <div>
               <p className="text-sm uppercase tracking-[0.28em] text-cyan-300/80">SigmaFit setup</p>
               <h1 className="mt-3 font-['Space_Grotesk'] text-4xl font-semibold tracking-[-0.05em] text-white md:text-5xl">
-                Tu base para entrenar con contexto.
+                Perfilado inicial para tu primer bloque.
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-400">
-                Son tres decisiones utiles: objetivo, nivel y disponibilidad. El resultado se guarda localmente
-                para abrir el dashboard sin depender de auth ni API real.
+                Define objetivo, nivel y frecuencia semanal. SigmaFit guarda este perfil para decidir
+                la entrada al dashboard y dejar listo el coach virtual del siguiente sprint.
               </p>
             </div>
             <Link to="/login" className="text-sm text-slate-400 transition hover:text-white">
@@ -89,6 +194,15 @@ export function RegisterPage() {
             ))}
           </div>
 
+          {submissionMessage ? (
+            <div className="mt-6 rounded-[24px] border border-amber-400/18 bg-amber-400/10 px-4 py-4 text-sm text-amber-100">
+              <div className="flex items-start gap-3">
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                <p>{submissionMessage}</p>
+              </div>
+            </div>
+          ) : null}
+
           <div className="mt-8">
             {step === 0 ? (
               <div className="space-y-5">
@@ -107,78 +221,83 @@ export function RegisterPage() {
                     <input
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
-                      placeholder="tu@correo.com"
+                      placeholder="demo@sigmafit.app"
                       className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
                     />
                   </label>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  {sigmaObjectives.map((item) => (
+                <div className="grid gap-4 md:grid-cols-3">
+                  {sigmaGoalOptions.map((item) => (
                     <button
-                      key={item}
+                      key={item.value}
                       type="button"
-                      onClick={() => setObjective(item)}
+                      onClick={() => {
+                        setGoal(item.value)
+                        updateErrors({ goal: undefined })
+                      }}
                       className={`rounded-[26px] border px-5 py-5 text-left transition ${
-                        objective === item
+                        goal === item.value
                           ? 'border-cyan-400/20 bg-cyan-400/10'
-                          : 'border-white/8 bg-black/20 hover:border-white/14 hover:bg-white/[0.04]'
+                          : errors.goal
+                            ? 'border-rose-400/20 bg-rose-400/6 hover:border-rose-300/30'
+                            : 'border-white/8 bg-black/20 hover:border-white/14 hover:bg-white/[0.04]'
                       }`}
                     >
-                      <p className="font-['Space_Grotesk'] text-2xl font-semibold text-white">{item}</p>
-                      <p className="mt-3 text-sm leading-7 text-slate-400">
-                        {item === 'Hipertrofia'
-                          ? 'Sube volumen y controla fatiga para ganar masa con criterio.'
-                          : item === 'Fuerza'
-                            ? 'Prioriza top sets, 1RM proyectado y bloques de intensidad.'
-                            : item === 'Recomposicion'
-                              ? 'Combina adherencia, densidad y lectura corporal.'
-                              : 'Enfoca consistencia y recuperacion entre sesiones.'}
-                      </p>
+                      <p className="font-['Space_Grotesk'] text-2xl font-semibold text-white">{item.label}</p>
+                      <p className="mt-3 text-sm leading-7 text-slate-400">{item.description}</p>
                     </button>
                   ))}
                 </div>
+                {errors.goal ? <p className="text-sm text-rose-300">{errors.goal}</p> : null}
               </div>
             ) : null}
 
             {step === 1 ? (
-              <div className="grid gap-4 md:grid-cols-3">
-                {sigmaExperienceLevels.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => setExperience(item)}
-                    className={`rounded-[28px] border px-5 py-8 text-left transition ${
-                      experience === item
-                        ? 'border-cyan-400/20 bg-cyan-400/10'
-                        : 'border-white/8 bg-black/20 hover:border-white/14 hover:bg-white/[0.04]'
-                    }`}
-                  >
-                    <p className="font-['Space_Grotesk'] text-3xl font-semibold text-white">{item}</p>
-                    <p className="mt-3 text-sm leading-7 text-slate-400">
-                      {item === 'Principiante'
-                        ? 'Mayor foco en adherencia, tecnica y control de progreso.'
-                        : item === 'Intermedio'
-                          ? 'Base suficiente para progresion semanal con ajustes por fatiga.'
-                          : 'Lectura fina de volumen, intensidad y recuperacion.'}
-                    </p>
-                  </button>
-                ))}
+              <div className="space-y-5">
+                <div className="grid gap-4 md:grid-cols-3">
+                  {sigmaExperienceOptions.map((item) => (
+                    <button
+                      key={item.value}
+                      type="button"
+                      onClick={() => {
+                        setExperienceLevel(item.value)
+                        updateErrors({ experienceLevel: undefined })
+                      }}
+                      className={`rounded-[28px] border px-5 py-8 text-left transition ${
+                        experienceLevel === item.value
+                          ? 'border-cyan-400/20 bg-cyan-400/10'
+                          : errors.experienceLevel
+                            ? 'border-rose-400/20 bg-rose-400/6 hover:border-rose-300/30'
+                            : 'border-white/8 bg-black/20 hover:border-white/14 hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <p className="font-['Space_Grotesk'] text-3xl font-semibold text-white">{item.label}</p>
+                      <p className="mt-3 text-sm leading-7 text-slate-400">{item.description}</p>
+                    </button>
+                  ))}
+                </div>
+                {errors.experienceLevel ? <p className="text-sm text-rose-300">{errors.experienceLevel}</p> : null}
               </div>
             ) : null}
 
             {step === 2 ? (
               <div className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-4">
-                  {[3, 4, 5, 6].map((days) => (
+                <div className="grid gap-4 md:grid-cols-5">
+                  {sigmaDaysPerWeekOptions.map((days) => (
                     <button
                       key={days}
                       type="button"
-                      onClick={() => setAvailability(days)}
+                      onClick={() => {
+                        setDaysPerWeek(days)
+                        updateErrors({ daysPerWeek: undefined })
+                      }}
                       className={`rounded-[28px] border px-5 py-8 text-left transition ${
-                        availability === days
+                        daysPerWeek === days
                           ? 'border-cyan-400/20 bg-cyan-400/10'
-                          : 'border-white/8 bg-black/20 hover:border-white/14 hover:bg-white/[0.04]'
+                          : errors.daysPerWeek
+                            ? 'border-rose-400/20 bg-rose-400/6 hover:border-rose-300/30'
+                            : 'border-white/8 bg-black/20 hover:border-white/14 hover:bg-white/[0.04]'
                       }`}
                     >
                       <p className="font-['Space_Grotesk'] text-4xl font-semibold text-white">{days}</p>
@@ -186,15 +305,16 @@ export function RegisterPage() {
                     </button>
                   ))}
                 </div>
+                {errors.daysPerWeek ? <p className="text-sm text-rose-300">{errors.daysPerWeek}</p> : null}
 
                 <div className="rounded-[28px] border border-cyan-400/14 bg-cyan-400/8 p-5">
                   <div className="flex items-center gap-3">
                     <Sparkles className="h-5 w-5 text-cyan-300" />
-                    <p className="font-medium text-white">Resultado de este sprint</p>
+                    <p className="font-medium text-white">Resultado del Sprint 1</p>
                   </div>
                   <p className="mt-3 text-sm leading-7 text-slate-300">
-                    Al cerrar este paso se activa la sesion mock, se guarda el onboarding en localStorage y
-                    se abre el dashboard SigmaFit.
+                    Al cerrar este paso, SigmaFit persiste el perfil inicial, actualiza el estado del
+                    onboarding y habilita el acceso al dashboard.
                   </p>
                 </div>
               </div>
@@ -205,7 +325,7 @@ export function RegisterPage() {
             <button
               type="button"
               onClick={goBack}
-              disabled={step === 0}
+              disabled={step === 0 || isSubmitting}
               className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-slate-300 transition disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ChevronLeft size={16} />
@@ -213,13 +333,13 @@ export function RegisterPage() {
             </button>
 
             {step < steps.length - 1 ? (
-              <LiquidButton type="button" size="md" onClick={goNext}>
+              <LiquidButton type="button" size="md" onClick={goNext} disabled={isSubmitting}>
                 Continuar
                 <ChevronRight size={16} />
               </LiquidButton>
             ) : (
-              <LiquidButton type="button" size="md" onClick={finishOnboarding}>
-                Ir al dashboard
+              <LiquidButton type="button" size="md" onClick={finishOnboarding} disabled={isSubmitting}>
+                {isSubmitting ? 'Guardando perfil...' : 'Guardar y abrir dashboard'}
                 <ArrowRight size={16} />
               </LiquidButton>
             )}
@@ -235,7 +355,10 @@ export function RegisterPage() {
             </div>
             <div className="mt-5 space-y-3">
               {summary.map((item) => (
-                <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-black/20 px-4 py-3"
+                >
                   <span className="text-sm text-slate-400">{item.label}</span>
                   <span className="text-sm font-medium text-white">{item.value}</span>
                 </div>
@@ -247,12 +370,15 @@ export function RegisterPage() {
             <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Lo que se desbloquea</p>
             <div className="mt-4 space-y-3">
               {[
-                'Landing publica conectada al flujo real del producto.',
-                'Dashboard con metricas y preview de progresion semanal.',
-                'Workout tracker con sets editables y modal RPE.',
-                'Profile y progress persistentes sin backend.',
+                'Redireccion obligatoria a onboarding cuando el perfil inicial aun no existe.',
+                'Persistencia local y sincronizacion backend a traves de una capa de servicios.',
+                'Dashboard, workout y progress habilitados solo despues de completar el perfil.',
+                'Base preparada para que el coach virtual use estos datos en el Sprint 2.',
               ].map((item) => (
-                <div key={item} className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm leading-7 text-slate-300">
+                <div
+                  key={item}
+                  className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm leading-7 text-slate-300"
+                >
                   {item}
                 </div>
               ))}
@@ -263,4 +389,3 @@ export function RegisterPage() {
     </main>
   )
 }
-

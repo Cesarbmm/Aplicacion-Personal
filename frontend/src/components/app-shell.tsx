@@ -31,8 +31,10 @@ export function AppShell({ children }: AppShellProps) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const meta = routeMeta[pathname] ?? routeMeta['/dashboard']
   const athleteName = useSigmafitStore((state) => state.profile.displayName)
+  const session = useSigmafitStore((state) => state.session)
   const lastRpe = useSigmafitStore((state) => state.workout.lastSessionRpe)
   const readiness = useSigmafitStore((state) => state.workout.readiness)
+  const clearSyncError = useSigmafitStore((state) => state.clearSyncError)
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.14),transparent_28%),linear-gradient(180deg,#08111a_0%,#050a10_100%)] text-white">
@@ -71,11 +73,25 @@ export function AppShell({ children }: AppShellProps) {
           </header>
 
           <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
-            <div className="mx-auto max-w-[1380px]">{children}</div>
+            <div className="mx-auto max-w-[1380px] space-y-4">
+              {session.lastSyncError ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-amber-400/18 bg-amber-400/10 px-4 py-4 text-sm text-amber-100">
+                  <span>{session.lastSyncError}</span>
+                  <button
+                    type="button"
+                    onClick={clearSyncError}
+                    className="rounded-full border border-amber-300/20 px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-amber-100 transition hover:bg-amber-300/10"
+                  >
+                    Ocultar
+                  </button>
+                </div>
+              ) : null}
+
+              <div>{children}</div>
+            </div>
           </main>
         </div>
       </div>
     </div>
   )
 }
-

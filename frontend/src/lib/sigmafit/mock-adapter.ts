@@ -119,7 +119,7 @@ export function getSigmaProfileView(state: SigmafitStateSnapshot) {
     weeklySummary: [
       {
         label: 'Disponibilidad',
-        value: `${state.profile.availability} dias`,
+        value: `${state.profile.daysPerWeek} dias`,
       },
       {
         label: 'Enfoque',

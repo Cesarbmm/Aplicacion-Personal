@@ -6,6 +6,13 @@ import { Bell, RefreshCcw, Save } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
 import { PanelCard } from '@/components/panel-card'
 import { ProgressBar } from '@/components/ui/progress-bar'
+import {
+  formatSigmaExperienceLevel,
+  formatSigmaGoal,
+  sigmaDaysPerWeekOptions,
+  sigmaExperienceOptions,
+  sigmaGoalOptions,
+} from '@/lib/sigmafit/catalog'
 import { getSigmaProfileView } from '@/lib/sigmafit/mock-adapter'
 import type { SigmaProfile } from '@/lib/sigmafit/types'
 import { useSigmafitStore } from '@/store/sigmafit-store'
@@ -13,6 +20,8 @@ import { useSigmafitStore } from '@/store/sigmafit-store'
 export function ProfilePage() {
   const session = useSigmafitStore((state) => state.session)
   const profile = useSigmafitStore((state) => state.profile)
+  const routine = useSigmafitStore((state) => state.routine)
+  const training = useSigmafitStore((state) => state.training)
   const workout = useSigmafitStore((state) => state.workout)
   const progressHistory = useSigmafitStore((state) => state.progressHistory)
   const preferences = useSigmafitStore((state) => state.preferences)
@@ -22,7 +31,7 @@ export function ProfilePage() {
   const [saved, setSaved] = useState(false)
   const [draft, setDraft] = useState<SigmaProfile>(profile)
 
-  const data = getSigmaProfileView({ session, profile, workout, progressHistory, preferences })
+  const data = getSigmaProfileView({ session, profile, routine, training, workout, progressHistory, preferences })
 
   useEffect(() => {
     setDraft(profile)
@@ -87,26 +96,49 @@ export function ProfilePage() {
                 <label className="space-y-2">
                   <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Objetivo</span>
                   <select
-                    value={draft.objective}
-                    onChange={(event) => setDraft((current) => ({ ...current, objective: event.target.value as SigmaProfile['objective'] }))}
+                    value={draft.goal}
+                    onChange={(event) => setDraft((current) => ({ ...current, goal: event.target.value as SigmaProfile['goal'] }))}
                     className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
                   >
-                    <option value="Hipertrofia">Hipertrofia</option>
-                    <option value="Fuerza">Fuerza</option>
-                    <option value="Recomposicion">Recomposicion</option>
-                    <option value="Resistencia">Resistencia</option>
+                    {sigmaGoalOptions.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Nivel</span>
+                  <select
+                    value={draft.experienceLevel}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        experienceLevel: event.target.value as SigmaProfile['experienceLevel'],
+                      }))
+                    }
+                    className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                  >
+                    {sigmaExperienceOptions.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label className="space-y-2">
                   <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Disponibilidad</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={7}
-                    value={draft.availability}
-                    onChange={(event) => setDraft((current) => ({ ...current, availability: Number(event.target.value) || 1 }))}
+                  <select
+                    value={draft.daysPerWeek}
+                    onChange={(event) => setDraft((current) => ({ ...current, daysPerWeek: Number(event.target.value) || 2 }))}
                     className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
-                  />
+                  >
+                    {sigmaDaysPerWeekOptions.map((days) => (
+                      <option key={days} value={days}>
+                        {days} dias
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label className="space-y-2">
                   <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Coach</span>
@@ -171,6 +203,14 @@ export function ProfilePage() {
                     <span className="text-sm font-medium text-white">{item.value}</span>
                   </div>
                 ))}
+                <div className="flex items-center justify-between gap-3 rounded-[22px] border border-white/8 bg-black/20 px-4 py-4">
+                  <span className="text-sm text-slate-400">Objetivo</span>
+                  <span className="text-sm font-medium text-white">{formatSigmaGoal(profile.goal)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-[22px] border border-white/8 bg-black/20 px-4 py-4">
+                  <span className="text-sm text-slate-400">Nivel</span>
+                  <span className="text-sm font-medium text-white">{formatSigmaExperienceLevel(profile.experienceLevel)}</span>
+                </div>
               </div>
 
               <div className="mt-6 rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
@@ -240,4 +280,3 @@ export function ProfilePage() {
     </div>
   )
 }
-

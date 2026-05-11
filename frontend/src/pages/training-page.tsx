@@ -1,54 +1,98 @@
-import { useState } from 'react'
-import { Activity, Flame, Gauge, Sparkles } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Activity, CalendarRange, Dumbbell, Timer, Trophy } from 'lucide-react'
 
-import { RpeModal } from '@/components/app/rpe-modal'
 import { WorkoutTracker } from '@/components/app/workout-tracker'
 import { PageHeader } from '@/components/page-header'
 import { PanelCard } from '@/components/panel-card'
 import { LiquidButton } from '@/components/ui/liquid-glass-button'
-import { ProgressBar } from '@/components/ui/progress-bar'
-import { getSigmaWorkoutView } from '@/lib/sigmafit/mock-adapter'
 import { useSigmafitStore } from '@/store/sigmafit-store'
 
 export function WorkoutPage() {
   const session = useSigmafitStore((state) => state.session)
-  const profile = useSigmafitStore((state) => state.profile)
+  const routine = useSigmafitStore((state) => state.routine)
+  const training = useSigmafitStore((state) => state.training)
   const workout = useSigmafitStore((state) => state.workout)
-  const progressHistory = useSigmafitStore((state) => state.progressHistory)
-  const preferences = useSigmafitStore((state) => state.preferences)
-  const updateWorkoutSet = useSigmafitStore((state) => state.updateWorkoutSet)
-  const setActiveExercise = useSigmafitStore((state) => state.setActiveExercise)
-  const submitWorkoutRpe = useSigmafitStore((state) => state.submitWorkoutRpe)
+  const loadCurrentRoutine = useSigmafitStore((state) => state.loadCurrentRoutine)
+  const generateRoutine = useSigmafitStore((state) => state.generateRoutine)
+  const startWorkoutSession = useSigmafitStore((state) => state.startWorkoutSession)
+  const updateSessionSetDraft = useSigmafitStore((state) => state.updateSessionSetDraft)
+  const completeWorkoutSet = useSigmafitStore((state) => state.completeWorkoutSet)
+  const finishWorkoutSession = useSigmafitStore((state) => state.finishWorkoutSession)
 
-  const data = getSigmaWorkoutView({ session, profile, workout, progressHistory, preferences })
-  const [rpeModalOpen, setRpeModalOpen] = useState(false)
-  const [rpeDraft, setRpeDraft] = useState(workout.lastSessionRpe ?? 7)
+  const [isGenerating, setIsGenerating] = useState(false)
 
-  function handleSubmitRpe() {
-    submitWorkoutRpe(rpeDraft)
-    setRpeModalOpen(false)
+  useEffect(() => {
+    if (session.isAuthenticated && session.onboardingComplete && !routine.currentRoutine) {
+      void loadCurrentRoutine()
+    }
+  }, [
+    loadCurrentRoutine,
+    routine.currentRoutine,
+    session.isAuthenticated,
+    session.onboardingComplete,
+  ])
+
+  const workoutMetrics = useMemo(() => {
+    const completedSets = training.activeSession
+      ? training.activeSession.exercises.reduce(
+          (total, exercise) => total + exercise.sessionSets.filter((setItem) => setItem.completed).length,
+          0,
+        )
+      : 0
+
+    const totalSets = training.activeSession
+      ? training.activeSession.exercises.reduce((total, exercise) => total + exercise.sessionSets.length, 0)
+      : routine.currentRoutine?.days.reduce(
+          (total, day) => total + day.exercises.reduce((exerciseTotal, exercise) => exerciseTotal + exercise.sets, 0),
+          0,
+        ) ?? 0
+
+    return [
+      { icon: Activity, label: 'Readiness', value: `${workout.readiness}%` },
+      { icon: Dumbbell, label: 'Rutina', value: routine.currentRoutine ? `${routine.currentRoutine.days.length} dias` : 'Sin bloque' },
+      {
+        icon: Timer,
+        label: 'Sesion activa',
+        value: training.activeSession ? `${completedSets}/${totalSets} sets` : 'No iniciada',
+      },
+      {
+        icon: CalendarRange,
+        label: 'Fuente',
+        value: routine.currentRoutine ? routine.source : 'Pendiente',
+      },
+    ]
+  }, [routine.currentRoutine, routine.source, training.activeSession, workout.readiness])
+
+  async function handleGenerateRoutine() {
+    setIsGenerating(true)
+    try {
+      await generateRoutine()
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Workout"
-        title={`${data.title} en vivo`}
-        subtitle={data.notes}
+        title={training.activeSession ? `${training.activeSession.title} en vivo` : 'Rutina semanal y tracker en vivo'}
+        subtitle={
+          training.activeSession
+            ? 'Marca series, registra peso y deja que SigmaFit gestione el descanso y el resumen de la sesion.'
+            : 'Selecciona un dia del bloque semanal, inicia una sesion y lleva el control detallado del entrenamiento.'
+        }
         actions={
-          <LiquidButton size="md" onClick={() => setRpeModalOpen(true)}>
-            Cerrar con RPE
-          </LiquidButton>
+          routine.currentRoutine ? null : (
+            <LiquidButton size="md" onClick={() => void handleGenerateRoutine()} disabled={isGenerating || routine.isLoading}>
+              {isGenerating || routine.isLoading ? 'Generando rutina...' : 'Generar rutina semanal'}
+            </LiquidButton>
+          )
         }
       />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {[
-          { icon: Gauge, label: 'Readiness', value: `${data.readiness}%` },
-          { icon: Activity, label: 'Sets completados', value: `${data.completedSets}/${data.totalSets}` },
-          { icon: Flame, label: 'Duracion objetivo', value: `${data.sessionLengthMinutes} min` },
-          { icon: Sparkles, label: 'Bloque', value: data.block },
-        ].map((item) => (
+        {workoutMetrics.map((item) => (
           <PanelCard key={item.label} className="p-4" title={item.label}>
             <div className="flex items-center justify-between gap-3">
               <item.icon className="h-4 w-4 text-cyan-300" />
@@ -58,41 +102,37 @@ export function WorkoutPage() {
         ))}
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+      <div className="grid gap-6 xl:grid-cols-[1.18fr_0.82fr]">
         <WorkoutTracker
-          exercises={data.exercises}
-          activeExerciseId={workout.activeExerciseId}
-          completedSets={data.completedSets}
-          totalSets={data.totalSets}
-          onSelectExercise={setActiveExercise}
-          onSetChange={updateWorkoutSet}
+          routine={routine.currentRoutine}
+          activeSession={training.activeSession}
+          isStarting={training.isStarting}
+          isUpdatingSet={training.isUpdatingSet}
+          isFinishing={training.isFinishing}
+          trainingError={training.error}
+          onStartSession={async (payload) => {
+            await startWorkoutSession(payload)
+          }}
+          onSetDraftChange={updateSessionSetDraft}
+          onCompleteSet={async (sessionId, setId, payload) => {
+            await completeWorkoutSet(sessionId, setId, payload)
+          }}
+          onFinishSession={async (sessionId) => {
+            await finishWorkoutSession(sessionId)
+          }}
         />
 
         <div className="space-y-6">
-          <PanelCard title="Contexto de la sesion" subtitle={data.focus}>
-            <div className="space-y-4">
-              <div>
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <span className="text-sm text-slate-300">Readiness live</span>
-                  <span className="text-sm text-cyan-200">{data.readiness}%</span>
-                </div>
-                <ProgressBar value={data.readiness} />
-              </div>
-
-              <div className="rounded-[24px] border border-cyan-400/14 bg-cyan-400/8 px-4 py-4 text-sm leading-7 text-slate-200">
-                El tracker esta desacoplado del backend. Puedes editar cargas, reps y sets mientras el estado
-                se conserva en localStorage.
-              </div>
-            </div>
-          </PanelCard>
-
-          <PanelCard title="Que valida esta vista" subtitle="Checklist del sprint actual.">
+          <PanelCard title="Estado del Coach" subtitle="La rutina se consulta desde backend y usa fallback local solo si es necesario.">
             <div className="space-y-3">
               {[
-                'Layout interno con sidebar SigmaFit.',
-                'Workout tracker reutilizable y editable.',
-                'Modal RPE conectado al store persistente.',
-                'Datos mock listos para cambiar por adapters reales.',
+                routine.currentRoutine
+                  ? `Rutina actual: ${routine.currentRoutine.name}.`
+                  : 'No hay rutina generada todavia.',
+                training.activeSession
+                  ? `Sesion activa: ${training.activeSession.title}.`
+                  : 'No hay una sesion activa en este momento.',
+                `Backend: ${session.backendStatus}.`,
               ].map((item) => (
                 <div key={item} className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-sm text-slate-300">
                   {item}
@@ -100,17 +140,46 @@ export function WorkoutPage() {
               ))}
             </div>
           </PanelCard>
+
+          <PanelCard title="Resumen de sesion" subtitle="Cierre del entrenamiento en vivo del Sprint 2.">
+            {training.lastCompletedSummary ? (
+              <div className="space-y-3">
+                <div className="rounded-[24px] border border-cyan-400/14 bg-cyan-400/8 px-4 py-4">
+                  <div className="flex items-center gap-3">
+                    <Trophy className="h-5 w-5 text-cyan-300" />
+                    <p className="font-medium text-white">Ultima sesion finalizada</p>
+                  </div>
+                  <p className="mt-3 text-sm leading-7 text-slate-300">
+                    {training.lastCompletedSummary.completedSets} series completadas y un volumen aproximado de{' '}
+                    {training.lastCompletedSummary.totalVolume.toLocaleString('es-EC')}.
+                  </p>
+                </div>
+                <div className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-sm text-slate-300">
+                  Estado: {training.lastCompletedSummary.status}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-sm leading-7 text-slate-300">
+                Finaliza una sesion para guardar el resumen del entrenamiento en vivo.
+              </div>
+            )}
+          </PanelCard>
+
+          {!routine.currentRoutine ? (
+            <PanelCard title="Desbloqueo del Sprint 2" subtitle="Ruta minima para activar el tracker.">
+              <div className="space-y-4">
+                <p className="text-sm leading-7 text-slate-300">
+                  El onboarding ya define objetivo, nivel y dias disponibles. Usa ese perfil para generar la rutina
+                  semanal y habilitar las sesiones en vivo.
+                </p>
+                <LiquidButton size="md" onClick={() => void handleGenerateRoutine()} disabled={isGenerating || routine.isLoading}>
+                  {isGenerating || routine.isLoading ? 'Generando rutina...' : 'Generar rutina semanal'}
+                </LiquidButton>
+              </div>
+            </PanelCard>
+          ) : null}
         </div>
       </div>
-
-      <RpeModal
-        open={rpeModalOpen}
-        value={rpeDraft}
-        onValueChange={setRpeDraft}
-        onClose={() => setRpeModalOpen(false)}
-        onSubmit={handleSubmitRpe}
-      />
     </div>
   )
 }
-

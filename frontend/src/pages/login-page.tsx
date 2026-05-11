@@ -8,14 +8,20 @@ import { useSigmafitStore } from '@/store/sigmafit-store'
 export function LoginPage() {
   const navigate = useNavigate()
   const login = useSigmafitStore((state) => state.login)
-  const onboardingComplete = useSigmafitStore((state) => state.session.onboardingComplete)
-  const [email, setEmail] = useState('atleta@sigmafit.app')
+  const [email, setEmail] = useState('demo@sigmafit.app')
   const [password, setPassword] = useState('sigmafit-demo')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    login({ email, displayName: email.split('@')[0] })
-    void navigate({ to: onboardingComplete ? '/dashboard' : '/register' })
+    setIsSubmitting(true)
+
+    try {
+      const result = await login({ email, displayName: email.split('@')[0] })
+      void navigate({ to: result.onboardingComplete ? '/dashboard' : '/register' })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -36,8 +42,8 @@ export function LoginPage() {
             Entra al shell operativo.
           </h1>
           <p className="mt-4 max-w-xl text-sm leading-7 text-slate-400">
-            Este acceso no usa auth real. Solo activa el flujo local para validar rutas, persistencia y
-            la experiencia SigmaFit antes de conectar el backend final.
+            Este acceso sigue siendo mock, pero ahora intenta sincronizar el perfil inicial con el backend
+            del Sprint 1. Si no esta disponible, SigmaFit cae de forma controlada a persistencia local.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-4">
@@ -64,8 +70,8 @@ export function LoginPage() {
               <Link to="/register" className="text-sm text-slate-400 transition hover:text-white">
                 Ir al onboarding
               </Link>
-              <LiquidButton type="submit" size="md">
-                Entrar a SigmaFit
+              <LiquidButton type="submit" size="md" disabled={isSubmitting}>
+                {isSubmitting ? 'Conectando...' : 'Entrar a SigmaFit'}
               </LiquidButton>
             </div>
           </form>
@@ -76,8 +82,8 @@ export function LoginPage() {
           <div className="mt-6 space-y-4">
             {[
               'Persistencia de sesion mock en localStorage.',
-              'Redireccion a /register si falta onboarding.',
-              'Paso directo a /dashboard si el flujo ya fue completado.',
+              'Lectura del estado de onboarding desde la API cuando esta disponible.',
+              'Redireccion a /register si falta onboarding y paso directo a /dashboard si ya fue completado.',
             ].map((item) => (
               <div key={item} className="rounded-[24px] border border-white/8 bg-black/20 px-4 py-4 text-sm text-slate-300">
                 {item}
@@ -100,4 +106,3 @@ export function LoginPage() {
     </main>
   )
 }
-

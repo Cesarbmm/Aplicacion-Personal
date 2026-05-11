@@ -1,14 +1,11 @@
 import type {
-  SigmaExperience,
-  SigmaObjective,
   SigmaOnboardingPayload,
+  SigmaRoutineState,
+  SigmaTrainingState,
   SigmafitStateSnapshot,
   SigmaProgressPoint,
   SigmaWorkoutExercise,
 } from './types'
-
-export const sigmaObjectives: SigmaObjective[] = ['Hipertrofia', 'Fuerza', 'Recomposicion', 'Resistencia']
-export const sigmaExperienceLevels: SigmaExperience[] = ['Principiante', 'Intermedio', 'Avanzado']
 
 export const landingFeatures = [
   {
@@ -140,18 +137,39 @@ function createProgressHistory(): SigmaProgressPoint[] {
 }
 
 export function createDefaultSigmafitState(): SigmafitStateSnapshot {
+  const routineState: SigmaRoutineState = {
+    currentRoutine: null,
+    isLoading: false,
+    error: null,
+    source: 'none',
+    lastGeneratedAt: null,
+  }
+
+  const trainingState: SigmaTrainingState = {
+    activeSession: null,
+    isStarting: false,
+    isUpdatingSet: false,
+    isFinishing: false,
+    error: null,
+    source: 'none',
+    lastCompletedSummary: null,
+  }
+
   return {
     session: {
+      userId: null,
       isAuthenticated: false,
       onboardingComplete: false,
+      backendStatus: 'idle',
+      lastSyncError: null,
       lastLoginAt: null,
     },
     profile: {
       displayName: 'Atleta',
       email: '',
-      objective: 'Hipertrofia',
-      experience: 'Intermedio',
-      availability: 4,
+      goal: 'hypertrophy',
+      experienceLevel: 'intermediate',
+      daysPerWeek: 4,
       preferredUnit: 'metric',
       coachingStyle: 'Directo',
       focus: 'Push A',
@@ -159,6 +177,8 @@ export function createDefaultSigmafitState(): SigmafitStateSnapshot {
       heightCm: 176,
       weightKg: 78,
     },
+    routine: routineState,
+    training: trainingState,
     workout: {
       title: 'Push A',
       block: 'Bloque 4 / Hipertrofia controlada',
@@ -183,23 +203,25 @@ export function createDefaultSigmafitState(): SigmafitStateSnapshot {
 export function onboardingToStatePatch(payload: SigmaOnboardingPayload) {
   return {
     session: {
+      userId: null,
       isAuthenticated: true,
       onboardingComplete: true,
+      backendStatus: 'idle' as const,
+      lastSyncError: null,
       lastLoginAt: new Date().toISOString(),
     },
     profile: {
       displayName: payload.displayName,
       email: payload.email,
-      objective: payload.objective,
-      experience: payload.experience,
-      availability: payload.availability,
+      goal: payload.goal,
+      experienceLevel: payload.experienceLevel,
+      daysPerWeek: payload.daysPerWeek,
       preferredUnit: 'metric' as const,
       coachingStyle: 'Directo' as const,
-      focus: payload.objective === 'Fuerza' ? 'Upper strength' : 'Push A',
+      focus: payload.goal === 'strength' ? 'Upper strength' : payload.goal === 'weight_loss' ? 'Full body density' : 'Push A',
       notes: 'Perfil inicial generado desde onboarding SigmaFit.',
       heightCm: 176,
       weightKg: 78,
     },
   }
 }
-

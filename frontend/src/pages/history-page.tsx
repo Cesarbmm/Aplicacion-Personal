@@ -10,11 +10,13 @@ import { useSigmafitStore } from '@/store/sigmafit-store'
 export function ProgressPage() {
   const session = useSigmafitStore((state) => state.session)
   const profile = useSigmafitStore((state) => state.profile)
+  const routine = useSigmafitStore((state) => state.routine)
+  const training = useSigmafitStore((state) => state.training)
   const workout = useSigmafitStore((state) => state.workout)
   const progressHistory = useSigmafitStore((state) => state.progressHistory)
   const preferences = useSigmafitStore((state) => state.preferences)
 
-  const data = getSigmaProgressView({ session, profile, workout, progressHistory, preferences })
+  const data = getSigmaProgressView({ session, profile, routine, training, workout, progressHistory, preferences })
 
   return (
     <div className="space-y-6">
@@ -64,4 +66,3 @@ export function ProgressPage() {
     </div>
   )
 }
-

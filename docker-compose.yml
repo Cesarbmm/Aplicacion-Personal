@@ -1,0 +1,46 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: http://localhost:3000/api
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "5180:5180"
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgres://sigmafit:sigmafit@db:5432/sigmafit
+      FRONTEND_ORIGIN: http://localhost:5180,http://127.0.0.1:5180
+    ports:
+      - "3000:3000"
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sigmafit
+      POSTGRES_PASSWORD: sigmafit
+      POSTGRES_DB: sigmafit
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sigmafit -d sigmafit"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  postgres_data:

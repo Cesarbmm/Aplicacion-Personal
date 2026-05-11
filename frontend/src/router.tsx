@@ -1,3 +1,4 @@
+import type { RouterHistory } from '@tanstack/history'
 import { Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
 
 import { RouteRedirect } from './components/route-redirect'
@@ -77,7 +78,7 @@ const legacySettingsRoute = createRedirectRoute('/settings', '/profile')
 const legacyCoachRoute = createRedirectRoute('/coach', '/workout')
 const legacyExercisesRoute = createRedirectRoute('/exercises', '/workout')
 
-const routeTree = rootRoute.addChildren([
+export const routeTree = rootRoute.addChildren([
   landingRoute,
   loginRoute,
   registerRoute,
@@ -95,9 +96,14 @@ const routeTree = rootRoute.addChildren([
   legacyExercisesRoute,
 ])
 
-export const router = createRouter({
-  routeTree,
-})
+export function createAppRouter(options?: { history?: RouterHistory }) {
+  return createRouter({
+    routeTree,
+    history: options?.history,
+  })
+}
+
+export const router = createAppRouter()
 
 declare module '@tanstack/react-router' {
   interface Register {

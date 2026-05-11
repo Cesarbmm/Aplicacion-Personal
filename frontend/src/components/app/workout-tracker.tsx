@@ -1,16 +1,36 @@
-import { useEffect, useState } from 'react'
-import { CheckCircle2, Clock3, Dumbbell, Flame, TimerReset } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { CheckCircle2, Clock3, Dumbbell, PlayCircle, TimerReset } from 'lucide-react'
 
 import { ProgressBar } from '@/components/ui/progress-bar'
-import type { SigmaWorkoutExercise, SigmaWorkoutSet } from '@/lib/sigmafit/types'
+import type { SigmaRoutine, SigmaUnit, SigmaWorkoutSession } from '@/lib/sigmafit/types'
 
 type WorkoutTrackerProps = {
-  exercises: SigmaWorkoutExercise[]
-  activeExerciseId: string
-  completedSets: number
-  totalSets: number
-  onSelectExercise: (exerciseId: string) => void
-  onSetChange: (exerciseId: string, setId: string, patch: Partial<SigmaWorkoutSet>) => void
+  routine: SigmaRoutine | null
+  activeSession: SigmaWorkoutSession | null
+  isStarting: boolean
+  isUpdatingSet: boolean
+  isFinishing: boolean
+  trainingError: string | null
+  onStartSession: (payload: { routineId: string; routineDayId: string; unit: SigmaUnit }) => Promise<void> | void
+  onSetDraftChange: (
+    sessionId: string,
+    setId: string,
+    patch: Partial<{
+      weight: number | null
+      unit: SigmaUnit
+      completed: boolean
+    }>,
+  ) => void
+  onCompleteSet: (
+    sessionId: string,
+    setId: string,
+    payload: {
+      completed: boolean
+      weight: number
+      unit: SigmaUnit
+    },
+  ) => Promise<void> | void
+  onFinishSession: (sessionId: string) => Promise<void> | void
 }
 
 function formatSeconds(value: number) {
@@ -20,195 +40,373 @@ function formatSeconds(value: number) {
 }
 
 export function WorkoutTracker({
-  exercises,
-  activeExerciseId,
-  completedSets,
-  totalSets,
-  onSelectExercise,
-  onSetChange,
+  routine,
+  activeSession,
+  isStarting,
+  isUpdatingSet,
+  isFinishing,
+  trainingError,
+  onStartSession,
+  onSetDraftChange,
+  onCompleteSet,
+  onFinishSession,
 }: WorkoutTrackerProps) {
-  const activeExercise =
-    exercises.find((exercise) => exercise.id === activeExerciseId) ?? exercises[0]
-  const [timerState, setTimerState] = useState(() => ({
-    exerciseId: activeExercise?.id ?? '',
-    value: activeExercise?.restSeconds ?? 90,
-  }))
-  const restTimer =
-    timerState.exerciseId === activeExercise?.id ? timerState.value : (activeExercise?.restSeconds ?? 90)
+  const [selectedDayId, setSelectedDayId] = useState<string | null>(routine?.days[0]?.routineDayId ?? null)
+  const [restTimer, setRestTimer] = useState<{
+    exerciseName: string | null
+    value: number
+  }>({
+    exerciseName: null,
+    value: 0,
+  })
 
   useEffect(() => {
-    if (!activeExercise || restTimer <= 0) return undefined
-    const exerciseId = activeExercise.id
-    const restSeconds = activeExercise.restSeconds
+    if (restTimer.value <= 0) {
+      return undefined
+    }
+
     const timer = window.setInterval(() => {
-      setTimerState((current) => {
-        const baseValue = current.exerciseId === exerciseId ? current.value : restSeconds
-        return {
-          exerciseId,
-          value: baseValue > 0 ? baseValue - 1 : 0,
-        }
-      })
+      setRestTimer((current) => ({
+        ...current,
+        value: current.value > 0 ? current.value - 1 : 0,
+      }))
     }, 1000)
 
     return () => window.clearInterval(timer)
-  }, [activeExercise, restTimer])
+  }, [restTimer.value])
 
-  if (!activeExercise) return null
+  const selectedDay = useMemo(
+    () =>
+      routine?.days.find(
+        (day) =>
+          day.routineDayId ===
+          (activeSession?.routineDayId ?? selectedDayId ?? routine?.days[0]?.routineDayId ?? null),
+      ) ??
+      routine?.days[0] ??
+      null,
+    [activeSession?.routineDayId, routine, selectedDayId],
+  )
 
-  function handleSelectExercise(exerciseId: string) {
-    const nextExercise = exercises.find((exercise) => exercise.id === exerciseId)
-    onSelectExercise(exerciseId)
-    if (nextExercise) {
-      setTimerState({
-        exerciseId,
-        value: nextExercise.restSeconds,
+  const completedSets = activeSession
+    ? activeSession.exercises.reduce(
+        (total, exercise) => total + exercise.sessionSets.filter((setItem) => setItem.completed).length,
+        0,
+      )
+    : 0
+
+  const totalSets = activeSession
+    ? activeSession.exercises.reduce((total, exercise) => total + exercise.sessionSets.length, 0)
+    : selectedDay?.exercises.reduce((total, exercise) => total + exercise.sets, 0) ?? 0
+
+  async function handleStartSession() {
+    if (!routine || !selectedDay) {
+      return
+    }
+
+    await onStartSession({
+      routineId: routine.routineId,
+      routineDayId: selectedDay.routineDayId,
+      unit: 'kg',
+    })
+  }
+
+  async function handleCompleteSet(
+    payload: {
+      sessionId: string
+      setId: string
+      completed: boolean
+      weight: number
+      unit: SigmaUnit
+      exerciseName: string
+      restSeconds: number
+    },
+  ) {
+    await onCompleteSet(payload.sessionId, payload.setId, {
+      completed: payload.completed,
+      weight: payload.weight,
+      unit: payload.unit,
+    })
+
+    if (payload.completed) {
+      setRestTimer({
+        exerciseName: payload.exerciseName,
+        value: payload.restSeconds,
       })
     }
   }
 
-  function resetRestTimer() {
-    setTimerState({
-      exerciseId: activeExercise.id,
-      value: activeExercise.restSeconds,
+  function handleResetTimer(value: number, exerciseName: string) {
+    setRestTimer({
+      exerciseName,
+      value,
     })
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+    <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
       <section className="panel-surface rounded-[30px] p-5">
         <div className="mb-4 flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm uppercase tracking-[0.22em] text-slate-500">Exercises</p>
-            <h3 className="mt-2 font-['Space_Grotesk'] text-2xl font-semibold text-white">Tracker en vivo</h3>
+            <p className="text-sm uppercase tracking-[0.22em] text-slate-500">Rutina semanal</p>
+            <h3 className="mt-2 font-['Space_Grotesk'] text-2xl font-semibold text-white">
+              {routine ? routine.name : 'Aun sin rutina'}
+            </h3>
           </div>
           <div className="rounded-full border border-cyan-400/14 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-200">
-            {completedSets}/{totalSets} sets
+            {activeSession ? `${completedSets}/${totalSets} sets` : `${routine?.days.length ?? 0} dias`}
           </div>
         </div>
 
-        <ProgressBar value={(completedSets / Math.max(totalSets, 1)) * 100} />
+        <ProgressBar value={totalSets > 0 ? (completedSets / totalSets) * 100 : 0} />
 
-        <div className="mt-5 space-y-3">
-          {exercises.map((exercise) => {
-            const exerciseCompleted = exercise.sets.filter((setItem) => setItem.completed).length
-            const active = exercise.id === activeExerciseId
-            return (
-              <button
-                key={exercise.id}
-                type="button"
-                onClick={() => handleSelectExercise(exercise.id)}
-                className={`w-full rounded-[24px] border px-4 py-4 text-left transition ${
-                  active
-                    ? 'border-cyan-400/22 bg-cyan-400/10'
-                    : 'border-white/8 bg-black/20 hover:border-white/14 hover:bg-white/[0.04]'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-medium text-white">{exercise.name}</p>
-                    <p className="mt-1 text-sm text-slate-400">{exercise.focus}</p>
+        {!routine ? (
+          <div className="mt-5 rounded-[24px] border border-white/8 bg-black/20 px-4 py-4 text-sm leading-7 text-slate-300">
+            Genera una rutina desde el dashboard para desbloquear el tracker en vivo.
+          </div>
+        ) : (
+          <div className="mt-5 space-y-3">
+            {routine.days.map((day) => {
+              const isSelected = day.routineDayId === (activeSession?.routineDayId ?? selectedDayId)
+              const isActiveSessionDay = day.routineDayId === activeSession?.routineDayId
+
+              return (
+                <button
+                  key={day.routineDayId}
+                  type="button"
+                  onClick={() => setSelectedDayId(day.routineDayId)}
+                  className={`w-full rounded-[24px] border px-4 py-4 text-left transition ${
+                    isSelected
+                      ? 'border-cyan-400/22 bg-cyan-400/10'
+                      : 'border-white/8 bg-black/20 hover:border-white/14 hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-medium text-white">{day.title}</p>
+                      <p className="mt-1 text-sm text-slate-400">{day.exercises.length} ejercicios</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-cyan-200">{day.exercises.reduce((total, exercise) => total + exercise.sets, 0)} sets</p>
+                      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">
+                        {isActiveSessionDay ? 'En curso' : 'Disponible'}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm text-cyan-200">
-                      {exerciseCompleted}/{exercise.sets.length}
-                    </p>
-                    <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">
-                      RPE target {exercise.targetRpe}
-                    </p>
-                  </div>
-                </div>
-              </button>
-            )
-          })}
-        </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {routine && !activeSession ? (
+          <button
+            type="button"
+            onClick={() => {
+              void handleStartSession()
+            }}
+            disabled={isStarting || !selectedDay}
+            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-cyan-400/16 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100 transition hover:bg-cyan-400/16 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <PlayCircle size={16} />
+            {isStarting ? 'Iniciando entrenamiento...' : 'Iniciar entrenamiento del dia'}
+          </button>
+        ) : null}
+
+        {trainingError ? (
+          <div className="mt-4 rounded-[22px] border border-rose-400/18 bg-rose-400/10 px-4 py-4 text-sm text-rose-100">
+            {trainingError}
+          </div>
+        ) : null}
       </section>
 
       <section className="panel-surface rounded-[30px] p-5">
-        <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-sm uppercase tracking-[0.22em] text-slate-500">{activeExercise.focus}</p>
-            <h3 className="mt-2 font-['Space_Grotesk'] text-3xl font-semibold text-white">{activeExercise.name}</h3>
-            <p className="mt-3 max-w-xl text-sm leading-7 text-slate-400">{activeExercise.note}</p>
-          </div>
-          <div className="rounded-[26px] border border-white/8 bg-black/20 px-4 py-3 text-right">
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Descanso</p>
-            <p className="mt-2 font-['Space_Grotesk'] text-3xl font-semibold text-white">{formatSeconds(restTimer)}</p>
-          </div>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-3">
-          {[
-            { icon: Clock3, label: 'Rest target', value: `${activeExercise.restSeconds}s` },
-            { icon: Flame, label: 'Target RPE', value: `${activeExercise.targetRpe}/10` },
-            { icon: Dumbbell, label: 'Sustitucion', value: activeExercise.substitute },
-          ].map((item) => (
-            <div key={item.label} className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
-              <item.icon className="h-4 w-4 text-cyan-300" />
-              <p className="mt-3 text-xs uppercase tracking-[0.2em] text-slate-500">{item.label}</p>
-              <p className="mt-2 text-sm font-medium text-white">{item.value}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-6 space-y-3">
-          {activeExercise.sets.map((setItem, index) => (
-            <div
-              key={setItem.id}
-              className="grid gap-3 rounded-[24px] border border-white/8 bg-black/20 p-4 md:grid-cols-[auto_1fr_1fr_auto]"
-            >
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => onSetChange(activeExercise.id, setItem.id, { completed: !setItem.completed })}
-                  className={`flex h-10 w-10 items-center justify-center rounded-2xl border transition ${
-                    setItem.completed
-                      ? 'border-cyan-400/20 bg-cyan-400/12 text-cyan-200'
-                      : 'border-white/8 bg-white/[0.04] text-slate-400'
-                  }`}
-                >
-                  <CheckCircle2 size={18} />
-                </button>
-                <div>
-                  <p className="font-medium text-white">Set {index + 1}</p>
-                  <p className="text-sm text-slate-500">{setItem.completed ? 'Completado' : 'Pendiente'}</p>
-                </div>
+        {activeSession ? (
+          <>
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.22em] text-slate-500">Sesion activa</p>
+                <h3 className="mt-2 font-['Space_Grotesk'] text-3xl font-semibold text-white">
+                  {activeSession.title}
+                </h3>
+                <p className="mt-3 max-w-xl text-sm leading-7 text-slate-400">
+                  Marca cada serie, registra el peso y deja que el temporizador gestione el descanso.
+                </p>
               </div>
 
-              <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Peso</span>
-                <input
-                  type="number"
-                  value={setItem.weight}
-                  onChange={(event) =>
-                    onSetChange(activeExercise.id, setItem.id, { weight: Number(event.target.value) || 0 })
-                  }
-                  className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
-                />
-              </label>
-
-              <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Reps</span>
-                <input
-                  type="number"
-                  value={setItem.reps}
-                  onChange={(event) =>
-                    onSetChange(activeExercise.id, setItem.id, { reps: Number(event.target.value) || 0 })
-                  }
-                  className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
-                />
-              </label>
-
-              <button
-                type="button"
-                onClick={resetRestTimer}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
-              >
-                <TimerReset size={16} />
-                Reiniciar descanso
-              </button>
+              <div className="rounded-[26px] border border-white/8 bg-black/20 px-4 py-3 text-right">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Descanso activo</p>
+                <p className="mt-2 font-['Space_Grotesk'] text-3xl font-semibold text-white">
+                  {formatSeconds(restTimer.value)}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {restTimer.exerciseName ? `Ultima serie: ${restTimer.exerciseName}` : 'Esperando la primera serie'}
+                </p>
+              </div>
             </div>
-          ))}
-        </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              {[
+                { icon: Clock3, label: 'Estado', value: activeSession.status === 'completed' ? 'Completada' : 'Activa' },
+                { icon: Dumbbell, label: 'Dia', value: `Dia ${activeSession.dayNumber}` },
+                { icon: TimerReset, label: 'Sets listos', value: `${completedSets}/${totalSets}` },
+              ].map((item) => (
+                <div key={item.label} className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
+                  <item.icon className="h-4 w-4 text-cyan-300" />
+                  <p className="mt-3 text-xs uppercase tracking-[0.2em] text-slate-500">{item.label}</p>
+                  <p className="mt-2 text-sm font-medium text-white">{item.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 space-y-4">
+              {activeSession.exercises.map((exercise) => (
+                <div key={exercise.routineExerciseId} className="rounded-[26px] border border-white/8 bg-black/20 p-4">
+                  <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-white">{exercise.name}</p>
+                      <p className="mt-1 text-sm text-slate-400">
+                        {exercise.muscleGroup} - {exercise.reps} reps - {exercise.restSeconds}s de descanso
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleResetTimer(exercise.restSeconds, exercise.name)}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.04] px-3 py-2 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+                    >
+                      <TimerReset size={16} />
+                      Reiniciar descanso
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {exercise.sessionSets.map((setItem) => (
+                      <div
+                        key={setItem.setId}
+                        className="grid gap-3 rounded-[24px] border border-white/8 bg-white/[0.03] p-4 md:grid-cols-[auto_1fr_120px_auto]"
+                      >
+                        <div>
+                          <p className="font-medium text-white">Set {setItem.setNumber}</p>
+                          <p className="text-sm text-slate-500">
+                            {setItem.completed ? 'Completado' : `Objetivo ${setItem.targetReps} reps`}
+                          </p>
+                        </div>
+
+                        <label className="space-y-2">
+                          <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Peso levantado</span>
+                          <input
+                            aria-label={`peso set ${setItem.setNumber}`}
+                            type="number"
+                            min={0}
+                            value={setItem.weight ?? 0}
+                            onChange={(event) =>
+                              onSetDraftChange(activeSession.sessionId, setItem.setId, {
+                                weight: Number(event.target.value) || 0,
+                              })
+                            }
+                            className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                          />
+                        </label>
+
+                        <label className="space-y-2">
+                          <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Unidad</span>
+                          <select
+                            aria-label={`unidad set ${setItem.setNumber}`}
+                            value={setItem.unit}
+                            onChange={(event) =>
+                              onSetDraftChange(activeSession.sessionId, setItem.setId, {
+                                unit: event.target.value as SigmaUnit,
+                              })
+                            }
+                            className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                          >
+                            <option value="kg">kg</option>
+                            <option value="lb">lb</option>
+                          </select>
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleCompleteSet({
+                              sessionId: activeSession.sessionId,
+                              setId: setItem.setId,
+                              completed: !setItem.completed,
+                              weight: setItem.weight ?? 0,
+                              unit: setItem.unit,
+                              exerciseName: exercise.name,
+                              restSeconds: exercise.restSeconds,
+                            })
+                          }}
+                          disabled={isUpdatingSet}
+                          className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm transition ${
+                            setItem.completed
+                              ? 'border-cyan-400/18 bg-cyan-400/12 text-cyan-100'
+                              : 'border-white/8 bg-white/[0.04] text-slate-200 hover:border-cyan-400/20 hover:bg-cyan-400/10'
+                          } disabled:cursor-not-allowed disabled:opacity-60`}
+                        >
+                          <CheckCircle2 size={16} />
+                          {setItem.completed ? 'Reabrir' : 'Completar serie'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                void onFinishSession(activeSession.sessionId)
+              }}
+              disabled={isFinishing}
+              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full border border-cyan-400/16 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100 transition hover:bg-cyan-400/16 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isFinishing ? 'Finalizando sesion...' : 'Finalizar sesion'}
+            </button>
+          </>
+        ) : selectedDay ? (
+          <>
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.22em] text-slate-500">Preview del dia</p>
+                <h3 className="mt-2 font-['Space_Grotesk'] text-3xl font-semibold text-white">{selectedDay.title}</h3>
+                <p className="mt-3 max-w-xl text-sm leading-7 text-slate-400">
+                  Revisa ejercicios, series, repeticiones y descanso antes de iniciar la sesion.
+                </p>
+              </div>
+              <div className="rounded-[26px] border border-white/8 bg-black/20 px-4 py-3 text-right">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Carga del dia</p>
+                <p className="mt-2 font-['Space_Grotesk'] text-3xl font-semibold text-white">
+                  {selectedDay.exercises.reduce((total, exercise) => total + exercise.sets, 0)} sets
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {selectedDay.exercises.map((exercise) => (
+                <div
+                  key={exercise.routineExerciseId}
+                  className="rounded-[24px] border border-white/8 bg-black/20 px-4 py-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-white">{exercise.name}</p>
+                      <p className="mt-1 text-sm text-slate-400">
+                        {exercise.muscleGroup} - {exercise.reps} reps - {exercise.restSeconds}s descanso
+                      </p>
+                    </div>
+                    <p className="text-sm text-cyan-200">{exercise.sets} sets</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="rounded-[24px] border border-white/8 bg-black/20 px-4 py-4 text-sm leading-7 text-slate-300">
+            No hay un dia seleccionado. Genera una rutina para ver el plan semanal.
+          </div>
+        )}
       </section>
     </div>
   )

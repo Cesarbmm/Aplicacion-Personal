@@ -33,6 +33,11 @@ export function RootLayout({ children }: PropsWithChildren) {
 
     if (pathname === '/login' && isAuthenticated && !onboardingComplete) {
       void navigate({ to: '/register', replace: true })
+      return
+    }
+
+    if (pathname === '/register' && isAuthenticated && onboardingComplete) {
+      void navigate({ to: '/dashboard', replace: true })
     }
   }, [isAppRoute, isAuthenticated, navigate, onboardingComplete, pathname])
 
