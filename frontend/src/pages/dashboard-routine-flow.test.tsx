@@ -28,7 +28,9 @@ const generatedRoutineResponse = {
           name: 'Press de banca',
           muscleGroup: 'Pecho',
           movementPattern: 'Empuje horizontal',
-          equipment: 'Barra',
+          equipment: 'Barra olimpica y banco plano',
+          trackingType: 'weight_reps',
+          coachingCue: 'Usa banco plano, pies firmes y barra controlada.',
           exerciseOrder: 1,
           sets: 4,
           reps: '8-12',
@@ -39,6 +41,30 @@ const generatedRoutineResponse = {
   ],
 }
 
+const adaptiveSummaryResponse = {
+  userId: demoUserId,
+  routineId: null,
+  sessionsAnalyzed: 0,
+  completedSets: 0,
+  plannedSets: 0,
+  completionRate: 0,
+  averageFatigue: null,
+  averagePain: null,
+  maxPain: null,
+  totalVolume: 0,
+  totalReps: 0,
+  totalSeconds: 0,
+  notes: [],
+  recommendation: {
+    type: 'maintain',
+    summary: 'Aun no hay sesiones suficientes para ajustar.',
+    reasoning: 'Finaliza entrenamientos para generar una lectura adaptativa.',
+    suggestedLoadChangePercent: 0,
+    suggestedVolumeChange: 'maintain',
+    riskLevel: 'low',
+  },
+}
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -46,6 +72,21 @@ function jsonResponse(body: unknown, status = 200) {
       'Content-Type': 'application/json',
     },
   })
+}
+
+function mockNoRoutineAndAdaptive() {
+  return vi
+    .spyOn(globalThis, 'fetch')
+    .mockResolvedValueOnce(
+      jsonResponse(
+        {
+          error: 'ROUTINE_NOT_FOUND',
+          message: 'No existe una rutina activa.',
+        },
+        404,
+      ),
+    )
+    .mockResolvedValueOnce(jsonResponse(adaptiveSummaryResponse))
 }
 
 describe('SigmaFit dashboard routine flow', () => {
@@ -66,15 +107,7 @@ describe('SigmaFit dashboard routine flow', () => {
   })
 
   it('shows the create my routine panel when there is no active routine and hides generic mock routines', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      jsonResponse(
-        {
-          error: 'ROUTINE_NOT_FOUND',
-          message: 'No existe una rutina activa.',
-        },
-        404,
-      ),
-    )
+    mockNoRoutineAndAdaptive()
 
     await renderRoute('/dashboard')
 
@@ -82,6 +115,7 @@ describe('SigmaFit dashboard routine flow', () => {
     expect(screen.getByText(/con estos datos sigmafit puede generar una propuesta/i)).toBeTruthy()
     expect(screen.queryByText(/press de banca/i)).toBeNull()
     expect(screen.queryByText(/abrir workout/i)).toBeNull()
+    expect(screen.getByText(/estado adaptativo/i)).toBeTruthy()
   })
 
   it('shows the coach recommendation for beginner and intermediate users', async () => {
@@ -93,15 +127,7 @@ describe('SigmaFit dashboard routine flow', () => {
       },
     })
 
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      jsonResponse(
-        {
-          error: 'ROUTINE_NOT_FOUND',
-          message: 'No existe una rutina activa.',
-        },
-        404,
-      ),
-    )
+    mockNoRoutineAndAdaptive()
 
     await renderRoute('/dashboard')
 
@@ -119,15 +145,7 @@ describe('SigmaFit dashboard routine flow', () => {
       },
     })
 
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      jsonResponse(
-        {
-          error: 'ROUTINE_NOT_FOUND',
-          message: 'No existe una rutina activa.',
-        },
-        404,
-      ),
-    )
+    mockNoRoutineAndAdaptive()
 
     await renderRoute('/dashboard')
 
@@ -148,6 +166,7 @@ describe('SigmaFit dashboard routine flow', () => {
           404,
         ),
       )
+      .mockResolvedValueOnce(jsonResponse(adaptiveSummaryResponse))
       .mockResolvedValueOnce(jsonResponse(generatedRoutineResponse, 201))
 
     await renderRoute('/dashboard')
@@ -157,7 +176,7 @@ describe('SigmaFit dashboard routine flow', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/propuesta del coach virtual/i)).toBeTruthy()
-      expect(screen.getByText(/fuente: backend/i)).toBeTruthy()
+      expect(screen.getAllByText(/fuente: backend/i).length).toBeGreaterThan(0)
       expect(screen.getByText(/press de banca/i)).toBeTruthy()
       expect(screen.queryByText(/abrir workout/i)).toBeNull()
     })

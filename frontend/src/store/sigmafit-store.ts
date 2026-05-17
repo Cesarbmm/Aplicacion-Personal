@@ -13,13 +13,18 @@ import {
 } from '@/lib/sigmafit/local-coach'
 import { createDefaultSigmafitState, onboardingToStatePatch } from '@/lib/sigmafit/mock-data'
 import type {
+  SigmaAdaptiveSummary,
+  SigmaCoachOverviewResponse,
   SigmaManualRoutinePayload,
+  SigmaMonthlySummary,
   SigmaOnboardingPayload,
+  SigmaParsedTrainingLog,
   SigmaPreferences,
   SigmaProfile,
   SigmaRoutine,
   SigmaRoutineCreationMode,
   SigmaRoutineSource,
+  SigmaTrainingLogParseResult,
   SigmaWorkoutSession,
   SigmaWorkoutSessionSet,
   SigmaWorkoutSet,
@@ -91,6 +96,30 @@ type FinishWorkoutSessionResult = {
   warning: string | null
 }
 
+type AdaptiveSummaryResult = {
+  loaded: boolean
+  source: 'backend' | 'local'
+  warning: string | null
+}
+
+type AssistedLogParseResult = {
+  parsed: boolean
+  source: 'backend' | 'local'
+  warning: string | null
+}
+
+type MonthlySummaryResult = {
+  loaded: boolean
+  source: 'backend' | 'local'
+  warning: string | null
+}
+
+type CoachOverviewResult = {
+  loaded: boolean
+  source: 'backend' | 'local'
+  warning: string | null
+}
+
 type SigmafitActions = {
   login: (payload: { email: string; displayName?: string; userId?: string }) => Promise<LoginResult>
   logout: () => void
@@ -103,6 +132,12 @@ type SigmafitActions = {
   regenerateRoutineProposal: () => Promise<GenerateRoutineProposalResult>
   createManualRoutine: (payload: SigmaManualRoutinePayload) => Promise<CreateManualRoutineResult>
   clearRoutineProposal: () => void
+  loadAdaptiveSummary: () => Promise<AdaptiveSummaryResult>
+  generateAdaptiveRecommendation: () => Promise<AdaptiveSummaryResult>
+  parseTrainingLog: (text: string) => Promise<AssistedLogParseResult>
+  clearAssistedLog: () => void
+  loadMonthlySummary: (month?: string) => Promise<MonthlySummaryResult>
+  loadCoachOverview: () => Promise<CoachOverviewResult>
   startWorkoutSession: (payload: StartWorkoutSessionPayload) => Promise<StartWorkoutSessionResult>
   updateSessionSetDraft: (
     sessionId: string,
@@ -123,12 +158,13 @@ type SigmafitActions = {
   clearSyncError: () => void
   clearRoutineError: () => void
   clearTrainingError: () => void
+  clearAdaptiveError: () => void
   resetDemo: () => void
 }
 
 export type SigmafitStore = SigmafitStateSnapshot & SigmafitActions
 
-const SIGMAFIT_STORE_VERSION = 3
+const SIGMAFIT_STORE_VERSION = 5
 
 function buildInitialState(): SigmafitStateSnapshot {
   return createDefaultSigmafitState()
@@ -152,6 +188,10 @@ function migratePersistedState(persistedState: unknown): SigmafitStateSnapshot {
     },
     routine: defaults.routine,
     training: defaults.training,
+    assistedLog: defaults.assistedLog,
+    adaptive: defaults.adaptive,
+    monthlySummary: defaults.monthlySummary,
+    coach: defaults.coach,
     workout: defaults.workout,
   }
 }
@@ -161,6 +201,10 @@ function getResetSlices() {
   return {
     routine: defaults.routine,
     training: defaults.training,
+    assistedLog: defaults.assistedLog,
+    adaptive: defaults.adaptive,
+    monthlySummary: defaults.monthlySummary,
+    coach: defaults.coach,
     workout: defaults.workout,
   }
 }
@@ -341,6 +385,224 @@ function resolveRoutineSourceFromState(state: SigmafitStateSnapshot): SigmaRouti
   return 'none'
 }
 
+function getLocalAdaptiveRecommendation(summary: Omit<SigmaAdaptiveSummary, 'recommendation'>) {
+  const averageFatigue = summary.averageFatigue ?? 0
+  const averagePain = summary.averagePain ?? 0
+  const maxPain = summary.maxPain ?? 0
+
+  if (maxPain >= 7 || averagePain >= 7) {
+    return {
+      type: 'deload' as const,
+      summary: 'Se recomienda descarga y control tecnico.',
+      reasoning:
+        'Se detecto molestia alta. Conviene reducir carga o volumen, revisar tecnica y consultar a un profesional si persiste.',
+      suggestedLoadChangePercent: -10,
+      suggestedVolumeChange: 'reduce' as const,
+      riskLevel: 'high' as const,
+    }
+  }
+
+  if (averageFatigue >= 8) {
+    return {
+      type: 'deload' as const,
+      summary: 'Se recomienda una descarga parcial.',
+      reasoning:
+        'La fatiga reportada fue alta. Reducir series o carga estimada entre 5% y 10% ayuda a recuperar sin abandonar el bloque.',
+      suggestedLoadChangePercent: -7.5,
+      suggestedVolumeChange: 'reduce' as const,
+      riskLevel: 'medium' as const,
+    }
+  }
+
+  if (summary.sessionsAnalyzed === 0) {
+    return {
+      type: 'maintain' as const,
+      summary: 'Aun no hay sesiones suficientes para ajustar.',
+      reasoning: 'Finaliza entrenamientos con reps, peso, fatiga y dolor para generar una lectura mas util.',
+      suggestedLoadChangePercent: 0,
+      suggestedVolumeChange: 'maintain' as const,
+      riskLevel: 'low' as const,
+    }
+  }
+
+  if (summary.completionRate < 0.6) {
+    return {
+      type: 'simplify' as const,
+      summary: 'Conviene simplificar antes de progresar.',
+      reasoning: 'El cumplimiento fue bajo. Antes de subir carga, conviene consolidar adherencia.',
+      suggestedLoadChangePercent: 0,
+      suggestedVolumeChange: 'reduce' as const,
+      riskLevel: 'medium' as const,
+    }
+  }
+
+  if (summary.completionRate >= 0.85 && averageFatigue <= 6 && averagePain <= 3) {
+    return {
+      type: 'progress' as const,
+      summary: 'Puedes progresar de forma moderada.',
+      reasoning: 'Buen cumplimiento, fatiga controlada y bajo dolor.',
+      suggestedLoadChangePercent: 2.5,
+      suggestedVolumeChange: 'maintain' as const,
+      riskLevel: 'low' as const,
+    }
+  }
+
+  return {
+    type: 'maintain' as const,
+    summary: 'Mantener la carga esta semana.',
+    reasoning: 'La respuesta fue estable, pero no hay margen claro para subir carga.',
+    suggestedLoadChangePercent: 0,
+    suggestedVolumeChange: 'maintain' as const,
+    riskLevel: averageFatigue >= 7 || averagePain >= 4 ? ('medium' as const) : ('low' as const),
+  }
+}
+
+function createLocalAdaptiveSummary(state: SigmafitStateSnapshot): SigmaAdaptiveSummary {
+  const completed = state.training.lastCompletedSummary
+  const baseSummary = {
+    userId: state.session.userId || SIGMAFIT_DEMO_USER_ID,
+    routineId: state.routine.currentRoutine?.routineId ?? null,
+    sessionsAnalyzed: completed ? 1 : 0,
+    completedSets: completed?.completedSets ?? 0,
+    plannedSets: completed?.completedSets ?? 0,
+    completionRate: completed && completed.completedSets > 0 ? 1 : 0,
+    averageFatigue: completed?.fatigueLevel ?? null,
+    averagePain: completed?.painLevel ?? null,
+    maxPain: completed?.painLevel ?? null,
+    totalVolume: completed?.totalVolume ?? 0,
+    totalReps: completed?.totalReps ?? 0,
+    totalSeconds: completed?.totalSeconds ?? 0,
+    notes: completed?.athleteNotes ? [completed.athleteNotes] : [],
+  }
+
+  return {
+    ...baseSummary,
+    recommendation: getLocalAdaptiveRecommendation(baseSummary),
+  }
+}
+
+function normalizeText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function parseLocalTrainingLog(text: string, state: SigmafitStateSnapshot): SigmaTrainingLogParseResult {
+  const catalog = state.routine.exerciseCatalog.length > 0 ? state.routine.exerciseCatalog : sigmaExerciseCatalogFallback
+  const normalizedText = normalizeText(text)
+  const parsed: SigmaParsedTrainingLog = {}
+  const aliasMap = new Map<string, string[]>([
+    ['Press de banca', ['banca', 'press banca', 'press de banca']],
+    ['Sentadilla con barra', ['sentadilla', 'squat']],
+    ['Peso muerto', ['peso muerto', 'deadlift']],
+    ['Press militar', ['press militar', 'militar']],
+    ['Remo con barra', ['remo', 'remo barra']],
+    ['Jalon al pecho', ['jalon', 'jalon al pecho']],
+    ['Jalón al pecho', ['jalon', 'jalon al pecho']],
+    ['Curl de biceps', ['curl', 'biceps']],
+    ['Curl de bíceps', ['curl', 'biceps']],
+    ['Extension de triceps', ['triceps', 'extension triceps']],
+    ['Extensión de tríceps', ['triceps', 'extension triceps']],
+    ['Prensa de piernas', ['prensa', 'leg press']],
+    ['Plancha abdominal', ['plancha', 'plank']],
+  ])
+
+  const exercise = catalog.find((item) => {
+    const normalizedName = normalizeText(item.name)
+    const aliases = aliasMap.get(item.name) ?? []
+    return normalizedText.includes(normalizedName) || aliases.some((alias) => normalizedText.includes(normalizeText(alias)))
+  })
+
+  if (exercise) {
+    parsed.exerciseName = exercise.name
+  }
+
+  const setsMatch = normalizedText.match(/(\d+)\s*(?:series|serie|sets|set)\b/)
+  const repsMatch =
+    normalizedText.match(/(?:series|serie|sets|set)\s*(?:de|x)?\s*(\d+)\b/) ??
+    normalizedText.match(/\d+\s*x\s*(\d+)/) ??
+    normalizedText.match(/(\d+)\s*(?:reps|repes|repeticiones|rep)\b/)
+  const weightMatch = normalizedText.match(/(\d+(?:[.,]\d+)?)\s*(kg|kilos|kilogramos|lb|lbs|libras)\b/)
+
+  if (setsMatch?.[1]) {
+    parsed.sets = Number(setsMatch[1])
+  }
+
+  if (repsMatch?.[1]) {
+    parsed.reps = Number(repsMatch[1])
+  }
+
+  if (weightMatch?.[1]) {
+    parsed.weight = Number(weightMatch[1].replace(',', '.'))
+    parsed.unit = weightMatch[2].startsWith('lb') || weightMatch[2] === 'libras' ? 'lb' : 'kg'
+  }
+
+  const followUpQuestion = !parsed.exerciseName
+    ? 'Que ejercicio realizaste?'
+    : !parsed.sets || !parsed.reps
+      ? 'Cuantas series y repeticiones realizaste?'
+      : null
+
+  return {
+    status: followUpQuestion ? 'needs_follow_up' : 'complete',
+    parsed,
+    followUpQuestion,
+  }
+}
+
+function createLocalMonthlySummary(state: SigmafitStateSnapshot): SigmaMonthlySummary {
+  const latestPoint = state.progressHistory.at(-1)
+  const completed = state.training.lastCompletedSummary
+  const completedSessions = completed ? 1 : 0
+  const consistencyRate = latestPoint ? Math.min(1, latestPoint.consistency / 100) : completedSessions > 0 ? 0.25 : 0
+
+  return {
+    userId: state.session.userId || SIGMAFIT_DEMO_USER_ID,
+    month: new Date().toISOString().slice(0, 7),
+    totalVolume: completed?.totalVolume ?? latestPoint?.volume ?? 0,
+    completedSessions,
+    consistencyRate,
+    averageRpe: completed?.fatigueLevel ?? state.workout.lastSessionRpe,
+    progressionTrend: completedSessions > 0 || (latestPoint?.volume ?? 0) > 0 ? 'stable' : 'insufficient_data',
+    summary:
+      completedSessions > 0
+        ? 'Resumen local construido con la ultima sesion completada y el historial visible.'
+        : 'Aun faltan sesiones completadas para construir un resumen mensual real.',
+  }
+}
+
+function createLocalCoachOverview(state: SigmafitStateSnapshot): SigmaCoachOverviewResponse {
+  const adaptiveSummary = state.adaptive.summary ?? createLocalAdaptiveSummary(state)
+  const monthlySummary = state.monthlySummary.summary ?? createLocalMonthlySummary(state)
+  const weakPoints = [
+    monthlySummary.consistencyRate < 0.65 ? 'baja adherencia' : null,
+    (adaptiveSummary.averageFatigue ?? 0) >= 8 ? 'fatiga alta' : null,
+    (adaptiveSummary.maxPain ?? adaptiveSummary.averagePain ?? 0) >= 7 ? 'molestia alta' : null,
+  ].filter((item): item is string => Boolean(item))
+
+  return {
+    athletes: [
+      {
+        userId: state.session.userId || SIGMAFIT_DEMO_USER_ID,
+        name: state.profile.displayName || 'Atleta Demo',
+        consistencyRate: monthlySummary.consistencyRate,
+        progressionTrend: monthlySummary.progressionTrend,
+        averageFatigue: adaptiveSummary.averageFatigue,
+        averagePain: adaptiveSummary.averagePain,
+        missedSessions: Math.max(0, state.profile.daysPerWeek * 4 - monthlySummary.completedSessions),
+        weakPoints,
+        coachInsight:
+          weakPoints.length > 0
+            ? 'Revisar adherencia, fatiga o molestias antes de aumentar carga.'
+            : 'El atleta mantiene senales estables para sostener el bloque actual.',
+      },
+    ],
+  }
+}
+
 export const useSigmafitStore = create<SigmafitStore>()(
   persist(
     (set, get) => ({
@@ -446,6 +708,10 @@ export const useSigmafitStore = create<SigmafitStore>()(
               exerciseCatalog: state.routine.exerciseCatalog,
             },
             training: defaults.training,
+            assistedLog: defaults.assistedLog,
+            adaptive: defaults.adaptive,
+            monthlySummary: defaults.monthlySummary,
+            coach: defaults.coach,
             workout: defaults.workout,
           }
         })
@@ -914,6 +1180,421 @@ export const useSigmafitStore = create<SigmafitStore>()(
           },
         })),
 
+      loadAdaptiveSummary: async () => {
+        const userId = get().session.userId || SIGMAFIT_DEMO_USER_ID
+
+        set((state) => ({
+          adaptive: {
+            ...state.adaptive,
+            isLoading: true,
+            error: null,
+          },
+        }))
+
+        try {
+          const summary = await sigmafitApi.getAdaptiveSummary(userId)
+
+          set((state) => ({
+            adaptive: {
+              ...state.adaptive,
+              summary,
+              isLoading: false,
+              isGenerating: false,
+              error: null,
+              source: 'backend',
+              lastUpdatedAt: new Date().toISOString(),
+            },
+            session: {
+              ...state.session,
+              backendStatus: 'online',
+              lastSyncError: null,
+            },
+          }))
+
+          return {
+            loaded: true,
+            source: 'backend' as const,
+            warning: null,
+          }
+        } catch (error) {
+          if (isApiUnavailable(error)) {
+            const summary = createLocalAdaptiveSummary(get())
+            const warning = 'Backend no disponible. La lectura adaptativa usa el resumen local disponible.'
+
+            set((state) => ({
+              adaptive: {
+                ...state.adaptive,
+                summary,
+                isLoading: false,
+                isGenerating: false,
+                error: null,
+                source: 'local',
+                lastUpdatedAt: new Date().toISOString(),
+              },
+              session: {
+                ...state.session,
+                backendStatus: 'offline',
+                lastSyncError: warning,
+              },
+            }))
+
+            return {
+              loaded: true,
+              source: 'local' as const,
+              warning,
+            }
+          }
+
+          set((state) => ({
+            adaptive: {
+              ...state.adaptive,
+              isLoading: false,
+              error: error instanceof Error ? error.message : 'No se pudo cargar la lectura adaptativa.',
+            },
+          }))
+
+          return {
+            loaded: false,
+            source: 'backend' as const,
+            warning: null,
+          }
+        }
+      },
+
+      generateAdaptiveRecommendation: async () => {
+        const userId = get().session.userId || SIGMAFIT_DEMO_USER_ID
+
+        set((state) => ({
+          adaptive: {
+            ...state.adaptive,
+            isGenerating: true,
+            error: null,
+          },
+        }))
+
+        try {
+          const summary = await sigmafitApi.generateAdaptiveRecommendation(userId)
+
+          set((state) => ({
+            adaptive: {
+              ...state.adaptive,
+              summary,
+              isLoading: false,
+              isGenerating: false,
+              error: null,
+              source: 'backend',
+              lastUpdatedAt: new Date().toISOString(),
+            },
+            session: {
+              ...state.session,
+              backendStatus: 'online',
+              lastSyncError: null,
+            },
+          }))
+
+          return {
+            loaded: true,
+            source: 'backend' as const,
+            warning: null,
+          }
+        } catch (error) {
+          if (isApiUnavailable(error)) {
+            const summary = createLocalAdaptiveSummary(get())
+            const warning = 'Backend no disponible. SigmaFit genero una recomendacion local temporal.'
+
+            set((state) => ({
+              adaptive: {
+                ...state.adaptive,
+                summary,
+                isLoading: false,
+                isGenerating: false,
+                error: null,
+                source: 'local',
+                lastUpdatedAt: new Date().toISOString(),
+              },
+              session: {
+                ...state.session,
+                backendStatus: 'offline',
+                lastSyncError: warning,
+              },
+            }))
+
+            return {
+              loaded: true,
+              source: 'local' as const,
+              warning,
+            }
+          }
+
+          set((state) => ({
+            adaptive: {
+              ...state.adaptive,
+              isGenerating: false,
+              error: error instanceof Error ? error.message : 'No se pudo generar la recomendacion adaptativa.',
+            },
+          }))
+
+          return {
+            loaded: false,
+            source: 'backend' as const,
+            warning: null,
+          }
+        }
+      },
+
+      parseTrainingLog: async (text) => {
+        const userId = get().session.userId || SIGMAFIT_DEMO_USER_ID
+
+        set((state) => ({
+          assistedLog: {
+            ...state.assistedLog,
+            isParsing: true,
+            error: null,
+          },
+        }))
+
+        if (get().session.backendStatus === 'offline') {
+          const result = parseLocalTrainingLog(text, get())
+
+          set(() => ({
+            assistedLog: {
+              result,
+              isParsing: false,
+              error: null,
+              source: 'local',
+            },
+          }))
+
+          return {
+            parsed: true,
+            source: 'local' as const,
+            warning: null,
+          }
+        }
+
+        try {
+          const result = await sigmafitApi.parseTrainingLog({ userId, text })
+
+          set((state) => ({
+            assistedLog: {
+              result,
+              isParsing: false,
+              error: null,
+              source: 'backend',
+            },
+            session: {
+              ...state.session,
+              backendStatus: 'online',
+              lastSyncError: null,
+            },
+          }))
+
+          return {
+            parsed: true,
+            source: 'backend' as const,
+            warning: null,
+          }
+        } catch (error) {
+          if (isApiUnavailable(error)) {
+            const result = parseLocalTrainingLog(text, get())
+            const warning = 'Backend no disponible. El registro asistido usa parser local temporal.'
+
+            set((state) => ({
+              assistedLog: {
+                result,
+                isParsing: false,
+                error: null,
+                source: 'local',
+              },
+              session: {
+                ...state.session,
+                backendStatus: 'offline',
+                lastSyncError: warning,
+              },
+            }))
+
+            return {
+              parsed: true,
+              source: 'local' as const,
+              warning,
+            }
+          }
+
+          set((state) => ({
+            assistedLog: {
+              ...state.assistedLog,
+              isParsing: false,
+              error: error instanceof Error ? error.message : 'No se pudo interpretar el registro.',
+            },
+          }))
+
+          return {
+            parsed: false,
+            source: 'backend' as const,
+            warning: null,
+          }
+        }
+      },
+
+      clearAssistedLog: () =>
+        set((state) => ({
+          assistedLog: {
+            ...state.assistedLog,
+            result: null,
+            isParsing: false,
+            error: null,
+            source: 'none',
+          },
+        })),
+
+      loadMonthlySummary: async (month) => {
+        const userId = get().session.userId || SIGMAFIT_DEMO_USER_ID
+
+        set((state) => ({
+          monthlySummary: {
+            ...state.monthlySummary,
+            isLoading: true,
+            error: null,
+          },
+        }))
+
+        try {
+          const summary = await sigmafitApi.getMonthlySummary(userId, month)
+
+          set((state) => ({
+            monthlySummary: {
+              summary,
+              isLoading: false,
+              error: null,
+              source: 'backend',
+            },
+            session: {
+              ...state.session,
+              backendStatus: 'online',
+              lastSyncError: null,
+            },
+          }))
+
+          return {
+            loaded: true,
+            source: 'backend' as const,
+            warning: null,
+          }
+        } catch (error) {
+          if (isApiUnavailable(error)) {
+            const summary = createLocalMonthlySummary(get())
+            const warning = 'Backend no disponible. Resumen mensual local con datos visibles.'
+
+            set((state) => ({
+              monthlySummary: {
+                summary,
+                isLoading: false,
+                error: null,
+                source: 'local',
+              },
+              session: {
+                ...state.session,
+                backendStatus: 'offline',
+                lastSyncError: warning,
+              },
+            }))
+
+            return {
+              loaded: true,
+              source: 'local' as const,
+              warning,
+            }
+          }
+
+          set((state) => ({
+            monthlySummary: {
+              ...state.monthlySummary,
+              isLoading: false,
+              error: error instanceof Error ? error.message : 'No se pudo cargar el resumen mensual.',
+            },
+          }))
+
+          return {
+            loaded: false,
+            source: 'backend' as const,
+            warning: null,
+          }
+        }
+      },
+
+      loadCoachOverview: async () => {
+        set((state) => ({
+          coach: {
+            ...state.coach,
+            isLoading: true,
+            error: null,
+          },
+        }))
+
+        try {
+          const overview = await sigmafitApi.getCoachOverview()
+
+          set((state) => ({
+            coach: {
+              overview,
+              isLoading: false,
+              error: null,
+              source: 'backend',
+            },
+            session: {
+              ...state.session,
+              backendStatus: 'online',
+              lastSyncError: null,
+            },
+          }))
+
+          return {
+            loaded: true,
+            source: 'backend' as const,
+            warning: null,
+          }
+        } catch (error) {
+          if (isApiUnavailable(error)) {
+            const overview = createLocalCoachOverview(get())
+            const warning = 'Backend no disponible. Vista coach local temporal.'
+
+            set((state) => ({
+              coach: {
+                overview,
+                isLoading: false,
+                error: null,
+                source: 'local',
+              },
+              session: {
+                ...state.session,
+                backendStatus: 'offline',
+                lastSyncError: warning,
+              },
+            }))
+
+            return {
+              loaded: true,
+              source: 'local' as const,
+              warning,
+            }
+          }
+
+          set((state) => ({
+            coach: {
+              ...state.coach,
+              isLoading: false,
+              error: error instanceof Error ? error.message : 'No se pudo cargar el panel coach.',
+            },
+          }))
+
+          return {
+            loaded: false,
+            source: 'backend' as const,
+            warning: null,
+          }
+        }
+      },
+
       startWorkoutSession: async (payload) => {
         const state = get()
         const routine = state.routine.currentRoutine
@@ -1367,6 +2048,14 @@ export const useSigmafitStore = create<SigmafitStore>()(
         set((state) => ({
           training: {
             ...state.training,
+            error: null,
+          },
+        })),
+
+      clearAdaptiveError: () =>
+        set((state) => ({
+          adaptive: {
+            ...state.adaptive,
             error: null,
           },
         })),

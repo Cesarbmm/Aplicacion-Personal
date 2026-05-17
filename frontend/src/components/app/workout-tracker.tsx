@@ -3,6 +3,7 @@ import { CheckCircle2, Clock3, Dumbbell, PlayCircle, TimerReset } from 'lucide-r
 
 import { ProgressBar } from '@/components/ui/progress-bar'
 import type { SigmaRoutine, SigmaUnit, SigmaWorkoutSession } from '@/lib/sigmafit/types'
+import { useSigmafitStore } from '@/store/sigmafit-store'
 
 type WorkoutTrackerProps = {
   routine: SigmaRoutine | null
@@ -50,6 +51,14 @@ function formatSeconds(value: number) {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`
 }
 
+function normalizeExerciseName(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
 export function WorkoutTracker({
   routine,
   activeSession,
@@ -73,6 +82,11 @@ export function WorkoutTracker({
   const [fatigueLevel, setFatigueLevel] = useState(5)
   const [painLevel, setPainLevel] = useState(0)
   const [athleteNotes, setAthleteNotes] = useState('')
+  const [assistedText, setAssistedText] = useState('')
+  const [followUpText, setFollowUpText] = useState('')
+  const assistedLog = useSigmafitStore((state) => state.assistedLog)
+  const parseTrainingLog = useSigmafitStore((state) => state.parseTrainingLog)
+  const clearAssistedLog = useSigmafitStore((state) => state.clearAssistedLog)
 
   useEffect(() => {
     if (restTimer.value <= 0) {
@@ -160,6 +174,49 @@ export function WorkoutTracker({
     })
   }
 
+  async function handleParseAssistedText(text: string) {
+    if (!text.trim()) {
+      return
+    }
+
+    await parseTrainingLog(text)
+  }
+
+  async function handleConfirmAssistedLog() {
+    const parsed = assistedLog.result?.parsed
+
+    if (!activeSession || !parsed?.exerciseName || !parsed.reps) {
+      return
+    }
+
+    const normalizedParsedName = normalizeExerciseName(parsed.exerciseName)
+    const matchingExercise = activeSession.exercises.find((exercise) => {
+      const normalizedName = normalizeExerciseName(exercise.name)
+      return normalizedName.includes(normalizedParsedName) || normalizedParsedName.includes(normalizedName)
+    })
+    const nextSet = matchingExercise?.sessionSets.find((setItem) => !setItem.completed)
+
+    if (!matchingExercise || !nextSet) {
+      return
+    }
+
+    await handleCompleteSet({
+      sessionId: activeSession.sessionId,
+      setId: nextSet.setId,
+      completed: true,
+      weight: matchingExercise.trackingType === 'time' ? null : (parsed.weight ?? nextSet.weight ?? 0),
+      unit: parsed.unit ?? nextSet.unit,
+      actualReps: matchingExercise.trackingType === 'time' ? null : parsed.reps,
+      actualSeconds: matchingExercise.trackingType === 'time' ? parsed.reps : null,
+      exerciseName: matchingExercise.name,
+      restSeconds: matchingExercise.restSeconds,
+    })
+
+    setAssistedText('')
+    setFollowUpText('')
+    clearAssistedLog()
+  }
+
   return (
     <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
       <section className="panel-surface rounded-[30px] p-5">
@@ -170,7 +227,7 @@ export function WorkoutTracker({
               {routine ? routine.name : 'Aun sin rutina'}
             </h3>
           </div>
-          <div className="rounded-full border border-cyan-400/14 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-200">
+          <div className="rounded-full border border-red-500/14 bg-red-500/10 px-4 py-2 text-sm text-red-200">
             {activeSession ? `${completedSets}/${totalSets} sets` : `${routine?.days.length ?? 0} dias`}
           </div>
         </div>
@@ -194,7 +251,7 @@ export function WorkoutTracker({
                   onClick={() => setSelectedDayId(day.routineDayId)}
                   className={`w-full rounded-[24px] border px-4 py-4 text-left transition ${
                     isSelected
-                      ? 'border-cyan-400/22 bg-cyan-400/10'
+                      ? 'border-red-500/22 bg-red-500/10'
                       : 'border-white/8 bg-black/20 hover:border-white/14 hover:bg-white/[0.04]'
                   }`}
                 >
@@ -204,7 +261,7 @@ export function WorkoutTracker({
                       <p className="mt-1 text-sm text-slate-400">{day.exercises.length} ejercicios</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm text-cyan-200">{day.exercises.reduce((total, exercise) => total + exercise.sets, 0)} sets</p>
+                      <p className="text-sm text-red-200">{day.exercises.reduce((total, exercise) => total + exercise.sets, 0)} sets</p>
                       <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">
                         {isActiveSessionDay ? 'En curso' : 'Disponible'}
                       </p>
@@ -223,7 +280,7 @@ export function WorkoutTracker({
               void handleStartSession()
             }}
             disabled={isStarting || !selectedDay}
-            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-cyan-400/16 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100 transition hover:bg-cyan-400/16 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-red-500/16 bg-red-500/10 px-4 py-3 text-sm text-red-100 transition hover:bg-red-500/16 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <PlayCircle size={16} />
             {isStarting ? 'Iniciando entrenamiento...' : 'Iniciar entrenamiento del dia'}
@@ -269,11 +326,94 @@ export function WorkoutTracker({
                 { icon: TimerReset, label: 'Sets listos', value: `${completedSets}/${totalSets}` },
               ].map((item) => (
                 <div key={item.label} className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
-                  <item.icon className="h-4 w-4 text-cyan-300" />
+                  <item.icon className="h-4 w-4 text-red-300" />
                   <p className="mt-3 text-xs uppercase tracking-[0.2em] text-slate-500">{item.label}</p>
                   <p className="mt-2 text-sm font-medium text-white">{item.value}</p>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-6 rounded-[26px] border border-red-400/14 bg-red-500/8 p-4" data-testid="assisted-training-log">
+              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="font-medium text-white">Registro asistido</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">
+                    Escribe una frase como: Hice press de banca, 4 series de 8 con 80kg.
+                  </p>
+                </div>
+                <span className="rounded-full border border-white/10 bg-black/24 px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-slate-300">
+                  {assistedLog.source === 'backend' ? 'backend' : assistedLog.source === 'local' ? 'local' : 'parser'}
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
+                <input
+                  value={assistedText}
+                  onChange={(event) => setAssistedText(event.target.value)}
+                  placeholder="Ejemplo: hice banca 4 series de 8 con 80kg"
+                  className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleParseAssistedText(assistedText)
+                  }}
+                  disabled={assistedLog.isParsing || !assistedText.trim()}
+                  className="inline-flex items-center justify-center rounded-2xl border border-red-400/16 bg-red-500/10 px-4 py-3 text-sm text-red-100 transition hover:bg-red-500/16 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {assistedLog.isParsing ? 'Interpretando...' : 'Interpretar'}
+                </button>
+              </div>
+
+              {assistedLog.error ? (
+                <div className="mt-3 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                  {assistedLog.error}
+                </div>
+              ) : null}
+
+              {assistedLog.result ? (
+                <div className="mt-4 rounded-[22px] border border-white/8 bg-black/22 px-4 py-4 text-sm leading-7 text-slate-300">
+                  <p className="font-medium text-white">Datos interpretados</p>
+                  <p>
+                    {assistedLog.result.parsed.exerciseName ?? 'Ejercicio pendiente'} -{' '}
+                    {assistedLog.result.parsed.sets ?? '?'} series x {assistedLog.result.parsed.reps ?? '?'} reps
+                    {assistedLog.result.parsed.weight !== undefined
+                      ? ` - ${assistedLog.result.parsed.weight}${assistedLog.result.parsed.unit ?? 'kg'}`
+                      : ''}
+                  </p>
+                  {assistedLog.result.followUpQuestion ? (
+                    <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto]">
+                      <input
+                        value={followUpText}
+                        onChange={(event) => setFollowUpText(event.target.value)}
+                        placeholder={assistedLog.result.followUpQuestion}
+                        className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void handleParseAssistedText(`${assistedText}. ${followUpText}`)
+                        }}
+                        disabled={!followUpText.trim() || assistedLog.isParsing}
+                        className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition hover:border-red-400/20 hover:bg-red-500/10 disabled:opacity-50"
+                      >
+                        Responder
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void handleConfirmAssistedLog()
+                      }}
+                      disabled={isUpdatingSet}
+                      className="mt-3 inline-flex items-center justify-center rounded-2xl border border-red-400/18 bg-red-500/10 px-4 py-3 text-sm text-red-100 transition hover:bg-red-500/16 disabled:opacity-50"
+                    >
+                      Confirmar y guardar primera serie pendiente
+                    </button>
+                  )}
+                </div>
+              ) : null}
             </div>
 
             <div className="mt-6 space-y-4">
@@ -291,7 +431,7 @@ export function WorkoutTracker({
                     <button
                       type="button"
                       onClick={() => handleResetTimer(exercise.restSeconds, exercise.name)}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.04] px-3 py-2 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+                      className="inline-flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.04] px-3 py-2 text-sm text-slate-200 transition hover:border-red-500/20 hover:bg-red-500/10"
                     >
                       <TimerReset size={16} />
                       Reiniciar descanso
@@ -391,8 +531,8 @@ export function WorkoutTracker({
                           disabled={isUpdatingSet}
                           className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm transition ${
                             setItem.completed
-                              ? 'border-cyan-400/18 bg-cyan-400/12 text-cyan-100'
-                              : 'border-white/8 bg-white/[0.04] text-slate-200 hover:border-cyan-400/20 hover:bg-cyan-400/10'
+                              ? 'border-red-500/18 bg-red-500/12 text-red-100'
+                              : 'border-white/8 bg-white/[0.04] text-slate-200 hover:border-red-500/20 hover:bg-red-500/10'
                           } disabled:cursor-not-allowed disabled:opacity-60`}
                         >
                           <CheckCircle2 size={16} />
@@ -457,7 +597,7 @@ export function WorkoutTracker({
                 })
               }}
               disabled={isFinishing}
-              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full border border-cyan-400/16 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100 transition hover:bg-cyan-400/16 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full border border-red-500/16 bg-red-500/10 px-4 py-3 text-sm text-red-100 transition hover:bg-red-500/16 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isFinishing ? 'Finalizando sesion...' : 'Finalizar sesion'}
             </button>
@@ -495,7 +635,7 @@ export function WorkoutTracker({
                       </p>
                       <p className="mt-1 text-xs leading-5 text-slate-500">{exercise.coachingCue}</p>
                     </div>
-                    <p className="text-sm text-cyan-200">{exercise.sets} sets</p>
+                    <p className="text-sm text-red-200">{exercise.sets} sets</p>
                   </div>
                 </div>
               ))}

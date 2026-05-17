@@ -1,4 +1,10 @@
 import type {
+  AdaptiveRecommendation,
+  AdaptiveRecommendationDraft,
+  AdaptiveTrainingSignals,
+} from '../types/adaptive.js'
+import type { MonthlyTrainingSignals } from '../types/monthly-summary.js'
+import type {
   ExerciseCatalogEntry,
   FinishWorkoutSessionInput,
   Routine,
@@ -21,6 +27,10 @@ export interface TrainingRepository {
     input: UpdateWorkoutSessionSetInput,
   ): Promise<WorkoutSession>
   finishWorkoutSession(sessionId: string, input?: FinishWorkoutSessionInput): Promise<WorkoutSessionSummary>
+  getAdaptiveTrainingSignals(userId: string): Promise<AdaptiveTrainingSignals>
+  getMonthlyTrainingSignals(userId: string, month: string): Promise<MonthlyTrainingSignals>
+  saveAdaptiveRecommendation(recommendation: AdaptiveRecommendationDraft): Promise<AdaptiveRecommendation>
+  getLatestAdaptiveRecommendation(userId: string): Promise<AdaptiveRecommendation | null>
 }
 
 export class OnboardingRequiredError extends Error {

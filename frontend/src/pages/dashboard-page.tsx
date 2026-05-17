@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { ArrowRight, Bot, CalendarDays, Dumbbell, Sparkles, Waves, Wrench } from 'lucide-react'
+import { Activity, ArrowRight, Bot, CalendarDays, Dumbbell, Sparkles, Waves, Wrench } from 'lucide-react'
 
 import { MetricCard } from '@/components/metric-card'
 import { MiniChart } from '@/components/mini-chart'
@@ -12,6 +12,7 @@ import {
   formatSigmaGoal,
 } from '@/lib/sigmafit/catalog'
 import type {
+  SigmaAdaptiveRecommendationType,
   SigmaExperienceLevel,
   SigmaRoutine,
   SigmaRoutineCreationMode,
@@ -77,6 +78,13 @@ function getRoutineModeLabel(mode: SigmaRoutineCreationMode) {
   return mode === 'manual' ? 'Manual' : 'Coach Virtual'
 }
 
+const adaptiveLabels: Record<SigmaAdaptiveRecommendationType, string> = {
+  progress: 'progresar',
+  maintain: 'mantener',
+  deload: 'descarga',
+  simplify: 'simplificar',
+}
+
 function RoutineDaysGrid({ routine }: { routine: SigmaRoutine }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -87,7 +95,7 @@ function RoutineDaysGrid({ routine }: { routine: SigmaRoutine }) {
               <p className="font-medium text-white">{day.title}</p>
               <p className="mt-1 text-sm text-slate-400">{day.exercises.length} ejercicios</p>
             </div>
-            <p className="text-sm text-cyan-200">
+            <p className="text-sm text-red-200">
               {day.exercises.reduce((total, exercise) => total + exercise.sets, 0)} sets
             </p>
           </div>
@@ -105,7 +113,7 @@ function RoutineDaysGrid({ routine }: { routine: SigmaRoutine }) {
                       {exercise.muscleGroup}
                     </p>
                   </div>
-                  <p className="text-right text-xs text-cyan-200">
+                  <p className="text-right text-xs text-red-200">
                     {exercise.sets} x {exercise.reps}
                   </p>
                 </div>
@@ -123,6 +131,7 @@ export function DashboardPage() {
   const profile = useSigmafitStore((state) => state.profile)
   const routine = useSigmafitStore((state) => state.routine)
   const training = useSigmafitStore((state) => state.training)
+  const adaptive = useSigmafitStore((state) => state.adaptive)
   const workout = useSigmafitStore((state) => state.workout)
   const progressHistory = useSigmafitStore((state) => state.progressHistory)
   const session = useSigmafitStore((state) => state.session)
@@ -131,6 +140,8 @@ export function DashboardPage() {
   const acceptRoutineProposal = useSigmafitStore((state) => state.acceptRoutineProposal)
   const regenerateRoutineProposal = useSigmafitStore((state) => state.regenerateRoutineProposal)
   const selectRoutineFlow = useSigmafitStore((state) => state.selectRoutineFlow)
+  const loadAdaptiveSummary = useSigmafitStore((state) => state.loadAdaptiveSummary)
+  const generateAdaptiveRecommendation = useSigmafitStore((state) => state.generateAdaptiveRecommendation)
 
   const [isGenerating, setIsGenerating] = useState(false)
   const recommendation = getRoutineRecommendation(profile.experienceLevel)
@@ -141,8 +152,9 @@ export function DashboardPage() {
   useEffect(() => {
     if (session.isAuthenticated && session.onboardingComplete) {
       void loadCurrentRoutine()
+      void loadAdaptiveSummary()
     }
-  }, [loadCurrentRoutine, session.isAuthenticated, session.onboardingComplete])
+  }, [loadAdaptiveSummary, loadCurrentRoutine, session.isAuthenticated, session.onboardingComplete])
 
   const dashboardMetrics = useMemo(
     () => [
@@ -150,7 +162,7 @@ export function DashboardPage() {
         title: 'Perfil',
         value: formatSigmaGoal(profile.goal),
         caption: `${formatSigmaExperienceLevel(profile.experienceLevel)} - ${profile.daysPerWeek} dias por semana`,
-        icon: <Sparkles size={18} className="text-cyan-200" />,
+        icon: <Sparkles size={18} className="text-red-200" />,
       },
       {
         title: 'Rutina',
@@ -160,19 +172,19 @@ export function DashboardPage() {
           : proposedRoutine
             ? `Propuesta pendiente desde ${getRoutineSourceLabel(routine.proposalSource)}.`
             : 'Primero elige como quieres crear tu plan.',
-        icon: <CalendarDays size={18} className="text-cyan-200" />,
+        icon: <CalendarDays size={18} className="text-red-200" />,
       },
       {
         title: 'Readiness',
         value: `${workout.readiness}%`,
         caption: 'Contexto actual del atleta antes de arrancar el siguiente bloque.',
-        icon: <Waves size={18} className="text-cyan-200" />,
+        icon: <Waves size={18} className="text-red-200" />,
       },
       {
         title: 'Volumen',
         value: `${latestProgressPoint?.volume.toLocaleString('es-EC') ?? 0} kg`,
         caption: 'Historial mock acumulado que convivira con las nuevas sesiones.',
-        icon: <Dumbbell size={18} className="text-cyan-200" />,
+        icon: <Dumbbell size={18} className="text-red-200" />,
       },
     ],
     [
@@ -216,14 +228,14 @@ export function DashboardPage() {
         title="Crear mi rutina"
         subtitle="Con estos datos SigmaFit puede generar una propuesta o permitirte crear tu propia rutina."
         action={
-          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/14 bg-cyan-400/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-cyan-200">
+          <div className="inline-flex items-center gap-2 rounded-full border border-red-500/14 bg-red-500/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-red-200">
             <Sparkles size={14} />
             {recommendation.badge}
           </div>
         }
       >
         <div className="space-y-5">
-          <div className="rounded-[24px] border border-cyan-400/14 bg-cyan-400/8 px-4 py-4 text-sm leading-7 text-slate-200">
+          <div className="rounded-[24px] border border-red-500/14 bg-red-500/8 px-4 py-4 text-sm leading-7 text-slate-200">
             {recommendation.message}
           </div>
 
@@ -247,18 +259,18 @@ export function DashboardPage() {
               }}
               className={`rounded-[28px] border px-5 py-5 text-left transition ${
                 primaryIsCoach
-                  ? 'border-cyan-400/22 bg-cyan-400/10'
-                  : 'border-white/8 bg-black/20 hover:border-cyan-400/20 hover:bg-cyan-400/10'
+                  ? 'border-red-500/22 bg-red-500/10'
+                  : 'border-white/8 bg-black/20 hover:border-red-500/20 hover:bg-red-500/10'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Bot className="h-5 w-5 text-cyan-300" />
+                <Bot className="h-5 w-5 text-red-300" />
                 <p className="font-medium text-white">Generar con Coach Virtual</p>
               </div>
               <p className="mt-3 text-sm leading-7 text-slate-300">
                 Propuesta estructurada desde tu objetivo, nivel y disponibilidad semanal.
               </p>
-              <p className="mt-4 text-xs uppercase tracking-[0.18em] text-cyan-200">
+              <p className="mt-4 text-xs uppercase tracking-[0.18em] text-red-200">
                 {primaryIsCoach ? 'Accion principal' : 'Accion secundaria'}
               </p>
             </button>
@@ -270,16 +282,16 @@ export function DashboardPage() {
               }}
               className={`rounded-[28px] border px-5 py-5 text-left transition ${
                 primaryIsCoach
-                  ? 'border-white/8 bg-black/20 hover:border-cyan-400/20 hover:bg-cyan-400/10'
-                  : 'border-cyan-400/22 bg-cyan-400/10'
+                  ? 'border-white/8 bg-black/20 hover:border-red-500/20 hover:bg-red-500/10'
+                  : 'border-red-500/22 bg-red-500/10'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Wrench className="h-5 w-5 text-cyan-300" />
+                <Wrench className="h-5 w-5 text-red-300" />
                 <p className="font-medium text-white">Crear rutina manual</p>
               </div>
               <p className="mt-3 text-sm leading-7 text-slate-300">{recommendation.secondaryHint}</p>
-              <p className="mt-4 text-xs uppercase tracking-[0.18em] text-cyan-200">
+              <p className="mt-4 text-xs uppercase tracking-[0.18em] text-red-200">
                 {primaryIsCoach ? 'Accion secundaria' : 'Accion principal'}
               </p>
             </Link>
@@ -311,7 +323,7 @@ export function DashboardPage() {
         title="Propuesta del Coach Virtual"
         subtitle="Esta rutina fue generada con tu perfil actual."
         action={
-          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/14 bg-cyan-400/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-cyan-200">
+          <div className="inline-flex items-center gap-2 rounded-full border border-red-500/14 bg-red-500/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-red-200">
             <Bot size={14} />
             {profile.experienceLevel === 'advanced' ? 'Base editable' : 'Recomendado para tu nivel'}
           </div>
@@ -331,7 +343,7 @@ export function DashboardPage() {
             ))}
           </div>
 
-          <div className="rounded-[24px] border border-cyan-400/14 bg-cyan-400/8 px-4 py-4 text-sm leading-7 text-slate-200">
+          <div className="rounded-[24px] border border-red-500/14 bg-red-500/8 px-4 py-4 text-sm leading-7 text-slate-200">
             {profile.experienceLevel === 'advanced'
               ? 'Puedes usarla como base o crear una personalizada.'
               : 'Esta propuesta ya respeta tu objetivo, tu nivel y los dias que declaraste en onboarding.'}
@@ -355,7 +367,7 @@ export function DashboardPage() {
               onClick={() => {
                 void handleRegenerateProposal()
               }}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition hover:border-red-500/20 hover:bg-red-500/10"
             >
               Regenerar propuesta
             </button>
@@ -365,7 +377,7 @@ export function DashboardPage() {
               onClick={() => {
                 selectRoutineFlow('manual')
               }}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/8 bg-black/20 px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/8 bg-black/20 px-4 py-3 text-sm text-slate-200 transition hover:border-red-500/20 hover:bg-red-500/10"
             >
               Crear manualmente
             </Link>
@@ -385,7 +397,7 @@ export function DashboardPage() {
         title={activeRoutine.creationMode === 'manual' ? 'Rutina manual activa' : 'Rutina activa del Coach'}
         subtitle="La rutina ya fue creada explicitamente por el usuario y esta lista para el tracker."
         action={
-          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/14 bg-cyan-400/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-cyan-200">
+          <div className="inline-flex items-center gap-2 rounded-full border border-red-500/14 bg-red-500/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-red-200">
             <Sparkles size={14} />
             {getRoutineModeLabel(activeRoutine.creationMode)} - {getRoutineSourceLabel(routine.source)}
           </div>
@@ -410,7 +422,7 @@ export function DashboardPage() {
           <div className="flex flex-wrap gap-3">
             <Link
               to="/workout"
-              className="inline-flex items-center gap-2 rounded-full border border-cyan-400/16 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100 transition hover:bg-cyan-400/16"
+              className="inline-flex items-center gap-2 rounded-full border border-red-500/16 bg-red-500/10 px-4 py-3 text-sm text-red-100 transition hover:bg-red-500/16"
             >
               Abrir workout
               <ArrowRight size={16} />
@@ -420,11 +432,85 @@ export function DashboardPage() {
               onClick={() => {
                 selectRoutineFlow('manual')
               }}
-              className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+              className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition hover:border-red-500/20 hover:bg-red-500/10"
             >
               Crear otra rutina manual
             </Link>
           </div>
+        </div>
+      </PanelCard>
+    )
+  }
+
+  function renderAdaptivePanel() {
+    const summary = adaptive.summary
+    const recommendation = summary?.recommendation
+
+    return (
+      <PanelCard
+        title="Estado adaptativo"
+        subtitle="Lectura simple de fatiga, dolor, cumplimiento y rendimiento real."
+        action={
+          <button
+            type="button"
+            onClick={() => {
+              void generateAdaptiveRecommendation()
+            }}
+            disabled={adaptive.isGenerating}
+            className="inline-flex items-center gap-2 rounded-full border border-red-500/16 bg-red-500/10 px-4 py-2 text-sm text-red-100 transition hover:bg-red-500/16 disabled:opacity-50"
+          >
+            <Activity size={16} />
+            {adaptive.isGenerating ? 'Actualizando...' : 'Actualizar recomendacion'}
+          </button>
+        }
+      >
+        <div className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Fatiga promedio</p>
+              <p className="mt-2 font-['Space_Grotesk'] text-3xl font-semibold text-white">
+                {summary?.averageFatigue ?? 'sin dato'}
+              </p>
+            </div>
+            <div className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Dolor promedio</p>
+              <p className="mt-2 font-['Space_Grotesk'] text-3xl font-semibold text-white">
+                {summary?.averagePain ?? 'sin dato'}
+              </p>
+            </div>
+            <div className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Cumplimiento</p>
+              <p className="mt-2 font-['Space_Grotesk'] text-3xl font-semibold text-white">
+                {summary ? `${Math.round(summary.completionRate * 100)}%` : '0%'}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-[24px] border border-red-500/14 bg-red-500/8 px-4 py-4 text-sm leading-7 text-slate-200">
+            {recommendation ? (
+              <>
+                <span className="font-medium text-white">
+                  Recomendacion: {adaptiveLabels[recommendation.type]}.
+                </span>{' '}
+                {recommendation.summary} {recommendation.reasoning}
+              </>
+            ) : (
+              'Finaliza una sesion para que SigmaFit pueda generar una lectura adaptativa.'
+            )}
+          </div>
+
+          <div className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-sm text-slate-300">
+            Sesiones analizadas: {summary?.sessionsAnalyzed ?? 0}. Fuente: {adaptive.source}.
+            {recommendation?.riskLevel === 'high'
+              ? ' Precaucion: dolor alto no es diagnostico medico; reduce carga y revisa tecnica si persiste.'
+              : ''}
+          </div>
+
+          {adaptive.error ? (
+            <div className="rounded-[22px] border border-rose-400/18 bg-rose-400/10 px-4 py-4 text-sm text-rose-100">
+              {adaptive.error}
+            </div>
+          ) : null}
         </div>
       </PanelCard>
     )
@@ -447,7 +533,7 @@ export function DashboardPage() {
             {activeRoutine ? (
               <Link
                 to="/workout"
-                className="inline-flex items-center gap-2 rounded-full border border-cyan-400/16 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-200 transition hover:bg-cyan-400/16"
+                className="inline-flex items-center gap-2 rounded-full border border-red-500/16 bg-red-500/10 px-4 py-2 text-sm text-red-200 transition hover:bg-red-500/16"
               >
                 Abrir workout
                 <ArrowRight size={16} />
@@ -455,7 +541,7 @@ export function DashboardPage() {
             ) : null}
             <Link
               to="/progress"
-              className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+              className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:border-red-500/20 hover:bg-red-500/10"
             >
               Ver progreso
             </Link>
@@ -480,7 +566,7 @@ export function DashboardPage() {
 
         <PanelCard title="Proxima accion" subtitle="Estado del flujo de rutina y acceso al entrenamiento en vivo.">
           <div className="space-y-6">
-            <div className="rounded-[24px] border border-cyan-400/14 bg-cyan-400/8 px-4 py-4 text-sm leading-7 text-slate-200">
+            <div className="rounded-[24px] border border-red-500/14 bg-red-500/8 px-4 py-4 text-sm leading-7 text-slate-200">
               {training.activeSession
                 ? `Hay una sesion activa en ${training.activeSession.title}. Puedes retomarla desde Workout.`
                 : activeRoutine
@@ -509,6 +595,8 @@ export function DashboardPage() {
           </div>
         </PanelCard>
       </section>
+
+      {renderAdaptivePanel()}
     </div>
   )
 }

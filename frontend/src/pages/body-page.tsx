@@ -22,6 +22,10 @@ export function ProfilePage() {
   const profile = useSigmafitStore((state) => state.profile)
   const routine = useSigmafitStore((state) => state.routine)
   const training = useSigmafitStore((state) => state.training)
+  const assistedLog = useSigmafitStore((state) => state.assistedLog)
+  const adaptive = useSigmafitStore((state) => state.adaptive)
+  const monthlySummary = useSigmafitStore((state) => state.monthlySummary)
+  const coach = useSigmafitStore((state) => state.coach)
   const workout = useSigmafitStore((state) => state.workout)
   const progressHistory = useSigmafitStore((state) => state.progressHistory)
   const preferences = useSigmafitStore((state) => state.preferences)
@@ -31,7 +35,19 @@ export function ProfilePage() {
   const [saved, setSaved] = useState(false)
   const [draft, setDraft] = useState<SigmaProfile>(profile)
 
-  const data = getSigmaProfileView({ session, profile, routine, training, workout, progressHistory, preferences })
+  const data = getSigmaProfileView({
+    session,
+    profile,
+    routine,
+    training,
+    assistedLog,
+    adaptive,
+    monthlySummary,
+    coach,
+    workout,
+    progressHistory,
+    preferences,
+  })
 
   useEffect(() => {
     setDraft(profile)
@@ -56,7 +72,7 @@ export function ProfilePage() {
         actions={
           <Link
             to="/register"
-            className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+            className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:border-red-500/20 hover:bg-red-500/10"
           >
             Reabrir onboarding
           </Link>
@@ -65,10 +81,10 @@ export function ProfilePage() {
 
       <Tabs.Root defaultValue="summary" className="space-y-6">
         <Tabs.List className="inline-flex rounded-full border border-white/8 bg-white/[0.04] p-1">
-          <Tabs.Trigger value="summary" className="rounded-full px-4 py-2 text-sm text-slate-300 data-[state=active]:bg-cyan-400/12 data-[state=active]:text-white">
+          <Tabs.Trigger value="summary" className="rounded-full px-4 py-2 text-sm text-slate-300 data-[state=active]:bg-red-500/12 data-[state=active]:text-white">
             Resumen
           </Tabs.Trigger>
-          <Tabs.Trigger value="preferences" className="rounded-full px-4 py-2 text-sm text-slate-300 data-[state=active]:bg-cyan-400/12 data-[state=active]:text-white">
+          <Tabs.Trigger value="preferences" className="rounded-full px-4 py-2 text-sm text-slate-300 data-[state=active]:bg-red-500/12 data-[state=active]:text-white">
             Preferencias
           </Tabs.Trigger>
         </Tabs.List>
@@ -187,7 +203,7 @@ export function ProfilePage() {
                 <button
                   type="button"
                   onClick={saveProfile}
-                  className="inline-flex items-center gap-2 rounded-full border border-cyan-400/16 bg-cyan-400/10 px-4 py-2.5 text-sm text-cyan-200 transition hover:bg-cyan-400/16"
+                  className="inline-flex items-center gap-2 rounded-full border border-red-500/16 bg-red-500/10 px-4 py-2.5 text-sm text-red-200 transition hover:bg-red-500/16"
                 >
                   <Save size={16} />
                   {saved ? 'Guardado local' : 'Guardar cambios'}
@@ -216,7 +232,7 @@ export function ProfilePage() {
               <div className="mt-6 rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <span className="text-sm text-slate-300">Readiness actual</span>
-                  <span className="text-sm text-cyan-200">{workout.readiness}%</span>
+                  <span className="text-sm text-red-200">{workout.readiness}%</span>
                 </div>
                 <ProgressBar value={workout.readiness} />
               </div>
@@ -248,12 +264,12 @@ export function ProfilePage() {
                   key={item.key}
                   type="button"
                   onClick={() => togglePreference(item.key)}
-                  className="rounded-[24px] border border-white/8 bg-black/20 px-5 py-5 text-left transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+                  className="rounded-[24px] border border-white/8 bg-black/20 px-5 py-5 text-left transition hover:border-red-500/20 hover:bg-red-500/10"
                 >
                   <div className="flex items-center justify-between gap-4">
                     <span className="font-medium text-white">{item.label}</span>
                     <span className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.18em] ${
-                      item.value ? 'bg-cyan-400/12 text-cyan-200' : 'bg-white/[0.06] text-slate-400'
+                      item.value ? 'bg-red-500/12 text-red-200' : 'bg-white/[0.06] text-slate-400'
                     }`}>
                       {item.value ? 'Activo' : 'Off'}
                     </span>
@@ -263,7 +279,7 @@ export function ProfilePage() {
 
               <div className="rounded-[24px] border border-white/8 bg-black/20 px-5 py-5">
                 <div className="flex items-center gap-3">
-                  <Bell className="h-4 w-4 text-cyan-300" />
+                  <Bell className="h-4 w-4 text-red-300" />
                   <p className="font-medium text-white">Minutos de recordatorio</p>
                 </div>
                 <input

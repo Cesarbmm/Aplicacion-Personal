@@ -196,7 +196,7 @@ export function RegisterPage() {
         <section className="panel-surface rounded-[36px] p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-sm uppercase tracking-[0.28em] text-cyan-300/80">SigmaFit setup</p>
+              <p className="text-sm uppercase tracking-[0.28em] text-red-300/80">SigmaFit setup</p>
               <h1 className="mt-3 font-['Space_Grotesk'] text-4xl font-semibold tracking-[-0.05em] text-white md:text-5xl">
                 Perfilado inicial para tu primer bloque.
               </h1>
@@ -218,7 +218,7 @@ export function RegisterPage() {
                 onClick={() => setStep(index)}
                 className={`rounded-[24px] border px-4 py-4 text-left transition ${
                   step === index
-                    ? 'border-cyan-400/20 bg-cyan-400/10'
+                    ? 'border-red-500/20 bg-red-500/10'
                     : 'border-white/8 bg-white/[0.03] hover:border-white/12 hover:bg-white/[0.05]'
                 }`}
               >
@@ -272,7 +272,7 @@ export function RegisterPage() {
                       }}
                       className={`rounded-[26px] border px-5 py-5 text-left transition ${
                         goal === item.value
-                          ? 'border-cyan-400/20 bg-cyan-400/10'
+                          ? 'border-red-500/20 bg-red-500/10'
                           : errors.goal
                             ? 'border-rose-400/20 bg-rose-400/6 hover:border-rose-300/30'
                             : 'border-white/8 bg-black/20 hover:border-white/14 hover:bg-white/[0.04]'
@@ -300,7 +300,7 @@ export function RegisterPage() {
                       }}
                       className={`rounded-[28px] border px-5 py-8 text-left transition ${
                         experienceLevel === item.value
-                          ? 'border-cyan-400/20 bg-cyan-400/10'
+                          ? 'border-red-500/20 bg-red-500/10'
                           : errors.experienceLevel
                             ? 'border-rose-400/20 bg-rose-400/6 hover:border-rose-300/30'
                             : 'border-white/8 bg-black/20 hover:border-white/14 hover:bg-white/[0.04]'
@@ -328,7 +328,7 @@ export function RegisterPage() {
                       }}
                       className={`rounded-[28px] border px-5 py-8 text-left transition ${
                         daysPerWeek === days
-                          ? 'border-cyan-400/20 bg-cyan-400/10'
+                          ? 'border-red-500/20 bg-red-500/10'
                           : errors.daysPerWeek
                             ? 'border-rose-400/20 bg-rose-400/6 hover:border-rose-300/30'
                             : 'border-white/8 bg-black/20 hover:border-white/14 hover:bg-white/[0.04]'
@@ -341,9 +341,9 @@ export function RegisterPage() {
                 </div>
                 {errors.daysPerWeek ? <p className="text-sm text-rose-300">{errors.daysPerWeek}</p> : null}
 
-                <div className="rounded-[28px] border border-cyan-400/14 bg-cyan-400/8 p-5">
+                <div className="rounded-[28px] border border-red-500/14 bg-red-500/8 p-5">
                   <div className="flex items-center gap-3">
-                    <Sparkles className="h-5 w-5 text-cyan-300" />
+                    <Sparkles className="h-5 w-5 text-red-300" />
                     <p className="font-medium text-white">Resultado del Sprint 1</p>
                   </div>
                   <p className="mt-3 text-sm leading-7 text-slate-300">
@@ -421,7 +421,7 @@ export function RegisterPage() {
                   </label>
                 </div>
 
-                <div className="rounded-[28px] border border-cyan-400/14 bg-cyan-400/8 p-5">
+                <div className="rounded-[28px] border border-red-500/14 bg-red-500/8 p-5">
                   <p className="font-medium text-white">Base para recomendaciones de carga</p>
                   <p className="mt-3 text-sm leading-7 text-slate-300">
                     Si no sabes tus pesos aproximados, dejalos en 0. SigmaFit usara los registros reales del tracker

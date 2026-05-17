@@ -29,13 +29,12 @@ export function FeaturesSection() {
           viewport={{ once: true, amount: 0.3 }}
           className="mx-auto mb-16 max-w-3xl text-center"
         >
-          <p className="text-sm uppercase tracking-[0.28em] text-cyan-300/80">Funcionalidades</p>
+          <p className="text-sm uppercase tracking-[0.28em] text-red-300/90">Funcionalidades</p>
           <h2 className="mt-4 font-['Space_Grotesk'] text-4xl font-semibold tracking-[-0.05em] text-white md:text-5xl">
-            Todo lo necesario para entrenar mejor, sin ruido.
+            No solo registra: aprende de tu entrenamiento.
           </h2>
           <p className="mt-5 text-base leading-8 text-slate-400">
-            La landing y la app usan el mismo lenguaje: claridad operativa, visual premium y datos listos
-            para decidir la siguiente sesion.
+            Sprint 3 convierte las sesiones cerradas en una recomendacion operativa para el siguiente bloque.
           </p>
         </motion.div>
 
@@ -49,7 +48,7 @@ export function FeaturesSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.2 }}
                 transition={{ delay: index * 0.06 }}
-                className="panel-surface group rounded-[28px] p-6 transition duration-300 hover:-translate-y-1 hover:border-cyan-400/18"
+                className="liquid-glass-card liquid-glass-hover group rounded-[28px] p-6"
               >
                 <div
                   className={`mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${feature.accent}`}
@@ -66,4 +65,3 @@ export function FeaturesSection() {
     </section>
   )
 }
-

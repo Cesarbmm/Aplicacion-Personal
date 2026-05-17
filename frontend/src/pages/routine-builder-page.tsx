@@ -187,7 +187,7 @@ export function RoutineBuilderPage() {
         actions={
           <Link
             to="/dashboard"
-            className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+            className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:border-red-500/20 hover:bg-red-500/10"
           >
             Volver al dashboard
           </Link>
@@ -199,14 +199,14 @@ export function RoutineBuilderPage() {
           title="Contexto del atleta"
           subtitle="Para nivel avanzado puedes crear una rutina desde cero. En otros niveles sigue siendo util, pero el Coach suele ser mejor punto de partida."
           action={
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/14 bg-cyan-400/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-cyan-200">
+            <div className="inline-flex items-center gap-2 rounded-full border border-red-500/14 bg-red-500/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-red-200">
               <Wrench size={14} />
               Builder manual
             </div>
           }
         >
           <div className="space-y-4">
-            <div className="rounded-[24px] border border-cyan-400/14 bg-cyan-400/8 px-4 py-4 text-sm leading-7 text-slate-200">
+            <div className="rounded-[24px] border border-red-500/14 bg-red-500/8 px-4 py-4 text-sm leading-7 text-slate-200">
               {profile.experienceLevel === 'advanced'
                 ? 'Puedes crear tu propia rutina o usar el Coach como base. Aqui tienes control completo del bloque.'
                 : 'Aunque el Coach es la recomendacion principal para tu nivel, tambien puedes construir la rutina manualmente.'}
@@ -281,7 +281,7 @@ export function RoutineBuilderPage() {
                   <button
                     type="button"
                     onClick={() => addExercise(day.dayNumber)}
-                    className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+                    className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:border-red-500/20 hover:bg-red-500/10"
                   >
                     <Plus size={16} />
                     Agregar ejercicio

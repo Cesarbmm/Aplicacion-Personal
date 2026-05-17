@@ -5,6 +5,7 @@ import { createInMemoryTrainingRepository } from './helpers/in-memory-training-r
 import { createInMemoryUserProfileRepository } from './helpers/in-memory-user-profile-repository.js'
 
 const demoUserId = '11111111-1111-4111-8111-111111111111'
+const missingUserId = '22222222-2222-4222-8222-222222222222'
 
 function createTestApp(onboardingCompleted = true) {
   return createApp({
@@ -18,6 +19,55 @@ function createTestApp(onboardingCompleted = true) {
     trainingRepository: createInMemoryTrainingRepository(),
     frontendOrigin: 'http://localhost:5180',
   })
+}
+
+async function createCompletedSession({
+  app,
+  fatigueLevel,
+  painLevel,
+  completeAllSets = true,
+}: {
+  app: ReturnType<typeof createTestApp>
+  fatigueLevel: number
+  painLevel: number
+  completeAllSets?: boolean
+}) {
+  const routineResponse = await request(app).post(`/api/users/${demoUserId}/routines/generate`)
+  const routineDayId = routineResponse.body.days[0].routineDayId as string
+  const routineId = routineResponse.body.routineId as string
+
+  const sessionResponse = await request(app).post(`/api/users/${demoUserId}/workout-sessions`).send({
+    routineId,
+    routineDayId,
+    unit: 'kg',
+  })
+
+  const setIds = sessionResponse.body.exercises.flatMap(
+    (exercise: { sessionSets: Array<{ setId: string }> }) =>
+      exercise.sessionSets.map((setItem) => setItem.setId),
+  ) as string[]
+
+  const idsToComplete = completeAllSets ? setIds : setIds.slice(0, 1)
+
+  for (const setId of idsToComplete) {
+    await request(app).patch(`/api/workout-sessions/${sessionResponse.body.sessionId}/sets/${setId}`).send({
+      completed: true,
+      weight: 50,
+      unit: 'kg',
+      actualReps: 10,
+    })
+  }
+
+  await request(app).patch(`/api/workout-sessions/${sessionResponse.body.sessionId}/finish`).send({
+    fatigueLevel,
+    painLevel,
+    athleteNotes: 'Registro de prueba adaptativa.',
+  })
+
+  return {
+    routineId,
+    sessionId: sessionResponse.body.sessionId as string,
+  }
 }
 
 describe('SigmaFit backend API', () => {
@@ -44,6 +94,58 @@ describe('SigmaFit backend API', () => {
       status: 'ok',
       service: 'sigmafit-backend',
     })
+  })
+
+  it('parses a complete assisted training log', async () => {
+    const app = createTestApp()
+
+    const response = await request(app).post('/api/training-log/parse').send({
+      userId: demoUserId,
+      text: 'Hice press de banca, 4 series de 8 con 80kg',
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      status: 'complete',
+      parsed: {
+        exerciseName: 'Press de banca',
+        sets: 4,
+        reps: 8,
+        weight: 80,
+        unit: 'kg',
+      },
+      followUpQuestion: null,
+    })
+  })
+
+  it('asks a follow-up question when assisted training log data is incomplete', async () => {
+    const app = createTestApp()
+
+    const response = await request(app).post('/api/training-log/parse').send({
+      userId: demoUserId,
+      text: 'Hice banca con 80kg',
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.body.status).toBe('needs_follow_up')
+    expect(response.body.parsed).toMatchObject({
+      exerciseName: 'Press de banca',
+      weight: 80,
+      unit: 'kg',
+    })
+    expect(response.body.followUpQuestion).toMatch(/series y repeticiones/i)
+  })
+
+  it('returns a controlled error when parsing logs for missing users', async () => {
+    const app = createTestApp()
+
+    const response = await request(app).post('/api/training-log/parse').send({
+      userId: missingUserId,
+      text: 'Hice press de banca, 4 series de 8 con 80kg',
+    })
+
+    expect(response.status).toBe(404)
+    expect(response.body.error).toBe('USER_NOT_FOUND')
   })
 
   it('saves onboarding on POST /api/users/:id/onboarding', async () => {
@@ -444,5 +546,120 @@ describe('SigmaFit backend API', () => {
       painLevel: 2,
       athleteNotes: 'Fatiga alta en el ultimo set.',
     })
+  })
+
+  it('returns an adaptive summary even without completed sessions', async () => {
+    const app = createTestApp(true)
+
+    const response = await request(app).get(`/api/users/${demoUserId}/adaptive-summary`)
+
+    expect(response.status).toBe(200)
+    expect(response.body).toMatchObject({
+      userId: demoUserId,
+      sessionsAnalyzed: 0,
+      completionRate: 0,
+      recommendation: {
+        type: 'maintain',
+      },
+    })
+  })
+
+  it('returns a monthly summary for the athlete', async () => {
+    const app = createTestApp(true)
+    await createCompletedSession({ app, fatigueLevel: 6, painLevel: 2 })
+
+    const response = await request(app).get(`/api/users/${demoUserId}/monthly-summary?month=2026-01`)
+
+    expect(response.status).toBe(200)
+    expect(response.body).toMatchObject({
+      userId: demoUserId,
+      month: '2026-01',
+      completedSessions: 1,
+      totalVolume: expect.any(Number),
+      progressionTrend: expect.any(String),
+      summary: expect.any(String),
+    })
+  })
+
+  it('returns a controlled error for monthly summary of missing users', async () => {
+    const app = createTestApp(true)
+
+    const response = await request(app).get(`/api/users/${missingUserId}/monthly-summary`)
+
+    expect(response.status).toBe(404)
+    expect(response.body.error).toBe('USER_NOT_FOUND')
+  })
+
+  it('returns coach athletes overview from existing profiles and training signals', async () => {
+    const app = createTestApp(true)
+    await createCompletedSession({ app, fatigueLevel: 8, painLevel: 3 })
+
+    const response = await request(app).get('/api/coach/athletes-overview')
+
+    expect(response.status).toBe(200)
+    expect(response.body.athletes).toHaveLength(1)
+    expect(response.body.athletes[0]).toMatchObject({
+      userId: demoUserId,
+      name: 'Demo Athlete',
+      consistencyRate: expect.any(Number),
+      progressionTrend: expect.any(String),
+      weakPoints: expect.any(Array),
+      coachInsight: expect.any(String),
+    })
+  })
+
+  it('creates and stores an adaptive recommendation', async () => {
+    const app = createTestApp(true)
+    await createCompletedSession({ app, fatigueLevel: 4, painLevel: 1 })
+
+    const response = await request(app).post(`/api/users/${demoUserId}/adaptive-recommendations`)
+    const latestResponse = await request(app).get(`/api/users/${demoUserId}/adaptive-recommendations/latest`)
+
+    expect(response.status).toBe(201)
+    expect(response.body.recommendation.type).toBe('progress')
+    expect(latestResponse.status).toBe(200)
+    expect(latestResponse.body.type).toBe('progress')
+  })
+
+  it('recommends deload when fatigue is high', async () => {
+    const app = createTestApp(true)
+    await createCompletedSession({ app, fatigueLevel: 9, painLevel: 2 })
+
+    const response = await request(app).get(`/api/users/${demoUserId}/adaptive-summary`)
+
+    expect(response.status).toBe(200)
+    expect(response.body.recommendation.type).toBe('deload')
+    expect(response.body.recommendation.suggestedVolumeChange).toBe('reduce')
+  })
+
+  it('marks high risk when pain is high', async () => {
+    const app = createTestApp(true)
+    await createCompletedSession({ app, fatigueLevel: 6, painLevel: 8 })
+
+    const response = await request(app).get(`/api/users/${demoUserId}/adaptive-summary`)
+
+    expect(response.status).toBe(200)
+    expect(response.body.recommendation.riskLevel).toBe('high')
+    expect(response.body.recommendation.type).toBe('deload')
+  })
+
+  it('recommends simplify when completion is low', async () => {
+    const app = createTestApp(true)
+    await createCompletedSession({ app, fatigueLevel: 5, painLevel: 1, completeAllSets: false })
+
+    const response = await request(app).get(`/api/users/${demoUserId}/adaptive-summary`)
+
+    expect(response.status).toBe(200)
+    expect(response.body.completionRate).toBeLessThan(0.6)
+    expect(response.body.recommendation.type).toBe('simplify')
+  })
+
+  it('returns a controlled error for adaptive summary of missing users', async () => {
+    const app = createTestApp(true)
+
+    const response = await request(app).get(`/api/users/${missingUserId}/adaptive-summary`)
+
+    expect(response.status).toBe(404)
+    expect(response.body.error).toBe('USER_NOT_FOUND')
   })
 })

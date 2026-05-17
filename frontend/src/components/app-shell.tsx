@@ -8,7 +8,7 @@ import { useSigmafitStore } from '@/store/sigmafit-store'
 const routeMeta: Record<string, { label: string; subtitle: string }> = {
   '/dashboard': {
     label: 'Dashboard',
-    subtitle: 'Resumen de readiness, proyeccion semanal y contexto de la sesion actual.',
+    subtitle: 'Resumen operativo para atleta, entrenador y gimnasio.',
   },
   '/workout': {
     label: 'Workout',
@@ -16,15 +16,19 @@ const routeMeta: Record<string, { label: string; subtitle: string }> = {
   },
   '/progress': {
     label: 'Progress',
-    subtitle: 'Volumen, consistencia y 1RM proyectado en una sola lectura.',
+    subtitle: 'Volumen, consistencia, resumen mensual y ajuste adaptativo.',
   },
   '/profile': {
     label: 'Profile',
-    subtitle: 'Identidad del atleta, preferencias y base del coach adaptativo.',
+    subtitle: 'Identidad del atleta, preferencias y base de seguimiento.',
   },
   '/routine-builder': {
     label: 'Routine Builder',
     subtitle: 'Constructor manual de bloques usando el catalogo oficial de ejercicios.',
+  },
+  '/coach': {
+    label: 'Coach',
+    subtitle: 'Panel para entrenadores y administradores del gimnasio.',
   },
 }
 
@@ -43,7 +47,7 @@ export function AppShell({ children }: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.14),transparent_28%),linear-gradient(180deg,#08111a_0%,#050a10_100%)] text-white">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(239,27,27,0.16),transparent_30%),linear-gradient(180deg,#100606_0%,#050505_100%)] text-white">
       <div
         className={`mx-auto grid min-h-screen max-w-[1700px] ${
           sidebarCollapsed ? 'xl:grid-cols-[96px_minmax(0,1fr)]' : 'xl:grid-cols-[310px_minmax(0,1fr)]'
@@ -52,7 +56,7 @@ export function AppShell({ children }: AppShellProps) {
         <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed((current) => !current)} />
 
         <div className="flex min-h-screen flex-col">
-          <header className="sticky top-0 z-30 border-b border-white/8 bg-[#07111a]/82 px-5 py-5 backdrop-blur-xl md:px-8">
+          <header className="sticky top-0 z-30 border-b border-white/8 bg-[#080505]/82 px-5 py-5 backdrop-blur-xl md:px-8">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-slate-500">
@@ -72,7 +76,7 @@ export function AppShell({ children }: AppShellProps) {
                 <div className="rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-300">
                   {athleteName}
                 </div>
-                <div className="rounded-full border border-cyan-400/16 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-200">
+                <div className="rounded-full border border-red-400/16 bg-red-500/10 px-4 py-2 text-sm text-red-100">
                   Readiness {readiness}%
                 </div>
                 <div className="rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-300">

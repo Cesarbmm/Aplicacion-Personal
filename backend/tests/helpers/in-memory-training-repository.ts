@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto'
 
 import type {
+  AdaptiveRecommendation,
+  AdaptiveRecommendationDraft,
+  AdaptiveTrainingSignals,
+} from '../../src/types/adaptive.js'
+import type { MonthlyTrainingSignals } from '../../src/types/monthly-summary.js'
+import type {
   ExerciseCatalogEntry,
   Routine,
   RoutineDraft,
@@ -146,6 +152,11 @@ export function createInMemoryTrainingRepository(seedRoutine?: Routine): Trainin
   const exerciseCatalog = createExerciseCatalog()
   const routines = new Map<string, Routine>()
   const sessions = new Map<string, WorkoutSession>()
+  const sessionFeedback = new Map<
+    string,
+    { fatigueLevel: number | null; painLevel: number | null; athleteNotes: string | null }
+  >()
+  const recommendations: AdaptiveRecommendation[] = []
 
   if (seedRoutine) {
     routines.set(seedRoutine.routineId, structuredClone(seedRoutine))
@@ -302,6 +313,11 @@ export function createInMemoryTrainingRepository(seedRoutine?: Routine): Trainin
 
       session.status = 'completed'
       session.finishedAt = new Date('2026-01-04T11:05:00.000Z').toISOString()
+      sessionFeedback.set(sessionId, {
+        fatigueLevel: input.fatigueLevel ?? null,
+        painLevel: input.painLevel ?? null,
+        athleteNotes: input.athleteNotes ?? null,
+      })
       sessions.set(sessionId, structuredClone(session))
 
       const completedSets = session.exercises.reduce(
@@ -357,6 +373,213 @@ export function createInMemoryTrainingRepository(seedRoutine?: Routine): Trainin
       }
 
       return summary
+    },
+
+    async getAdaptiveTrainingSignals(userId) {
+      const completedSessions = Array.from(sessions.values()).filter(
+        (session) => session.userId === userId && session.status === 'completed',
+      )
+
+      const completedSets = completedSessions.reduce(
+        (total, session) =>
+          total +
+          session.exercises.reduce(
+            (exerciseTotal, exercise) =>
+              exerciseTotal + exercise.sessionSets.filter((setItem) => setItem.completed).length,
+            0,
+          ),
+        0,
+      )
+
+      const plannedSets = completedSessions.reduce(
+        (total, session) =>
+          total +
+          session.exercises.reduce((exerciseTotal, exercise) => exerciseTotal + exercise.sessionSets.length, 0),
+        0,
+      )
+
+      const totalVolume = completedSessions.reduce(
+        (total, session) =>
+          total +
+          session.exercises.reduce(
+            (exerciseTotal, exercise) =>
+              exerciseTotal +
+              exercise.sessionSets.reduce((setTotal, setItem) => {
+                if (!setItem.completed || setItem.weight === null) {
+                  return setTotal
+                }
+
+                return setTotal + setItem.weight * (setItem.actualReps ?? setItem.targetReps)
+              }, 0),
+            0,
+          ),
+        0,
+      )
+
+      const totalReps = completedSessions.reduce(
+        (total, session) =>
+          total +
+          session.exercises.reduce(
+            (exerciseTotal, exercise) =>
+              exerciseTotal +
+              exercise.sessionSets.reduce(
+                (setTotal, setItem) =>
+                  setItem.completed ? setTotal + (setItem.actualReps ?? setItem.targetReps) : setTotal,
+                0,
+              ),
+            0,
+          ),
+        0,
+      )
+
+      const totalSeconds = completedSessions.reduce(
+        (total, session) =>
+          total +
+          session.exercises.reduce(
+            (exerciseTotal, exercise) =>
+              exerciseTotal +
+              exercise.sessionSets.reduce(
+                (setTotal, setItem) =>
+                  setItem.completed ? setTotal + (setItem.actualSeconds ?? 0) : setTotal,
+                0,
+              ),
+            0,
+          ),
+        0,
+      )
+
+      const feedback = completedSessions
+        .map((session) => sessionFeedback.get(session.sessionId))
+        .filter((item): item is { fatigueLevel: number | null; painLevel: number | null; athleteNotes: string | null } =>
+          Boolean(item),
+        )
+
+      const fatigueValues = feedback
+        .map((item) => item.fatigueLevel)
+        .filter((value): value is number => value !== null)
+      const painValues = feedback
+        .map((item) => item.painLevel)
+        .filter((value): value is number => value !== null)
+
+      const signals: AdaptiveTrainingSignals = {
+        userId,
+        routineId: completedSessions.at(-1)?.routineId ?? null,
+        sessionsAnalyzed: completedSessions.length,
+        completedSets,
+        plannedSets,
+        completionRate: plannedSets > 0 ? completedSets / plannedSets : 0,
+        averageFatigue:
+          fatigueValues.length > 0
+            ? fatigueValues.reduce((total, value) => total + value, 0) / fatigueValues.length
+            : null,
+        averagePain:
+          painValues.length > 0 ? painValues.reduce((total, value) => total + value, 0) / painValues.length : null,
+        maxPain: painValues.length > 0 ? Math.max(...painValues) : null,
+        totalVolume,
+        totalReps,
+        totalSeconds,
+        notes: feedback.map((item) => item.athleteNotes).filter((value): value is string => Boolean(value)),
+      }
+
+      return signals
+    },
+
+    async getMonthlyTrainingSignals(userId, month) {
+      const completedSessions = Array.from(sessions.values()).filter(
+        (session) => session.userId === userId && session.status === 'completed',
+      )
+
+      const completedSets = completedSessions.reduce(
+        (total, session) =>
+          total +
+          session.exercises.reduce(
+            (exerciseTotal, exercise) =>
+              exerciseTotal + exercise.sessionSets.filter((setItem) => setItem.completed).length,
+            0,
+          ),
+        0,
+      )
+
+      const plannedSets = completedSessions.reduce(
+        (total, session) =>
+          total +
+          session.exercises.reduce((exerciseTotal, exercise) => exerciseTotal + exercise.sessionSets.length, 0),
+        0,
+      )
+
+      const totalVolume = completedSessions.reduce(
+        (total, session) =>
+          total +
+          session.exercises.reduce(
+            (exerciseTotal, exercise) =>
+              exerciseTotal +
+              exercise.sessionSets.reduce((setTotal, setItem) => {
+                if (!setItem.completed || setItem.weight === null) {
+                  return setTotal
+                }
+
+                return setTotal + setItem.weight * (setItem.actualReps ?? setItem.targetReps)
+              }, 0),
+            0,
+          ),
+        0,
+      )
+
+      const totalReps = completedSessions.reduce(
+        (total, session) =>
+          total +
+          session.exercises.reduce(
+            (exerciseTotal, exercise) =>
+              exerciseTotal +
+              exercise.sessionSets.reduce(
+                (setTotal, setItem) =>
+                  setItem.completed ? setTotal + (setItem.actualReps ?? setItem.targetReps) : setTotal,
+                0,
+              ),
+            0,
+          ),
+        0,
+      )
+
+      const feedback = completedSessions
+        .map((session) => sessionFeedback.get(session.sessionId))
+        .filter((item): item is { fatigueLevel: number | null; painLevel: number | null; athleteNotes: string | null } =>
+          Boolean(item),
+        )
+      const fatigueValues = feedback
+        .map((item) => item.fatigueLevel)
+        .filter((value): value is number => value !== null)
+
+      return {
+        userId,
+        month,
+        completedSessions: completedSessions.length,
+        completedSets,
+        plannedSets,
+        totalVolume,
+        totalReps,
+        totalSeconds: 0,
+        averageRpe:
+          fatigueValues.length > 0
+            ? fatigueValues.reduce((total, value) => total + value, 0) / fatigueValues.length
+            : null,
+      } satisfies MonthlyTrainingSignals
+    },
+
+    async saveAdaptiveRecommendation(recommendationDraft: AdaptiveRecommendationDraft) {
+      const recommendation: AdaptiveRecommendation = {
+        id: randomUUID(),
+        ...recommendationDraft,
+        createdAt: new Date('2026-01-04T12:00:00.000Z').toISOString(),
+      }
+
+      recommendations.unshift(structuredClone(recommendation))
+      return recommendation
+    },
+
+    async getLatestAdaptiveRecommendation(userId) {
+      const recommendation = recommendations.find((item) => item.userId === userId)
+      return recommendation ? structuredClone(recommendation) : null
     },
   }
 }

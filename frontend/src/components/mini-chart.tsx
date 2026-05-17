@@ -25,8 +25,8 @@ export function MiniChart({ points, strokeClassName }: MiniChartProps) {
         <svg viewBox="0 0 100 100" className="h-full w-full overflow-visible">
           <defs>
             <linearGradient id="chart-fill" x1="0%" x2="0%" y1="0%" y2="100%">
-              <stop offset="0%" stopColor="rgba(14,165,233,0.45)" />
-              <stop offset="100%" stopColor="rgba(14,165,233,0.02)" />
+              <stop offset="0%" stopColor="rgba(239,27,27,0.45)" />
+              <stop offset="100%" stopColor="rgba(239,27,27,0.02)" />
             </linearGradient>
           </defs>
           <polyline
@@ -37,7 +37,7 @@ export function MiniChart({ points, strokeClassName }: MiniChartProps) {
           <polyline
             fill="none"
             points={plotted.join(' ')}
-            className={cn('stroke-cyan-300', strokeClassName)}
+            className={cn('stroke-red-300', strokeClassName)}
             strokeWidth="2.2"
             strokeLinejoin="round"
             strokeLinecap="round"

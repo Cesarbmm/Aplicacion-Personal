@@ -16,7 +16,7 @@ export function RpeModal({ open, value, onValueChange, onClose, onSubmit }: RpeM
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#020617]/75 px-4 backdrop-blur-md">
       <div className="panel-surface w-full max-w-xl rounded-[32px] p-6 md:p-7">
-        <p className="text-sm uppercase tracking-[0.28em] text-cyan-300/80">Post workout</p>
+        <p className="text-sm uppercase tracking-[0.28em] text-red-300/80">Post workout</p>
         <h3 className="mt-3 font-['Space_Grotesk'] text-3xl font-semibold text-white">Registra tu RPE</h3>
         <p className="mt-3 text-sm leading-7 text-slate-400">
           Este valor alimenta el readiness y deja la base lista para el ajuste de la siguiente semana.
@@ -43,9 +43,9 @@ export function RpeModal({ open, value, onValueChange, onClose, onSubmit }: RpeM
             onValueChange={(values) => onValueChange(values[0] ?? value)}
           >
             <Slider.Track className="relative h-2 flex-1 rounded-full bg-white/8">
-              <Slider.Range className="absolute h-full rounded-full bg-gradient-to-r from-cyan-500 via-sky-400 to-blue-400" />
+              <Slider.Range className="absolute h-full rounded-full bg-gradient-to-r from-red-600 via-red-500 to-red-500" />
             </Slider.Track>
-            <Slider.Thumb className="block h-5 w-5 rounded-full border border-white/20 bg-white shadow-[0_0_0_4px_rgba(14,165,233,0.2)] outline-none" />
+            <Slider.Thumb className="block h-5 w-5 rounded-full border border-white/20 bg-white shadow-[0_0_0_4px_rgba(239,27,27,0.2)] outline-none" />
           </Slider.Root>
 
           <div className="mt-3 flex items-center justify-between text-xs uppercase tracking-[0.2em] text-slate-600">

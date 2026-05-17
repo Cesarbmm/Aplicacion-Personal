@@ -3,6 +3,16 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { ZodError, z } from 'zod'
 
 import { generateRoutineDraft } from './services/routine-generator.js'
+import {
+  createAdaptiveRecommendationDraft,
+  createAdaptiveSummary,
+  recommendationToSummary,
+} from './services/adaptive-coach.js'
+import { createCoachOverview } from './services/coach-insights.js'
+import { createMonthlySummary } from './services/monthly-summary.js'
+import { parseTrainingLog } from './services/training-log-parser.js'
+import type { MonthlySummary } from './types/monthly-summary.js'
+import type { AdaptiveTrainingSignals } from './types/adaptive.js'
 import { onboardingExperienceLevels, onboardingGoals } from './types/profile.js'
 import { type WorkoutUnit } from './types/routine.js'
 import { UserNotFoundError, type UserProfileRepository } from './repositories/user-profile-repository.js'
@@ -100,6 +110,15 @@ const manualRoutineSchema = z
     }
   })
 
+const trainingLogParseSchema = z.object({
+  userId: z.string().uuid(),
+  text: z.string().trim().min(3).max(600),
+})
+
+const monthlySummaryQuerySchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+})
+
 function parseOrigins(origins: string) {
   return origins
     .split(',')
@@ -141,6 +160,23 @@ export function createApp({
     }
   })
 
+  app.post('/api/training-log/parse', async (request, response, next) => {
+    try {
+      const payload = trainingLogParseSchema.parse(request.body)
+      const profile = await userProfileRepository.getProfile(payload.userId)
+
+      if (!profile) {
+        throw new UserNotFoundError(payload.userId)
+      }
+
+      const exerciseCatalog = await trainingRepository.getExerciseCatalog()
+      const parsed = await parseTrainingLog(payload.text, exerciseCatalog)
+      response.json(parsed)
+    } catch (error) {
+      next(error)
+    }
+  })
+
   app.get('/api/users/:id/profile', async (request, response, next) => {
     try {
       const { id } = userParamsSchema.parse(request.params)
@@ -155,6 +191,109 @@ export function createApp({
       }
 
       response.json(profile)
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  app.get('/api/users/:id/adaptive-summary', async (request, response, next) => {
+    try {
+      const { id } = userParamsSchema.parse(request.params)
+      const profile = await userProfileRepository.getProfile(id)
+
+      if (!profile) {
+        throw new UserNotFoundError(id)
+      }
+
+      const signals = await trainingRepository.getAdaptiveTrainingSignals(id)
+      response.json(createAdaptiveSummary(signals))
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  app.get('/api/users/:id/monthly-summary', async (request, response, next) => {
+    try {
+      const { id } = userParamsSchema.parse(request.params)
+      const { month } = monthlySummaryQuerySchema.parse(request.query)
+      const profile = await userProfileRepository.getProfile(id)
+
+      if (!profile) {
+        throw new UserNotFoundError(id)
+      }
+
+      const resolvedMonth = month ?? new Date().toISOString().slice(0, 7)
+      const signals = await trainingRepository.getMonthlyTrainingSignals(id, resolvedMonth)
+      response.json(createMonthlySummary(profile, signals))
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  app.get('/api/coach/athletes-overview', async (_request, response, next) => {
+    try {
+      const profiles = await userProfileRepository.listProfiles()
+      const month = new Date().toISOString().slice(0, 7)
+      const summariesByUser = new Map<string, MonthlySummary>()
+      const signalsByUser = new Map<string, AdaptiveTrainingSignals>()
+
+      await Promise.all(
+        profiles.map(async (profile) => {
+          const [monthlySignals, adaptiveSignals] = await Promise.all([
+            trainingRepository.getMonthlyTrainingSignals(profile.userId, month),
+            trainingRepository.getAdaptiveTrainingSignals(profile.userId),
+          ])
+
+          summariesByUser.set(profile.userId, createMonthlySummary(profile, monthlySignals))
+          signalsByUser.set(profile.userId, adaptiveSignals)
+        }),
+      )
+
+      response.json(createCoachOverview(profiles, summariesByUser, signalsByUser))
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  app.post('/api/users/:id/adaptive-recommendations', async (request, response, next) => {
+    try {
+      const { id } = userParamsSchema.parse(request.params)
+      const profile = await userProfileRepository.getProfile(id)
+
+      if (!profile) {
+        throw new UserNotFoundError(id)
+      }
+
+      const signals = await trainingRepository.getAdaptiveTrainingSignals(id)
+      const draft = createAdaptiveRecommendationDraft(signals)
+      const recommendation = await trainingRepository.saveAdaptiveRecommendation(draft)
+
+      response.status(201).json(recommendationToSummary(signals, recommendation))
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  app.get('/api/users/:id/adaptive-recommendations/latest', async (request, response, next) => {
+    try {
+      const { id } = userParamsSchema.parse(request.params)
+      const profile = await userProfileRepository.getProfile(id)
+
+      if (!profile) {
+        throw new UserNotFoundError(id)
+      }
+
+      const recommendation = await trainingRepository.getLatestAdaptiveRecommendation(id)
+
+      if (!recommendation) {
+        response.status(404).json({
+          error: 'ADAPTIVE_RECOMMENDATION_NOT_FOUND',
+          message: `No existe una recomendacion adaptativa para el usuario ${id}.`,
+        })
+        return
+      }
+
+      response.json(recommendation)
     } catch (error) {
       next(error)
     }

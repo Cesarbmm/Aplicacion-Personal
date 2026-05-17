@@ -82,7 +82,7 @@ export function WorkoutPage() {
           routine.currentRoutine ? (
             <Link
               to="/dashboard"
-              className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+              className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:border-red-500/20 hover:bg-red-500/10"
             >
               Volver al dashboard
             </Link>
@@ -90,13 +90,13 @@ export function WorkoutPage() {
             <>
               <Link
                 to="/dashboard"
-                className="inline-flex items-center gap-2 rounded-full border border-cyan-400/16 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-200 transition hover:bg-cyan-400/16"
+                className="inline-flex items-center gap-2 rounded-full border border-red-500/16 bg-red-500/10 px-4 py-2 text-sm text-red-200 transition hover:bg-red-500/16"
               >
                 Elegir flujo de rutina
               </Link>
               <Link
                 to="/routine-builder"
-                className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+                className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-200 transition hover:border-red-500/20 hover:bg-red-500/10"
               >
                 Crear manualmente
               </Link>
@@ -109,7 +109,7 @@ export function WorkoutPage() {
         {workoutMetrics.map((item) => (
           <PanelCard key={item.label} className="p-4" title={item.label}>
             <div className="flex items-center justify-between gap-3">
-              <item.icon className="h-4 w-4 text-cyan-300" />
+              <item.icon className="h-4 w-4 text-red-300" />
               <p className="text-right font-['Space_Grotesk'] text-2xl font-semibold text-white">{item.value}</p>
             </div>
           </PanelCard>
@@ -160,9 +160,9 @@ export function WorkoutPage() {
           <PanelCard title="Resumen de sesion" subtitle="Cierre del entrenamiento en vivo del Sprint 2.">
             {training.lastCompletedSummary ? (
               <div className="space-y-3">
-                <div className="rounded-[24px] border border-cyan-400/14 bg-cyan-400/8 px-4 py-4">
+                <div className="rounded-[24px] border border-red-500/14 bg-red-500/8 px-4 py-4">
                   <div className="flex items-center gap-3">
-                    <Trophy className="h-5 w-5 text-cyan-300" />
+                    <Trophy className="h-5 w-5 text-red-300" />
                     <p className="font-medium text-white">Ultima sesion finalizada</p>
                   </div>
                   <p className="mt-3 text-sm leading-7 text-slate-300">
@@ -185,6 +185,9 @@ export function WorkoutPage() {
                     ? ` Nota: ${training.lastCompletedSummary.athleteNotes}`
                     : ' Sin observaciones registradas.'}
                 </div>
+                <div className="rounded-[22px] border border-red-500/14 bg-red-500/8 px-4 py-4 text-sm leading-7 text-red-100">
+                  Estos datos alimentaran el ajuste adaptativo de tu proxima rutina.
+                </div>
               </div>
             ) : (
               <div className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-sm leading-7 text-slate-300">
@@ -203,13 +206,13 @@ export function WorkoutPage() {
                 <div className="flex flex-wrap gap-3">
                   <Link
                     to="/dashboard"
-                    className="inline-flex items-center gap-2 rounded-full border border-cyan-400/16 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100 transition hover:bg-cyan-400/16"
+                    className="inline-flex items-center gap-2 rounded-full border border-red-500/16 bg-red-500/10 px-4 py-3 text-sm text-red-100 transition hover:bg-red-500/16"
                   >
                     Ir al dashboard
                   </Link>
                   <Link
                     to="/routine-builder"
-                    className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400/20 hover:bg-cyan-400/10"
+                    className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition hover:border-red-500/20 hover:bg-red-500/10"
                   >
                     Abrir builder manual
                   </Link>

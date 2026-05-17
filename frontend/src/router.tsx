@@ -3,6 +3,7 @@ import { Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/re
 
 import { RouteRedirect } from './components/route-redirect'
 import { RootLayout } from './components/root-layout'
+import { CoachPage } from './pages/coach-page'
 import { ProfilePage } from './pages/body-page'
 import { DashboardPage } from './pages/dashboard-page'
 import { ProgressPage } from './pages/history-page'
@@ -68,6 +69,12 @@ const routineBuilderRoute = createRoute({
   component: RoutineBuilderPage,
 })
 
+const coachRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/coach',
+  component: CoachPage,
+})
+
 function createRedirectRoute(path: string, to: string) {
   return createRoute({
     getParentRoute: () => rootRoute,
@@ -82,7 +89,6 @@ const legacyHistoryRoute = createRedirectRoute('/history', '/progress')
 const legacyPlanRoute = createRedirectRoute('/plan', '/progress')
 const legacyBodyRoute = createRedirectRoute('/body', '/profile')
 const legacySettingsRoute = createRedirectRoute('/settings', '/profile')
-const legacyCoachRoute = createRedirectRoute('/coach', '/workout')
 const legacyExercisesRoute = createRedirectRoute('/exercises', '/workout')
 
 export const routeTree = rootRoute.addChildren([
@@ -94,13 +100,13 @@ export const routeTree = rootRoute.addChildren([
   progressRoute,
   profileRoute,
   routineBuilderRoute,
+  coachRoute,
   legacyWelcomeRoute,
   legacyTrainingRoute,
   legacyHistoryRoute,
   legacyPlanRoute,
   legacyBodyRoute,
   legacySettingsRoute,
-  legacyCoachRoute,
   legacyExercisesRoute,
 ])
 

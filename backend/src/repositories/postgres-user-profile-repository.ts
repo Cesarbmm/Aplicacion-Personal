@@ -54,6 +54,28 @@ export function createPostgresUserProfileRepository(pool: Pool): UserProfileRepo
       return result.rows[0] ? mapRow(result.rows[0]) : null
     },
 
+    async listProfiles() {
+      const result = await pool.query<UserProfileRow>(
+        `
+          SELECT
+            u.id AS user_id,
+            u.email,
+            u.name,
+            up.goal,
+            up.experience_level,
+            up.days_per_week,
+            COALESCE(up.onboarding_completed, FALSE) AS onboarding_completed,
+            u.created_at,
+            up.updated_at
+          FROM users u
+          LEFT JOIN user_profiles up ON up.user_id = u.id
+          ORDER BY u.created_at ASC
+        `,
+      )
+
+      return result.rows.map(mapRow)
+    },
+
     async saveOnboarding(userId, input) {
       const userExists = await pool.query<{ id: string }>('SELECT id FROM users WHERE id = $1', [userId])
 

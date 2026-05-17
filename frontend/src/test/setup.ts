@@ -20,6 +20,27 @@ beforeAll(() => {
       dispatchEvent: vi.fn(),
     })),
   })
+
+  class IntersectionObserverMock implements IntersectionObserver {
+    readonly root: Element | Document | null = null
+    readonly rootMargin = '0px'
+    readonly thresholds = [0]
+
+    disconnect = vi.fn()
+    observe = vi.fn()
+    takeRecords = vi.fn(() => [])
+    unobserve = vi.fn()
+  }
+
+  Object.defineProperty(window, 'IntersectionObserver', {
+    writable: true,
+    value: IntersectionObserverMock,
+  })
+
+  Object.defineProperty(globalThis, 'IntersectionObserver', {
+    writable: true,
+    value: IntersectionObserverMock,
+  })
 })
 
 afterEach(() => {

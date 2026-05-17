@@ -1,6 +1,6 @@
 # SigmaFit
 
-SigmaFit es una plataforma web de entrenamiento adaptativo con landing publica, shell interna, backend propio y PostgreSQL. El repositorio ya incluye Sprint 1 y Sprint 2: onboarding, perfilado inicial, generacion de rutinas y tracker de entrenamiento en vivo.
+SigmaFit es una plataforma web de apoyo al entrenamiento para gimnasios, con landing publica, shell interna, backend propio y PostgreSQL. El repositorio ya incluye Sprint 1, Sprint 2, Sprint 3 y Sprint 4: onboarding, perfilado inicial, generacion de rutinas, tracker en vivo, ajuste adaptativo explicable, registro asistido, resumen mensual y panel para entrenadores.
 
 ## Stack
 
@@ -17,6 +17,7 @@ SigmaFit es una plataforma web de entrenamiento adaptativo con landing publica, 
 - `database/init/002_seed.sql`: usuario demo y catalogo inicial de ejercicios
 - `database/init/003_routines_and_sessions.sql`: rutinas y sesiones de entrenamiento Sprint 2
 - `database/init/004_routine_creation_mode.sql`: diferencia entre rutinas del Coach y rutinas manuales
+- `database/init/006_adaptive_recommendations.sql`: recomendaciones adaptativas Sprint 3
 - `assets/`: tipografias y recursos visuales
 
 ## Demo seed
@@ -114,6 +115,18 @@ npm.cmd run dev
 - `PATCH /api/workout-sessions/:sessionId/sets/:setId`
 - `PATCH /api/workout-sessions/:sessionId/finish`
 
+### Sprint 3
+
+- `GET /api/users/:id/adaptive-summary`
+- `POST /api/users/:id/adaptive-recommendations`
+- `GET /api/users/:id/adaptive-recommendations/latest`
+
+### Sprint 4
+
+- `POST /api/training-log/parse`
+- `GET /api/users/:id/monthly-summary?month=YYYY-MM`
+- `GET /api/coach/athletes-overview`
+
 ## Rutas del frontend
 
 - `/`: landing publica
@@ -124,6 +137,7 @@ npm.cmd run dev
 - `/workout`: rutina semanal y tracker en vivo
 - `/progress`: progreso y tendencias
 - `/profile`: perfil y preferencias
+- `/coach`: panel inicial para entrenadores y administradores
 
 ## Sprint 2 - Coach Virtual y Tracker
 
@@ -239,6 +253,194 @@ curl -X POST http://localhost:3000/api/users/11111111-1111-4111-8111-11111111111
 6. Finaliza la sesion agregando fatiga, dolor y una observacion.
 7. Verifica el resumen de sesion y luego revisa `/progress`.
 
+## Sprint 3 - Ajuste adaptativo y landing interactiva
+
+### Que hace el ajuste adaptativo
+
+SigmaFit analiza las sesiones cerradas para producir una lectura simple del estado actual del atleta. No usa IA externa: aplica reglas deterministicas y explicables sobre datos registrados en el tracker.
+
+Datos considerados:
+
+- sesiones completadas
+- series completadas frente a series planificadas
+- reps reales frente al objetivo
+- peso registrado y volumen aproximado
+- segundos registrados en ejercicios por tiempo
+- fatiga percibida
+- dolor o molestia reportada
+- notas del atleta
+
+### Tipos de recomendacion
+
+- `progress`: buen cumplimiento, fatiga controlada y dolor bajo; sugiere progresar de forma moderada.
+- `maintain`: respuesta media o datos insuficientes; sugiere mantener carga y priorizar tecnica.
+- `deload`: fatiga o dolor alto; sugiere descarga parcial o reduccion de intensidad.
+- `simplify`: cumplimiento bajo; sugiere consolidar adherencia antes de progresar.
+
+Si el dolor reportado es alto, la interfaz muestra una advertencia de precaucion. Esto no es consejo medico ni reemplaza supervision profesional.
+
+### Como probar endpoints adaptativos
+
+Nota para PowerShell: `curl` puede comportarse como alias de `Invoke-WebRequest`. Para evitar ambiguedades usa `Invoke-RestMethod` o `curl.exe` cuando necesites el binario real de curl.
+
+Health check:
+
+```powershell
+Invoke-RestMethod "http://localhost:3000/api/health"
+```
+
+Catalogo:
+
+```powershell
+Invoke-RestMethod "http://localhost:3000/api/exercises"
+```
+
+Resumen adaptativo del usuario demo:
+
+```powershell
+Invoke-RestMethod "http://localhost:3000/api/users/11111111-1111-4111-8111-111111111111/adaptive-summary"
+```
+
+Generar y guardar recomendacion:
+
+```powershell
+Invoke-RestMethod -Method POST "http://localhost:3000/api/users/11111111-1111-4111-8111-111111111111/adaptive-recommendations"
+```
+
+Alternativa usando el ejecutable real:
+
+```powershell
+curl.exe -X POST "http://localhost:3000/api/users/11111111-1111-4111-8111-111111111111/adaptive-recommendations"
+```
+
+Consultar la recomendacion mas reciente:
+
+```powershell
+Invoke-RestMethod "http://localhost:3000/api/users/11111111-1111-4111-8111-111111111111/adaptive-recommendations/latest"
+```
+
+### Landing interactiva
+
+La landing publica usa un fondo configurable con overlay oscuro controlado para mantener legibilidad sin ocultar la imagen. Para usar un fondo personalizado, coloca la imagen en:
+
+```text
+frontend/public/landing/sigmafit-background.png
+```
+
+Tambien se soporta:
+
+```text
+frontend/public/landing/sigmafit-background.jpg
+```
+
+Mantener la imagen optimizada evita tiempos de carga innecesarios.
+
+### Landing visual fixes
+
+La landing publica usa una identidad visual negro/blanco/rojo con estetica industrial de gimnasio premium. La UI queda como capa secundaria: fondo inmersivo, tarjetas liquid glass de baja opacidad y acentos rojos controlados.
+
+Assets configurables:
+
+- `frontend/public/landing/sigmafit-background.png`
+- `frontend/public/landing/sigmafit-background.jpg`
+- `frontend/public/landing/sigmafit-plate-video.mp4`
+- `frontend/public/landing/sigmafit-metal-plate.png`
+- `frontend/public/landing/steel-chain.png`
+- `frontend/public/landing/steel-texture.png`
+
+El video `sigmafit-plate-video.mp4` se usa solo en el CTA final comercial. Si no carga, la UI cae a `sigmafit-metal-plate.png` y despues a una placa CSS estatica. El hero mantiene el foco en el fondo de gimnasio y en el mensaje de plataforma para gimnasios.
+
+Assets opcionales soportados:
+
+- `frontend/public/landing/steel-chain.png`
+- `frontend/public/landing/metal-plate.png`
+- `frontend/public/landing/steel-texture.png`
+
+### Flujo visual de prueba
+
+1. Levanta `docker compose up --build`.
+2. Abre `http://127.0.0.1:5180`.
+3. Verifica que el fondo de landing sea visible y conserve contraste.
+4. Revisa que las tarjetas usen efecto liquid glass.
+5. Haz scroll hasta el CTA final y revisa que aparezca `Adquiere ahora SigmaFit`.
+6. Prueba el boton `Solicitar acceso`.
+7. Con reduced motion, valida que el video quede reemplazado por fallback fijo o visual simplificado.
+8. Completa onboarding.
+9. Crea rutina con Coach Virtual o manual.
+10. Completa una sesion registrando reps, peso o segundos.
+11. Finaliza con fatiga, dolor y notas.
+12. Entra a `/dashboard` o `/progress`.
+13. Usa `Actualizar recomendacion` para ver la lectura adaptativa.
+
+## Sprint 4 - Plataforma para gimnasios
+
+### Enfoque B2B2C
+
+SigmaFit se posiciona como una plataforma asistente de entrenamiento para gimnasios. El atleta registra y entiende su entrenamiento; el entrenador o administrador monitorea adherencia, fatiga, dolor reportado, progreso y prioridades de seguimiento.
+
+### Atleta
+
+- puede seguir usando el registro manual con series, reps reales, peso, unidad, segundos, descanso, fatiga, dolor y notas
+- puede usar `Registro asistido` en `/workout` para escribir frases como `Hice press de banca, 4 series de 8 con 80kg`
+- el sistema interpreta la frase, muestra los datos estructurados y pide confirmacion antes de guardar una serie real
+- si faltan datos, responde con una pregunta de seguimiento
+
+### Registro asistido local
+
+El parseo no usa APIs externas. Primero intenta Ollama si se configuran las variables opcionales:
+
+```env
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1
+```
+
+Si Ollama no esta disponible, usa regex deterministico con alias del catalogo oficial. El endpoint es:
+
+```powershell
+Invoke-RestMethod -Method POST "http://localhost:3000/api/training-log/parse" `
+  -ContentType "application/json" `
+  -Body '{"userId":"11111111-1111-4111-8111-111111111111","text":"Hice press de banca, 4 series de 8 con 80kg"}'
+```
+
+### Resumen mensual
+
+`/progress` incluye `Resumen mensual`, calculado desde sesiones completadas. Muestra volumen, sesiones, consistencia, fatiga promedio, tendencia y una lectura simple para el atleta.
+
+```powershell
+Invoke-RestMethod "http://localhost:3000/api/users/11111111-1111-4111-8111-111111111111/monthly-summary"
+```
+
+### Panel coach
+
+`/coach` muestra una primera vista para entrenadores y administradores: atletas visibles, adherencia, tendencia, fatiga, dolor, sesiones perdidas, puntos debiles e insight de seguimiento.
+
+```powershell
+Invoke-RestMethod "http://localhost:3000/api/coach/athletes-overview"
+```
+
+### CTA comercial
+
+La landing termina con `Adquiere ahora SigmaFit`, subtitulo `Lleva el seguimiento inteligente de entrenamiento a tu gimnasio.` y CTA `Solicitar acceso`. Si el usuario no completo onboarding, dirige a `/register`; si ya esta configurado, dirige a `/dashboard`.
+
+### PowerShell y curl
+
+En PowerShell, `curl` puede comportarse como alias de `Invoke-WebRequest`. Para evitar respuestas inesperadas usa `Invoke-RestMethod` o `curl.exe`:
+
+```powershell
+Invoke-RestMethod "http://localhost:3000/api/health"
+Invoke-RestMethod "http://localhost:3000/api/exercises"
+Invoke-RestMethod "http://localhost:3000/api/coach/athletes-overview"
+curl.exe -X POST "http://localhost:3000/api/users/11111111-1111-4111-8111-111111111111/adaptive-recommendations"
+```
+
+### Limitaciones
+
+- no reemplaza asesoria profesional
+- no promete prevenir lesiones
+- no usa IA externa
+- las reglas son simples y pensadas para defensa academica
+- aplicar automaticamente la recomendacion sobre una nueva rutina queda como evolucion futura
+
 ### Flujo manual recomendado
 
 1. Abre `http://127.0.0.1:5180`.
@@ -253,6 +455,7 @@ curl -X POST http://localhost:3000/api/users/11111111-1111-4111-8111-11111111111
 10. Completa series, registra peso y unidad.
 11. Verifica que se active el temporizador de descanso.
 12. Finaliza la sesion y revisa el resumen guardado.
+13. En `/dashboard` o `/progress`, genera la recomendacion adaptativa.
 
 ## Scripts de verificacion
 

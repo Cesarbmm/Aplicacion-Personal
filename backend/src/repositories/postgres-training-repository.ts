@@ -1,6 +1,12 @@
 import type { Pool, PoolClient } from 'pg'
 
 import type {
+  AdaptiveRecommendation,
+  AdaptiveRecommendationDraft,
+  AdaptiveTrainingSignals,
+} from '../types/adaptive.js'
+import type { MonthlyTrainingSignals } from '../types/monthly-summary.js'
+import type {
   ExerciseCatalogEntry,
   Routine,
   RoutineDay,
@@ -88,6 +94,45 @@ type WorkoutSessionRow = {
   weight: string | null
   unit: WorkoutSessionSet['unit']
   completed_at: Date | null
+}
+
+type AdaptiveSignalsRow = {
+  user_id: string
+  routine_id: string | null
+  sessions_analyzed: string
+  completed_sets: string
+  planned_sets: string
+  average_fatigue: string | null
+  average_pain: string | null
+  max_pain: number | null
+  total_volume: string
+  total_reps: string
+  total_seconds: string
+  notes: string[] | null
+}
+
+type AdaptiveRecommendationRow = {
+  id: string
+  user_id: string
+  routine_id: string | null
+  recommendation_type: AdaptiveRecommendation['type']
+  summary: string
+  reasoning: string
+  suggested_load_change_percent: string
+  suggested_volume_change: AdaptiveRecommendation['suggestedVolumeChange']
+  risk_level: AdaptiveRecommendation['riskLevel']
+  created_at: Date
+}
+
+type MonthlySignalsRow = {
+  user_id: string
+  completed_sessions: string
+  completed_sets: string
+  planned_sets: string
+  total_volume: string
+  total_reps: string
+  total_seconds: string
+  average_rpe: string | null
 }
 
 function hydrateRoutine(rows: RoutineRow[]) {
@@ -238,6 +283,21 @@ function parseRepRangeToTargetReps(repRange: string) {
 
   const [min, max] = values
   return Math.round((min + max) / 2)
+}
+
+function mapAdaptiveRecommendation(row: AdaptiveRecommendationRow): AdaptiveRecommendation {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    routineId: row.routine_id,
+    type: row.recommendation_type,
+    summary: row.summary,
+    reasoning: row.reasoning,
+    suggestedLoadChangePercent: Number(row.suggested_load_change_percent),
+    suggestedVolumeChange: row.suggested_volume_change,
+    riskLevel: row.risk_level,
+    createdAt: row.created_at.toISOString(),
+  }
 }
 
 async function fetchRoutineRows(queryable: Queryable, whereClause: string, params: unknown[]) {
@@ -700,6 +760,221 @@ export function createPostgresTrainingRepository(pool: Pool): TrainingRepository
         painLevel: row.pain_level,
         athleteNotes: row.athlete_notes,
       }
+    },
+
+    async getAdaptiveTrainingSignals(userId) {
+      const result = await pool.query<AdaptiveSignalsRow>(
+        `
+          WITH user_sessions AS (
+            SELECT *
+            FROM workout_sessions
+            WHERE user_id = $1
+              AND status = 'completed'
+          ),
+          set_stats AS (
+            SELECT
+              us.user_id,
+              COUNT(*) FILTER (WHERE wss.completed = TRUE)::numeric AS completed_sets,
+              COUNT(wss.id)::numeric AS planned_sets,
+              COALESCE(
+                SUM(
+                  CASE
+                    WHEN wss.completed = TRUE THEN COALESCE(wss.weight, 0) * COALESCE(wss.actual_reps, wss.target_reps)
+                    ELSE 0
+                  END
+                ),
+                0
+              )::numeric AS total_volume,
+              COALESCE(
+                SUM(CASE WHEN wss.completed = TRUE THEN COALESCE(wss.actual_reps, wss.target_reps) ELSE 0 END),
+                0
+              )::numeric AS total_reps,
+              COALESCE(
+                SUM(CASE WHEN wss.completed = TRUE THEN COALESCE(wss.actual_seconds, 0) ELSE 0 END),
+                0
+              )::numeric AS total_seconds
+            FROM user_sessions us
+            LEFT JOIN workout_session_sets wss ON wss.workout_session_id = us.id
+            GROUP BY us.user_id
+          ),
+          latest_routine AS (
+            SELECT routine_id
+            FROM user_sessions
+            ORDER BY finished_at DESC NULLS LAST, started_at DESC
+            LIMIT 1
+          )
+          SELECT
+            $1::uuid AS user_id,
+            (SELECT routine_id FROM latest_routine) AS routine_id,
+            COUNT(us.id)::text AS sessions_analyzed,
+            COALESCE(MAX(ss.completed_sets), 0)::text AS completed_sets,
+            COALESCE(MAX(ss.planned_sets), 0)::text AS planned_sets,
+            AVG(us.perceived_fatigue)::text AS average_fatigue,
+            AVG(us.pain_level)::text AS average_pain,
+            MAX(us.pain_level) AS max_pain,
+            COALESCE(MAX(ss.total_volume), 0)::text AS total_volume,
+            COALESCE(MAX(ss.total_reps), 0)::text AS total_reps,
+            COALESCE(MAX(ss.total_seconds), 0)::text AS total_seconds,
+            COALESCE(
+              ARRAY_REMOVE(ARRAY_AGG(us.athlete_notes ORDER BY us.finished_at DESC), NULL),
+              ARRAY[]::text[]
+            ) AS notes
+          FROM user_sessions us
+          LEFT JOIN set_stats ss ON ss.user_id = us.user_id
+        `,
+        [userId],
+      )
+
+      const row = result.rows[0]
+      const plannedSets = Number(row?.planned_sets ?? 0)
+      const completedSets = Number(row?.completed_sets ?? 0)
+
+      return {
+        userId,
+        routineId: row?.routine_id ?? null,
+        sessionsAnalyzed: Number(row?.sessions_analyzed ?? 0),
+        completedSets,
+        plannedSets,
+        completionRate: plannedSets > 0 ? completedSets / plannedSets : 0,
+        averageFatigue: row?.average_fatigue === null || row?.average_fatigue === undefined
+          ? null
+          : Number(row.average_fatigue),
+        averagePain: row?.average_pain === null || row?.average_pain === undefined
+          ? null
+          : Number(row.average_pain),
+        maxPain: row?.max_pain ?? null,
+        totalVolume: Number(row?.total_volume ?? 0),
+        totalReps: Number(row?.total_reps ?? 0),
+        totalSeconds: Number(row?.total_seconds ?? 0),
+        notes: row?.notes ?? [],
+      } satisfies AdaptiveTrainingSignals
+    },
+
+    async getMonthlyTrainingSignals(userId, month) {
+      const result = await pool.query<MonthlySignalsRow>(
+        `
+          WITH month_bounds AS (
+            SELECT
+              to_date($2, 'YYYY-MM')::timestamp AS month_start,
+              (to_date($2, 'YYYY-MM') + interval '1 month')::timestamp AS month_end
+          ),
+          month_sessions AS (
+            SELECT ws.*
+            FROM workout_sessions ws, month_bounds mb
+            WHERE ws.user_id = $1
+              AND ws.status = 'completed'
+              AND COALESCE(ws.finished_at, ws.started_at) >= mb.month_start
+              AND COALESCE(ws.finished_at, ws.started_at) < mb.month_end
+          )
+          SELECT
+            $1::uuid AS user_id,
+            COUNT(DISTINCT ms.id)::text AS completed_sessions,
+            COUNT(wss.id) FILTER (WHERE wss.completed = TRUE)::text AS completed_sets,
+            COUNT(wss.id)::text AS planned_sets,
+            COALESCE(
+              SUM(
+                CASE
+                  WHEN wss.completed = TRUE THEN COALESCE(wss.weight, 0) * COALESCE(wss.actual_reps, wss.target_reps)
+                  ELSE 0
+                END
+              ),
+              0
+            )::text AS total_volume,
+            COALESCE(
+              SUM(CASE WHEN wss.completed = TRUE THEN COALESCE(wss.actual_reps, wss.target_reps) ELSE 0 END),
+              0
+            )::text AS total_reps,
+            COALESCE(
+              SUM(CASE WHEN wss.completed = TRUE THEN COALESCE(wss.actual_seconds, 0) ELSE 0 END),
+              0
+            )::text AS total_seconds,
+            AVG(ms.perceived_fatigue)::text AS average_rpe
+          FROM month_sessions ms
+          LEFT JOIN workout_session_sets wss ON wss.workout_session_id = ms.id
+        `,
+        [userId, month],
+      )
+
+      const row = result.rows[0]
+
+      return {
+        userId,
+        month,
+        completedSessions: Number(row?.completed_sessions ?? 0),
+        completedSets: Number(row?.completed_sets ?? 0),
+        plannedSets: Number(row?.planned_sets ?? 0),
+        totalVolume: Number(row?.total_volume ?? 0),
+        totalReps: Number(row?.total_reps ?? 0),
+        totalSeconds: Number(row?.total_seconds ?? 0),
+        averageRpe: row?.average_rpe === null || row?.average_rpe === undefined ? null : Number(row.average_rpe),
+      } satisfies MonthlyTrainingSignals
+    },
+
+    async saveAdaptiveRecommendation(recommendation: AdaptiveRecommendationDraft) {
+      const result = await pool.query<AdaptiveRecommendationRow>(
+        `
+          INSERT INTO adaptive_recommendations (
+            user_id,
+            routine_id,
+            recommendation_type,
+            summary,
+            reasoning,
+            suggested_load_change_percent,
+            suggested_volume_change,
+            risk_level
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          RETURNING
+            id,
+            user_id,
+            routine_id,
+            recommendation_type,
+            summary,
+            reasoning,
+            suggested_load_change_percent,
+            suggested_volume_change,
+            risk_level,
+            created_at
+        `,
+        [
+          recommendation.userId,
+          recommendation.routineId,
+          recommendation.type,
+          recommendation.summary,
+          recommendation.reasoning,
+          recommendation.suggestedLoadChangePercent,
+          recommendation.suggestedVolumeChange,
+          recommendation.riskLevel,
+        ],
+      )
+
+      return mapAdaptiveRecommendation(result.rows[0])
+    },
+
+    async getLatestAdaptiveRecommendation(userId) {
+      const result = await pool.query<AdaptiveRecommendationRow>(
+        `
+          SELECT
+            id,
+            user_id,
+            routine_id,
+            recommendation_type,
+            summary,
+            reasoning,
+            suggested_load_change_percent,
+            suggested_volume_change,
+            risk_level,
+            created_at
+          FROM adaptive_recommendations
+          WHERE user_id = $1
+          ORDER BY created_at DESC
+          LIMIT 1
+        `,
+        [userId],
+      )
+
+      const row = result.rows[0]
+      return row ? mapAdaptiveRecommendation(row) : null
     },
   }
 }

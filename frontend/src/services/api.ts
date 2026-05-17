@@ -1,8 +1,12 @@
 import type {
   SigmaExerciseCatalogEntry,
+  SigmaAdaptiveSummary,
+  SigmaCoachOverviewResponse,
   SigmaManualRoutinePayload,
+  SigmaMonthlySummary,
   SigmaOnboardingPayload,
   SigmaRoutine,
+  SigmaTrainingLogParseResult,
   SigmaUnit,
   SigmaWorkoutSession,
   SigmaWorkoutSessionSummary,
@@ -47,6 +51,11 @@ export type FinishWorkoutSessionPayload = {
   fatigueLevel?: number | null
   painLevel?: number | null
   athleteNotes?: string | null
+}
+
+export type ParseTrainingLogPayload = {
+  userId: string
+  text: string
 }
 
 export class ApiRequestError extends Error {
@@ -144,6 +153,27 @@ export const sigmafitApi = {
   },
   getExercises() {
     return request<SigmaExerciseCatalogEntry[]>('/exercises')
+  },
+  parseTrainingLog(payload: ParseTrainingLogPayload) {
+    return request<SigmaTrainingLogParseResult>('/training-log/parse', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+  getAdaptiveSummary(userId: string) {
+    return request<SigmaAdaptiveSummary>(`/users/${userId}/adaptive-summary`)
+  },
+  getMonthlySummary(userId: string, month?: string) {
+    const search = month ? `?month=${encodeURIComponent(month)}` : ''
+    return request<SigmaMonthlySummary>(`/users/${userId}/monthly-summary${search}`)
+  },
+  getCoachOverview() {
+    return request<SigmaCoachOverviewResponse>('/coach/athletes-overview')
+  },
+  generateAdaptiveRecommendation(userId: string) {
+    return request<SigmaAdaptiveSummary>(`/users/${userId}/adaptive-recommendations`, {
+      method: 'POST',
+    })
   },
   startWorkoutSession(userId: string, payload: StartWorkoutSessionPayload) {
     return request<SigmaWorkoutSession>(`/users/${userId}/workout-sessions`, {

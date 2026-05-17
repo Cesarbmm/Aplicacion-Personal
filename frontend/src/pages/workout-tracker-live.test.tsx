@@ -1,5 +1,6 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { act } from 'react'
 
 import { createLocalWorkoutSession, generateLocalRoutine } from '@/lib/sigmafit/local-coach'
 import { createDefaultSigmafitState } from '@/lib/sigmafit/mock-data'
@@ -102,6 +103,76 @@ describe('SigmaFit workout tracker', () => {
       expect(useSigmafitStore.getState().training.activeSession?.exercises[0].sessionSets[0].completed).toBe(true)
       expect(useSigmafitStore.getState().training.activeSession?.exercises[0].sessionSets[0].actualReps).toBe(11)
       expect(useSigmafitStore.getState().training.activeSession?.exercises[0].sessionSets[0].weight).toBe(50)
+      expect(screen.getByText('1:30')).toBeTruthy()
+    })
+  })
+
+  it('shows assisted log parsing and confirms interpreted data into a pending set', async () => {
+    const baseState = createDefaultSigmafitState()
+    const routine = generateLocalRoutine(baseState.profile, demoUserId)
+    const activeSession = createLocalWorkoutSession(routine, routine.days[0].routineDayId, 'kg')
+
+    useSigmafitStore.setState({
+      ...useSigmafitStore.getState(),
+      routine: {
+        currentRoutine: routine,
+        proposedRoutine: null,
+        exerciseCatalog: [],
+        isLoading: false,
+        isCatalogLoading: false,
+        isSavingManual: false,
+        error: null,
+        source: 'fallback',
+        proposalSource: 'none',
+        lastGeneratedAt: new Date('2026-01-05T00:00:00.000Z').toISOString(),
+        hasUserChosenRoutineFlow: true,
+        proposalPendingAcceptance: false,
+        pendingRoutineId: null,
+        selectedCreationFlow: 'coach',
+      },
+      training: {
+        activeSession,
+        isStarting: false,
+        isUpdatingSet: false,
+        isFinishing: false,
+        error: null,
+        source: 'local',
+        lastCompletedSummary: null,
+      },
+    })
+
+    await renderRoute('/workout')
+    const user = userEvent.setup()
+
+    expect(await screen.findByText(/registro asistido/i)).toBeTruthy()
+    act(() => {
+      useSigmafitStore.setState((state) => ({
+        assistedLog: {
+          ...state.assistedLog,
+          result: {
+            status: 'complete',
+            parsed: {
+              exerciseName: 'Press de banca',
+              sets: 4,
+              reps: 8,
+              weight: 80,
+              unit: 'kg',
+            },
+            followUpQuestion: null,
+          },
+          source: 'local',
+        },
+      }))
+    })
+
+    expect(await screen.findByText(/datos interpretados/i)).toBeTruthy()
+    expect(screen.getAllByText(/press de banca/i).length).toBeGreaterThan(0)
+    await user.click(screen.getByRole('button', { name: /confirmar y guardar/i }))
+
+    await waitFor(() => {
+      expect(useSigmafitStore.getState().training.activeSession?.exercises[0].sessionSets[0].completed).toBe(true)
+      expect(useSigmafitStore.getState().training.activeSession?.exercises[0].sessionSets[0].actualReps).toBe(8)
+      expect(useSigmafitStore.getState().training.activeSession?.exercises[0].sessionSets[0].weight).toBe(80)
       expect(screen.getByText('1:30')).toBeTruthy()
     })
   })

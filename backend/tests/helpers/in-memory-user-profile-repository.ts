@@ -22,6 +22,9 @@ export function createInMemoryUserProfileRepository(seedProfile?: Partial<UserPr
     async getProfile(userId) {
       return profiles.get(userId) || null
     },
+    async listProfiles() {
+      return Array.from(profiles.values()).map((profile) => structuredClone(profile))
+    },
     async saveOnboarding(userId, input: SaveOnboardingInput) {
       const existingProfile = profiles.get(userId)
 

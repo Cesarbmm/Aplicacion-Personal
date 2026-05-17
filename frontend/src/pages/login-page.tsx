@@ -29,7 +29,7 @@ export function LoginPage() {
       <div className="grid w-full max-w-6xl gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <section className="panel-surface rounded-[34px] p-7 md:p-8">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10 text-red-300">
               <Dumbbell size={22} />
             </div>
             <div>
@@ -78,7 +78,7 @@ export function LoginPage() {
         </section>
 
         <section className="panel-surface rounded-[34px] p-7 md:p-8">
-          <p className="text-sm uppercase tracking-[0.28em] text-cyan-300/80">Que valida esta pantalla</p>
+          <p className="text-sm uppercase tracking-[0.28em] text-red-300/80">Que valida esta pantalla</p>
           <div className="mt-6 space-y-4">
             {[
               'Persistencia de sesion mock en localStorage.',
@@ -91,9 +91,9 @@ export function LoginPage() {
             ))}
           </div>
 
-          <div className="mt-8 rounded-[28px] border border-cyan-400/14 bg-cyan-400/8 p-5">
+          <div className="mt-8 rounded-[28px] border border-red-500/14 bg-red-500/8 p-5">
             <div className="flex items-center gap-3">
-              <ShieldCheck className="h-5 w-5 text-cyan-300" />
+              <ShieldCheck className="h-5 w-5 text-red-300" />
               <p className="font-medium text-white">Siguiente sprint</p>
             </div>
             <p className="mt-3 text-sm leading-7 text-slate-300">

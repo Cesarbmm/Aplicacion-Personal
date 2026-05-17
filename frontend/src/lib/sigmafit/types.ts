@@ -4,6 +4,11 @@ export type SigmaUnit = 'kg' | 'lb'
 export type SigmaRoutineCreationMode = 'coach' | 'manual'
 export type SigmaRoutineSource = 'none' | 'backend' | 'fallback'
 export type SigmaExerciseTrackingType = 'weight_reps' | 'bodyweight_reps' | 'time'
+export type SigmaAdaptiveRecommendationType = 'progress' | 'maintain' | 'deload' | 'simplify'
+export type SigmaAdaptiveRiskLevel = 'low' | 'medium' | 'high'
+export type SigmaAdaptiveVolumeChange = 'increase' | 'maintain' | 'reduce'
+export type SigmaTrainingLogParseStatus = 'complete' | 'needs_follow_up'
+export type SigmaMonthlyTrend = 'improving' | 'stable' | 'declining' | 'insufficient_data'
 
 export type SigmaWorkoutSet = {
   id: string
@@ -163,6 +168,103 @@ export type SigmaTrainingState = {
   lastCompletedSummary: SigmaWorkoutSessionSummary | null
 }
 
+export type SigmaAdaptiveRecommendation = {
+  type: SigmaAdaptiveRecommendationType
+  summary: string
+  reasoning: string
+  suggestedLoadChangePercent: number
+  suggestedVolumeChange: SigmaAdaptiveVolumeChange
+  riskLevel: SigmaAdaptiveRiskLevel
+}
+
+export type SigmaAdaptiveSummary = {
+  userId: string
+  routineId: string | null
+  sessionsAnalyzed: number
+  completedSets: number
+  plannedSets: number
+  completionRate: number
+  averageFatigue: number | null
+  averagePain: number | null
+  maxPain: number | null
+  totalVolume: number
+  totalReps: number
+  totalSeconds: number
+  notes: string[]
+  recommendation: SigmaAdaptiveRecommendation
+}
+
+export type SigmaAdaptiveState = {
+  summary: SigmaAdaptiveSummary | null
+  isLoading: boolean
+  isGenerating: boolean
+  error: string | null
+  source: 'none' | 'backend' | 'local'
+  lastUpdatedAt: string | null
+}
+
+export type SigmaParsedTrainingLog = {
+  exerciseName?: string
+  sets?: number
+  reps?: number
+  weight?: number
+  unit?: SigmaUnit
+}
+
+export type SigmaTrainingLogParseResult = {
+  status: SigmaTrainingLogParseStatus
+  parsed: SigmaParsedTrainingLog
+  followUpQuestion: string | null
+}
+
+export type SigmaAssistedLogState = {
+  result: SigmaTrainingLogParseResult | null
+  isParsing: boolean
+  error: string | null
+  source: 'none' | 'backend' | 'local'
+}
+
+export type SigmaMonthlySummary = {
+  userId: string
+  month: string
+  totalVolume: number
+  completedSessions: number
+  consistencyRate: number
+  averageRpe: number | null
+  progressionTrend: SigmaMonthlyTrend
+  summary: string
+}
+
+export type SigmaMonthlySummaryState = {
+  summary: SigmaMonthlySummary | null
+  isLoading: boolean
+  error: string | null
+  source: 'none' | 'backend' | 'local'
+}
+
+export type SigmaCoachAthleteOverview = {
+  userId: string
+  name: string
+  consistencyRate: number
+  progressionTrend: SigmaMonthlyTrend
+  averageFatigue: number | null
+  averagePain: number | null
+  missedSessions: number
+  weakPoints: string[]
+  coachInsight: string
+}
+
+export type SigmaCoachOverviewResponse = {
+  athletes: SigmaCoachAthleteOverview[]
+}
+
+export type SigmaCoachState = {
+  overview: SigmaCoachOverviewResponse | null
+  isLoading: boolean
+  error: string | null
+  source: 'none' | 'backend' | 'local'
+}
+
 export type SigmaManualRoutineExerciseInput = {
   exerciseId: string
   sets: number
@@ -230,6 +332,10 @@ export type SigmafitStateSnapshot = {
   profile: SigmaProfile
   routine: SigmaRoutineState
   training: SigmaTrainingState
+  assistedLog: SigmaAssistedLogState
+  adaptive: SigmaAdaptiveState
+  monthlySummary: SigmaMonthlySummaryState
+  coach: SigmaCoachState
   workout: SigmaWorkoutState
   progressHistory: SigmaProgressPoint[]
   preferences: SigmaPreferences

@@ -1,5 +1,9 @@
 import type {
   SigmaOnboardingPayload,
+  SigmaAdaptiveState,
+  SigmaAssistedLogState,
+  SigmaCoachState,
+  SigmaMonthlySummaryState,
   SigmaRoutineState,
   SigmaTrainingState,
   SigmafitStateSnapshot,
@@ -10,38 +14,38 @@ import type {
 export const landingFeatures = [
   {
     icon: 'brain',
-    title: 'Coach virtual adaptativo',
-    description: 'Lee RPE, consistencia y nivel de fatiga para ajustar tu carga sin depender de hojas manuales.',
-    accent: 'from-cyan-500/20 to-sky-500/10',
+    title: 'Plataforma para gimnasios',
+    description: 'Convierte sesiones de atletas en datos utiles para entrenadores, administradores y usuarios.',
+    accent: 'from-red-500/24 to-zinc-500/10',
   },
   {
     icon: 'trend',
-    title: 'Periodizacion clara',
-    description: 'Convierte objetivos semanales en bloques con progresion controlada y recuperacion visible.',
-    accent: 'from-sky-500/20 to-blue-500/10',
+    title: 'Rutina con decision explicita',
+    description: 'El atleta elige propuesta guiada o builder manual; el gimnasio mantiene trazabilidad del plan.',
+    accent: 'from-zinc-100/18 to-red-500/12',
   },
   {
     icon: 'zap',
     title: 'Tracker en vivo',
-    description: 'Marca sets, pesos, tiempos de descanso y RPE desde una vista hecha para el gimnasio.',
-    accent: 'from-amber-500/20 to-orange-500/10',
+    description: 'Marca sets, pesos, tiempos, descanso y feedback desde una vista hecha para sala de entrenamiento.',
+    accent: 'from-red-600/22 to-orange-950/20',
   },
   {
     icon: 'switch',
     title: 'Sustitucion inmediata',
     description: 'Si una maquina falla o una zona molesta, la app propone equivalencias sin sacar el ritmo.',
-    accent: 'from-emerald-500/20 to-teal-500/10',
+    accent: 'from-zinc-300/18 to-zinc-900/20',
   },
   {
     icon: 'chart',
-    title: 'Progreso accionable',
-    description: 'Volumen, consistencia y 1RM proyectado en una lectura limpia lista para decidir la siguiente semana.',
-    accent: 'from-indigo-500/20 to-cyan-500/10',
+    title: 'Reportes accionables',
+    description: 'Volumen, consistencia, fuerza proyectada, fatiga y puntos debiles se traducen en decisiones.',
+    accent: 'from-red-500/20 to-neutral-500/12',
   },
   {
     icon: 'shield',
-    title: 'Onboarding util',
-    description: 'Objetivo, nivel y disponibilidad para generar una base real en menos de tres minutos.',
+    title: 'Perfilado util',
+    description: 'Objetivo, nivel, disponibilidad, peso actual, peso objetivo y cargas aproximadas de referencia.',
     accent: 'from-rose-500/20 to-red-500/10',
   },
 ] as const
@@ -50,17 +54,22 @@ export const howItWorksSteps = [
   {
     id: '01',
     title: 'Perfila al atleta',
-    description: 'Define objetivo, experiencia y frecuencia semanal para que SigmaFit sepa como empujarte.',
+    description: 'Define objetivo, experiencia, frecuencia, peso corporal y referencias de carga para contextualizar el plan.',
   },
   {
     id: '02',
-    title: 'Entrena con contexto',
-    description: 'Cada sesion muestra ejercicios, descanso y lecturas de readiness sin salir del flujo.',
+    title: 'Elige como crear rutina',
+    description: 'Usa Coach Virtual para una propuesta guiada o construye manualmente desde el catalogo oficial.',
   },
   {
     id: '03',
-    title: 'Ajusta con RPE',
-    description: 'Cierra cada entrenamiento con esfuerzo percibido y deja al coach listo para la siguiente semana.',
+    title: 'Registra y ajusta',
+    description: 'Cierra cada entrenamiento con reps reales, peso, segundos, fatiga, dolor y notas para alimentar el ajuste adaptativo.',
+  },
+  {
+    id: '04',
+    title: 'Decide el siguiente bloque',
+    description: 'Dashboard y Progress explican si conviene progresar, mantener, simplificar o descargar.',
   },
 ] as const
 
@@ -164,6 +173,36 @@ export function createDefaultSigmafitState(): SigmafitStateSnapshot {
     lastCompletedSummary: null,
   }
 
+  const adaptiveState: SigmaAdaptiveState = {
+    summary: null,
+    isLoading: false,
+    isGenerating: false,
+    error: null,
+    source: 'none',
+    lastUpdatedAt: null,
+  }
+
+  const assistedLogState: SigmaAssistedLogState = {
+    result: null,
+    isParsing: false,
+    error: null,
+    source: 'none',
+  }
+
+  const monthlySummaryState: SigmaMonthlySummaryState = {
+    summary: null,
+    isLoading: false,
+    error: null,
+    source: 'none',
+  }
+
+  const coachState: SigmaCoachState = {
+    overview: null,
+    isLoading: false,
+    error: null,
+    source: 'none',
+  }
+
   return {
     session: {
       userId: null,
@@ -192,6 +231,10 @@ export function createDefaultSigmafitState(): SigmafitStateSnapshot {
     },
     routine: routineState,
     training: trainingState,
+    assistedLog: assistedLogState,
+    adaptive: adaptiveState,
+    monthlySummary: monthlySummaryState,
+    coach: coachState,
     workout: {
       title: 'Push A',
       block: 'Bloque 4 / Hipertrofia controlada',

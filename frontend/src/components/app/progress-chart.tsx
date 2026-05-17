@@ -26,8 +26,8 @@ export function ProgressChart({ data }: ProgressChartProps) {
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="volumeFill" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.55} />
-                  <stop offset="95%" stopColor="#22d3ee" stopOpacity={0.02} />
+                  <stop offset="5%" stopColor="#ef1b1b" stopOpacity={0.55} />
+                  <stop offset="95%" stopColor="#ef1b1b" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="rgba(148,163,184,0.12)" vertical={false} />
@@ -41,7 +41,7 @@ export function ProgressChart({ data }: ProgressChartProps) {
                   color: '#e2e8f0',
                 }}
               />
-              <Area name="Volumen kg" type="monotone" dataKey="volume" stroke="#22d3ee" fill="url(#volumeFill)" strokeWidth={3} />
+              <Area name="Volumen kg" type="monotone" dataKey="volume" stroke="#ef1b1b" fill="url(#volumeFill)" strokeWidth={3} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -62,7 +62,7 @@ export function ProgressChart({ data }: ProgressChartProps) {
                   color: '#e2e8f0',
                 }}
               />
-              <Line name="1RM proyectado kg" type="monotone" dataKey="projectedOneRm" stroke="#38bdf8" strokeWidth={3} dot={{ fill: '#38bdf8' }} />
+              <Line name="1RM proyectado kg" type="monotone" dataKey="projectedOneRm" stroke="#f5f5f5" strokeWidth={3} dot={{ fill: '#f5f5f5' }} />
               <Line name="Fatiga 0-100" type="monotone" dataKey="fatigue" stroke="#fbbf24" strokeWidth={2.5} dot={{ fill: '#fbbf24' }} />
             </LineChart>
           </ResponsiveContainer>

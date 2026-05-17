@@ -74,12 +74,11 @@ function Card({
         boxShadow:
           '0 12px 32px rgba(0,0,0,0.32), 0 42px 120px rgba(2,6,23,0.46), inset 0 1px 0 rgba(255,255,255,0.06)',
       }}
-      className="mx-auto mt-10 h-[30rem] w-full max-w-6xl rounded-[34px] border border-white/8 bg-[linear-gradient(180deg,rgba(9,15,23,0.96),rgba(5,9,15,0.98))] p-2 md:mt-14 md:h-[42rem] md:p-4"
+      className="liquid-glass-card mx-auto mt-10 h-[30rem] w-full max-w-6xl rounded-[34px] p-2 md:mt-14 md:h-[42rem] md:p-4"
     >
-      <div className="sigma-grid h-full w-full overflow-hidden rounded-[28px] border border-cyan-400/10 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.08),transparent_30%),linear-gradient(180deg,rgba(10,16,25,0.92),rgba(4,8,14,0.96))]">
+      <div className="sigma-grid h-full w-full overflow-hidden rounded-[28px] border border-red-500/16 bg-[radial-gradient(circle_at_top,rgba(239,27,27,0.14),transparent_32%),linear-gradient(180deg,rgba(17,17,17,0.72),rgba(5,5,5,0.88))]">
         {children}
       </div>
     </motion.div>
   )
 }
-
