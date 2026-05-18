@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import { ArrowRight, ChevronLeft, ChevronRight, TriangleAlert } from 'lucide-react'
 
 import { LiquidButton } from '@/components/ui/liquid-glass-button'

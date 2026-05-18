@@ -1,27 +1,13 @@
 import { Link } from '@tanstack/react-router'
 import { ArrowRight, Play } from 'lucide-react'
-import { useEffect, useState } from 'react'
+
 
 type FinalVideoCtaProps = {
   route: string
 }
 
 export function FinalVideoCta({ route }: FinalVideoCtaProps) {
-  const [shouldReduceMotion, setShouldReduceMotion] = useState(false)
-  const [videoFailed, setVideoFailed] = useState(false)
 
-  useEffect(() => {
-    const query = window.matchMedia?.('(prefers-reduced-motion: reduce)')
-    if (!query) {
-      return undefined
-    }
-
-    const update = () => setShouldReduceMotion(query.matches)
-    update()
-
-    query.addEventListener?.('change', update)
-    return () => query.removeEventListener?.('change', update)
-  }, [])
 
   return (
     <section id="cta" className="relative overflow-hidden px-4 pb-28 pt-20 md:px-6 md:pb-36">
@@ -58,7 +44,6 @@ export function FinalVideoCta({ route }: FinalVideoCtaProps) {
         <div className="relative" data-testid="final-video-cta">
           <div className="absolute -inset-6 rounded-[42px] bg-red-600/12 blur-[70px]" aria-hidden="true" />
           <div className="relative overflow-hidden rounded-[38px] border border-white/16 bg-[linear-gradient(135deg,rgba(245,245,245,0.18),rgba(8,8,8,0.9))] p-[1px] shadow-[0_34px_130px_rgba(0,0,0,0.62),0_0_80px_rgba(239,27,27,0.2)]">
-            {!shouldReduceMotion && !videoFailed ? (
               <video
                 className="landing-plate-video w-full rounded-[37px]"
                 autoPlay
@@ -66,25 +51,9 @@ export function FinalVideoCta({ route }: FinalVideoCtaProps) {
                 loop
                 playsInline
                 preload="metadata"
-                onError={() => setVideoFailed(true)}
+                src="/landing/sigmafit-plate-video.mp4"
                 aria-hidden="true"
-              >
-                <source src="/landing/sigmafit-plate-video.mp4" type="video/mp4" />
-              </video>
-            ) : (
-              <div
-                className="landing-plate-video flex w-full items-center justify-center rounded-[37px] bg-cover bg-center"
-                style={{
-                  backgroundImage:
-                    'url("/landing/sigmafit-metal-plate.png"), linear-gradient(135deg,#4b4b4b,#080808 48%,#1b1b1b)',
-                }}
-                aria-hidden="true"
-              >
-                <span className="rounded-full border border-white/16 bg-black/45 px-6 py-2 font-['Space_Grotesk'] text-sm uppercase tracking-[0.32em] text-red-200">
-                  Metal plate
-                </span>
-              </div>
-            )}
+              />
           </div>
         </div>
       </div>
