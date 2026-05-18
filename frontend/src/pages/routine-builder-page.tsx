@@ -9,6 +9,7 @@ import {
   formatSigmaExperienceLevel,
   formatSigmaGoal,
 } from '@/lib/sigmafit/catalog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type {
   SigmaManualRoutineDayInput,
   SigmaManualRoutineExerciseInput,
@@ -296,21 +297,23 @@ export function RoutineBuilderPage() {
                     >
                       <label className="space-y-2">
                         <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Ejercicio</span>
-                        <select
-                          aria-label={`ejercicio dia ${day.dayNumber} fila ${exerciseIndex + 1}`}
+                        <Select
                           value={exercise.exerciseId}
-                          onChange={(event) =>
-                            updateExercise(day.dayNumber, exerciseIndex, { exerciseId: event.target.value })
+                          onValueChange={(value) =>
+                            updateExercise(day.dayNumber, exerciseIndex, { exerciseId: value })
                           }
-                          className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
                         >
-                          <option value="">Selecciona un ejercicio</option>
-                          {catalogOptions.map((option) => (
-                            <option key={option.exerciseId} value={option.exerciseId}>
-                              {option.name}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona un ejercicio" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {catalogOptions.map((option) => (
+                              <SelectItem key={option.exerciseId} value={option.exerciseId}>
+                                {option.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </label>
 
                       <label className="space-y-2">

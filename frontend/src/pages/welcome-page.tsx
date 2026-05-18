@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { ArrowRight, ChevronLeft, ChevronRight, Sparkles, TriangleAlert } from 'lucide-react'
+import { ArrowRight, ChevronLeft, ChevronRight, TriangleAlert } from 'lucide-react'
 
 import { LiquidButton } from '@/components/ui/liquid-glass-button'
 import { ProgressBar } from '@/components/ui/progress-bar'
@@ -205,9 +205,6 @@ export function RegisterPage() {
                 la entrada al dashboard y dejar listo el coach virtual del siguiente sprint.
               </p>
             </div>
-            <Link to="/login" className="text-sm text-slate-400 transition hover:text-white">
-              Ya tengo acceso mock
-            </Link>
           </div>
 
           <div className="mt-8 grid gap-3 md:grid-cols-4">
@@ -216,11 +213,10 @@ export function RegisterPage() {
                 key={label}
                 type="button"
                 onClick={() => setStep(index)}
-                className={`rounded-[24px] border px-4 py-4 text-left transition ${
-                  step === index
+                className={`rounded-[24px] border px-4 py-4 text-left transition ${step === index
                     ? 'border-red-500/20 bg-red-500/10'
                     : 'border-white/8 bg-white/[0.03] hover:border-white/12 hover:bg-white/[0.05]'
-                }`}
+                  }`}
               >
                 <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Paso {index + 1}</p>
                 <p className="mt-2 font-medium text-white">{label}</p>
@@ -262,26 +258,41 @@ export function RegisterPage() {
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-3">
-                  {sigmaGoalOptions.map((item) => (
-                    <button
-                      key={item.value}
-                      type="button"
-                      onClick={() => {
-                        setGoal(item.value)
-                        updateErrors({ goal: undefined })
-                      }}
-                      className={`rounded-[26px] border px-5 py-5 text-left transition ${
-                        goal === item.value
-                          ? 'border-red-500/20 bg-red-500/10'
-                          : errors.goal
-                            ? 'border-rose-400/20 bg-rose-400/6 hover:border-rose-300/30'
-                            : 'border-white/8 bg-black/20 hover:border-white/14 hover:bg-white/[0.04]'
-                      }`}
-                    >
-                      <p className="font-['Space_Grotesk'] text-2xl font-semibold text-white">{item.label}</p>
-                      <p className="mt-3 text-sm leading-7 text-slate-400">{item.description}</p>
-                    </button>
-                  ))}
+                  {sigmaGoalOptions.map((item) => {
+                    const goalImages: Record<string, string> = {
+                      hypertrophy: '/hypertrophy-goal.png',
+                      strength: '/strength-goal.png',
+                      weight_loss: '/weightloss-goal.png',
+                    }
+                    const isSelected = goal === item.value
+                    return (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => {
+                          setGoal(item.value)
+                          updateErrors({ goal: undefined })
+                        }}
+                        className={`group relative overflow-hidden rounded-[26px] border px-5 pb-5 pt-4 text-left transition ${isSelected
+                            ? 'border-red-500/20 bg-red-500/10'
+                            : errors.goal
+                              ? 'border-rose-400/20 bg-rose-400/6 hover:border-rose-300/30'
+                              : 'border-white/8 bg-black/20 hover:border-white/14 hover:bg-white/[0.04]'
+                          }`}
+                      >
+                        <div className="flex justify-center">
+                          <img
+                            src={goalImages[item.value]}
+                            alt={`Objetivo ${item.label}`}
+                            className={`h-36 w-auto object-contain transition-transform duration-300 drop-shadow-[0_0_20px_rgba(239,68,68,0.15)] group-hover:scale-105 ${isSelected ? 'scale-105 drop-shadow-[0_0_30px_rgba(239,68,68,0.3)]' : ''
+                              }`}
+                          />
+                        </div>
+                        <p className="mt-3 font-['Space_Grotesk'] text-2xl font-semibold text-white">{item.label}</p>
+                        <p className="mt-2 text-sm leading-6 text-slate-400">{item.description}</p>
+                      </button>
+                    )
+                  })}
                 </div>
                 {errors.goal ? <p className="text-sm text-rose-300">{errors.goal}</p> : null}
               </div>
@@ -290,26 +301,41 @@ export function RegisterPage() {
             {step === 1 ? (
               <div className="space-y-5">
                 <div className="grid gap-4 md:grid-cols-3">
-                  {sigmaExperienceOptions.map((item) => (
-                    <button
-                      key={item.value}
-                      type="button"
-                      onClick={() => {
-                        setExperienceLevel(item.value)
-                        updateErrors({ experienceLevel: undefined })
-                      }}
-                      className={`rounded-[28px] border px-5 py-8 text-left transition ${
-                        experienceLevel === item.value
-                          ? 'border-red-500/20 bg-red-500/10'
-                          : errors.experienceLevel
-                            ? 'border-rose-400/20 bg-rose-400/6 hover:border-rose-300/30'
-                            : 'border-white/8 bg-black/20 hover:border-white/14 hover:bg-white/[0.04]'
-                      }`}
-                    >
-                      <p className="font-['Space_Grotesk'] text-3xl font-semibold text-white">{item.label}</p>
-                      <p className="mt-3 text-sm leading-7 text-slate-400">{item.description}</p>
-                    </button>
-                  ))}
+                  {sigmaExperienceOptions.map((item) => {
+                    const bodyImages: Record<string, string> = {
+                      beginner: '/beginner-body.png',
+                      intermediate: '/intermediate-body.png',
+                      advanced: '/advanced-body.png',
+                    }
+                    const isSelected = experienceLevel === item.value
+                    return (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => {
+                          setExperienceLevel(item.value)
+                          updateErrors({ experienceLevel: undefined })
+                        }}
+                        className={`group relative overflow-hidden rounded-[28px] border px-5 pb-6 pt-4 text-left transition ${isSelected
+                            ? 'border-red-500/20 bg-red-500/10'
+                            : errors.experienceLevel
+                              ? 'border-rose-400/20 bg-rose-400/6 hover:border-rose-300/30'
+                              : 'border-white/8 bg-black/20 hover:border-white/14 hover:bg-white/[0.04]'
+                          }`}
+                      >
+                        <div className="flex justify-center">
+                          <img
+                            src={bodyImages[item.value]}
+                            alt={`Cuerpo ${item.label}`}
+                            className={`h-40 w-auto object-contain transition-transform duration-300 drop-shadow-[0_0_20px_rgba(239,68,68,0.15)] group-hover:scale-105 ${isSelected ? 'scale-105 drop-shadow-[0_0_30px_rgba(239,68,68,0.3)]' : ''
+                              }`}
+                          />
+                        </div>
+                        <p className="mt-3 font-['Space_Grotesk'] text-2xl font-semibold text-white">{item.label}</p>
+                        <p className="mt-2 text-sm leading-6 text-slate-400">{item.description}</p>
+                      </button>
+                    )
+                  })}
                 </div>
                 {errors.experienceLevel ? <p className="text-sm text-rose-300">{errors.experienceLevel}</p> : null}
               </div>
@@ -326,13 +352,12 @@ export function RegisterPage() {
                         setDaysPerWeek(days)
                         updateErrors({ daysPerWeek: undefined })
                       }}
-                      className={`rounded-[28px] border px-5 py-8 text-left transition ${
-                        daysPerWeek === days
+                      className={`rounded-[28px] border px-5 py-8 text-left transition ${daysPerWeek === days
                           ? 'border-red-500/20 bg-red-500/10'
                           : errors.daysPerWeek
                             ? 'border-rose-400/20 bg-rose-400/6 hover:border-rose-300/30'
                             : 'border-white/8 bg-black/20 hover:border-white/14 hover:bg-white/[0.04]'
-                      }`}
+                        }`}
                     >
                       <p className="font-['Space_Grotesk'] text-4xl font-semibold text-white">{days}</p>
                       <p className="mt-2 text-sm text-slate-400">dias por semana</p>
@@ -340,17 +365,6 @@ export function RegisterPage() {
                   ))}
                 </div>
                 {errors.daysPerWeek ? <p className="text-sm text-rose-300">{errors.daysPerWeek}</p> : null}
-
-                <div className="rounded-[28px] border border-red-500/14 bg-red-500/8 p-5">
-                  <div className="flex items-center gap-3">
-                    <Sparkles className="h-5 w-5 text-red-300" />
-                    <p className="font-medium text-white">Resultado del Sprint 1</p>
-                  </div>
-                  <p className="mt-3 text-sm leading-7 text-slate-300">
-                    Al cerrar este paso, SigmaFit persiste el perfil inicial, actualiza el estado del
-                    onboarding y habilita el acceso al dashboard.
-                  </p>
-                </div>
               </div>
             ) : null}
 
@@ -477,24 +491,6 @@ export function RegisterPage() {
             </div>
           </section>
 
-          <section className="panel-surface rounded-[32px] p-6">
-            <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Lo que se desbloquea</p>
-            <div className="mt-4 space-y-3">
-              {[
-                'Redireccion obligatoria a onboarding cuando el perfil inicial aun no existe.',
-                'Persistencia local y sincronizacion backend a traves de una capa de servicios.',
-                'Dashboard, workout y progress habilitados solo despues de completar el perfil.',
-                'Base preparada para que el coach virtual use estos datos en el Sprint 2.',
-              ].map((item) => (
-                <div
-                  key={item}
-                  className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm leading-7 text-slate-300"
-                >
-                  {item}
-                </div>
-              ))}
-            </div>
-          </section>
         </aside>
       </div>
     </main>

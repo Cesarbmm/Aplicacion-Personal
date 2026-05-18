@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, Clock3, Dumbbell, PlayCircle, TimerReset } from 'lucide-react'
 
 import { ProgressBar } from '@/components/ui/progress-bar'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { SigmaRoutine, SigmaUnit, SigmaWorkoutSession } from '@/lib/sigmafit/types'
 import { useSigmafitStore } from '@/store/sigmafit-store'
 
@@ -498,19 +499,22 @@ export function WorkoutTracker({
 
                         <label className="space-y-2">
                           <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Unidad</span>
-                          <select
-                            aria-label={`unidad set ${setItem.setNumber}`}
+                          <Select
                             value={setItem.unit}
-                            onChange={(event) =>
+                            onValueChange={(value) =>
                               onSetDraftChange(activeSession.sessionId, setItem.setId, {
-                                unit: event.target.value as SigmaUnit,
+                                unit: value as SigmaUnit,
                               })
                             }
-                            className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
                           >
-                            <option value="kg">kg</option>
-                            <option value="lb">lb</option>
-                          </select>
+                            <SelectTrigger>
+                              <SelectValue placeholder="kg" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="kg">kg</SelectItem>
+                              <SelectItem value="lb">lb</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </label>
 
                         <button

@@ -6,6 +6,7 @@ import { Bell, RefreshCcw, Save } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
 import { PanelCard } from '@/components/panel-card'
 import { ProgressBar } from '@/components/ui/progress-bar'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   formatSigmaExperienceLevel,
   formatSigmaGoal,
@@ -111,73 +112,93 @@ export function ProfilePage() {
                 </label>
                 <label className="space-y-2">
                   <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Objetivo</span>
-                  <select
+                  <Select
                     value={draft.goal}
-                    onChange={(event) => setDraft((current) => ({ ...current, goal: event.target.value as SigmaProfile['goal'] }))}
-                    className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                    onValueChange={(value) => setDraft((current) => ({ ...current, goal: value as SigmaProfile['goal'] }))}
                   >
-                    {sigmaGoalOptions.map((item) => (
-                      <option key={item.value} value={item.value}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona un objetivo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sigmaGoalOptions.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </label>
                 <label className="space-y-2">
                   <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Nivel</span>
-                  <select
+                  <Select
                     value={draft.experienceLevel}
-                    onChange={(event) =>
+                    onValueChange={(value) =>
                       setDraft((current) => ({
                         ...current,
-                        experienceLevel: event.target.value as SigmaProfile['experienceLevel'],
+                        experienceLevel: value as SigmaProfile['experienceLevel'],
                       }))
                     }
-                    className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
                   >
-                    {sigmaExperienceOptions.map((item) => (
-                      <option key={item.value} value={item.value}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona nivel" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sigmaExperienceOptions.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </label>
                 <label className="space-y-2">
                   <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Disponibilidad</span>
-                  <select
-                    value={draft.daysPerWeek}
-                    onChange={(event) => setDraft((current) => ({ ...current, daysPerWeek: Number(event.target.value) || 2 }))}
-                    className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                  <Select
+                    value={draft.daysPerWeek.toString()}
+                    onValueChange={(value) => setDraft((current) => ({ ...current, daysPerWeek: Number(value) || 2 }))}
                   >
-                    {sigmaDaysPerWeekOptions.map((days) => (
-                      <option key={days} value={days}>
-                        {days} dias
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Dias disponibles" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sigmaDaysPerWeekOptions.map((days) => (
+                        <SelectItem key={days} value={days.toString()}>
+                          {days} dias
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </label>
                 <label className="space-y-2">
                   <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Coach</span>
-                  <select
+                  <Select
                     value={draft.coachingStyle}
-                    onChange={(event) => setDraft((current) => ({ ...current, coachingStyle: event.target.value as SigmaProfile['coachingStyle'] }))}
-                    className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                    onValueChange={(value) => setDraft((current) => ({ ...current, coachingStyle: value as SigmaProfile['coachingStyle'] }))}
                   >
-                    <option value="Directo">Directo</option>
-                    <option value="Analitico">Analitico</option>
-                    <option value="Motivador">Motivador</option>
-                  </select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Estilo del coach" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Directo">Directo</SelectItem>
+                      <SelectItem value="Analitico">Analitico</SelectItem>
+                      <SelectItem value="Motivador">Motivador</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </label>
                 <label className="space-y-2">
                   <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Unidad</span>
-                  <select
+                  <Select
                     value={draft.preferredUnit}
-                    onChange={(event) => setDraft((current) => ({ ...current, preferredUnit: event.target.value as SigmaProfile['preferredUnit'] }))}
-                    className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
+                    onValueChange={(value) => setDraft((current) => ({ ...current, preferredUnit: value as SigmaProfile['preferredUnit'] }))}
                   >
-                    <option value="metric">Metric</option>
-                    <option value="imperial">Imperial</option>
-                  </select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Unidad de medida" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="metric">Metric</SelectItem>
+                      <SelectItem value="imperial">Imperial</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </label>
               </div>
 

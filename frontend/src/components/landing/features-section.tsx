@@ -33,9 +33,6 @@ export function FeaturesSection() {
           <h2 className="mt-4 font-['Space_Grotesk'] text-4xl font-semibold tracking-[-0.05em] text-white md:text-5xl">
             No solo registra: aprende de tu entrenamiento.
           </h2>
-          <p className="mt-5 text-base leading-8 text-slate-400">
-            Sprint 3 convierte las sesiones cerradas en una recomendacion operativa para el siguiente bloque.
-          </p>
         </motion.div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
