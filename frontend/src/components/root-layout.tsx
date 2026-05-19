@@ -10,9 +10,10 @@ export function RootLayout({ children }: PropsWithChildren) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const isAuthenticated = useSigmafitStore((state) => state.session.isAuthenticated)
   const onboardingComplete = useSigmafitStore((state) => state.session.onboardingComplete)
+  const role = useSigmafitStore((state) => state.session.role)
 
   const appRoutes = new Set(['/dashboard', '/workout', '/progress', '/profile', '/routine-builder', '/coach'])
-  const publicRoutes = new Set(['/', '/login', '/register'])
+  const publicRoutes = new Set(['/', '/login', '/signup', '/register'])
   const isAppRoute = appRoutes.has(pathname)
 
   useEffect(() => {
@@ -21,13 +22,25 @@ export function RootLayout({ children }: PropsWithChildren) {
       return
     }
 
-    if (isAppRoute && isAuthenticated && !onboardingComplete) {
+    if (isAuthenticated && role === 'coach') {
+      if ((isAppRoute && pathname !== '/coach') || pathname === '/login' || pathname === '/signup' || pathname === '/register') {
+        void navigate({ to: '/coach', replace: true })
+      }
+      return
+    }
+
+    if (isAuthenticated && role === 'athlete' && pathname === '/coach') {
+      void navigate({ to: onboardingComplete ? '/dashboard' : '/register', replace: true })
+      return
+    }
+
+    if (isAppRoute && isAuthenticated && role === 'athlete' && !onboardingComplete) {
       void navigate({ to: '/register', replace: true })
       return
     }
 
     if (pathname === '/login' && isAuthenticated && onboardingComplete) {
-      void navigate({ to: '/dashboard', replace: true })
+      void navigate({ to: role === 'coach' ? '/coach' : '/dashboard', replace: true })
       return
     }
 
@@ -36,10 +49,15 @@ export function RootLayout({ children }: PropsWithChildren) {
       return
     }
 
+    if (pathname === '/signup' && isAuthenticated) {
+      void navigate({ to: onboardingComplete ? '/dashboard' : '/register', replace: true })
+      return
+    }
+
     if (pathname === '/register' && isAuthenticated && onboardingComplete) {
       void navigate({ to: '/dashboard', replace: true })
     }
-  }, [isAppRoute, isAuthenticated, navigate, onboardingComplete, pathname])
+  }, [isAppRoute, isAuthenticated, navigate, onboardingComplete, pathname, role])
 
   if (publicRoutes.has(pathname) || !isAppRoute) {
     return <>{children}</>

@@ -16,7 +16,7 @@ export function Navbar() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  const primaryRoute = isAuthenticated && onboardingComplete ? '/dashboard' : '/register'
+  const primaryRoute = isAuthenticated && onboardingComplete ? '/dashboard' : '/signup'
 
   return (
     <nav
@@ -31,7 +31,7 @@ export function Navbar() {
           </div>
           <div>
             <p className="font-['Space_Grotesk'] text-lg font-semibold text-white">SigmaFit</p>
-            <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Adaptive coach</p>
+            <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Gym platform</p>
           </div>
         </Link>
 
@@ -43,19 +43,19 @@ export function Navbar() {
             Como funciona
           </a>
           <a href="#cta" className="transition-colors hover:text-white">
-            Empezar
+            Acceso
           </a>
         </div>
 
         <div className="flex items-center gap-3">
           <Link to={isAuthenticated && onboardingComplete ? '/dashboard' : '/login'} className="hidden text-sm text-slate-400 transition-colors hover:text-white sm:block">
-            {isAuthenticated && onboardingComplete ? 'Abrir app' : 'Iniciar sesion'}
+            {isAuthenticated && onboardingComplete ? 'Abrir app' : 'Iniciar sesión'}
           </Link>
           <Link
             to={primaryRoute}
             className="landing-primary-button h-10 px-4 text-sm font-medium"
           >
-            <span className="relative z-10">{isAuthenticated && onboardingComplete ? 'Ir al dashboard' : 'Comenzar gratis'}</span>
+            <span className="relative z-10">{isAuthenticated && onboardingComplete ? 'Ir al dashboard' : 'Crear cuenta'}</span>
           </Link>
         </div>
       </div>

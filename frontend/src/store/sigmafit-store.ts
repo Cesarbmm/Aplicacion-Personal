@@ -25,6 +25,7 @@ import type {
   SigmaRoutineCreationMode,
   SigmaRoutineSource,
   SigmaTrainingLogParseResult,
+  SigmaUserRole,
   SigmaWorkoutSession,
   SigmaWorkoutSessionSet,
   SigmaWorkoutSet,
@@ -121,7 +122,8 @@ type CoachOverviewResult = {
 }
 
 type SigmafitActions = {
-  login: (payload: { email: string; displayName?: string; userId?: string }) => Promise<LoginResult>
+  login: (payload: { email: string; displayName?: string; userId?: string; role?: SigmaUserRole }) => Promise<LoginResult>
+  createAccount: (payload: { email: string; displayName: string; role?: SigmaUserRole }) => void
   logout: () => void
   completeOnboarding: (payload: SigmaOnboardingPayload) => Promise<CompleteOnboardingResult>
   loadCurrentRoutine: () => Promise<LoadRoutineResult>
@@ -164,7 +166,7 @@ type SigmafitActions = {
 
 export type SigmafitStore = SigmafitStateSnapshot & SigmafitActions
 
-const SIGMAFIT_STORE_VERSION = 5
+const SIGMAFIT_STORE_VERSION = 6
 
 function buildInitialState(): SigmafitStateSnapshot {
   return createDefaultSigmafitState()
@@ -182,6 +184,11 @@ function migratePersistedState(persistedState: unknown): SigmafitStateSnapshot {
   return {
     ...defaults,
     ...persisted,
+    session: {
+      ...defaults.session,
+      ...persisted.session,
+      role: persisted.session?.role ?? defaults.session.role,
+    },
     profile: {
       ...defaults.profile,
       ...persisted.profile,
@@ -226,7 +233,7 @@ function applyRemoteProfile(profile: SigmaProfile, payload: UserProfileResponse)
     focus:
       goal === 'strength' ? 'Upper strength' : goal === 'weight_loss' ? 'Full body density' : 'Push A',
     notes: payload.onboardingCompleted
-      ? 'Perfil inicial sincronizado desde el backend de SigmaFit.'
+      ? 'Perfil inicial listo para entrenar.'
       : profile.notes,
   }
 }
@@ -569,7 +576,7 @@ function createLocalMonthlySummary(state: SigmafitStateSnapshot): SigmaMonthlySu
     progressionTrend: completedSessions > 0 || (latestPoint?.volume ?? 0) > 0 ? 'stable' : 'insufficient_data',
     summary:
       completedSessions > 0
-        ? 'Resumen local construido con la ultima sesion completada y el historial visible.'
+        ? 'Resumen construido con tu ultima sesion completada y tu historial visible.'
         : 'Aun faltan sesiones completadas para construir un resumen mensual real.',
   }
 }
@@ -587,7 +594,7 @@ function createLocalCoachOverview(state: SigmafitStateSnapshot): SigmaCoachOverv
     athletes: [
       {
         userId: state.session.userId || SIGMAFIT_DEMO_USER_ID,
-        name: state.profile.displayName || 'Atleta Demo',
+        name: state.profile.displayName || 'Atleta Sigma',
         consistencyRate: monthlySummary.consistencyRate,
         progressionTrend: monthlySummary.progressionTrend,
         averageFatigue: adaptiveSummary.averageFatigue,
@@ -608,12 +615,14 @@ export const useSigmafitStore = create<SigmafitStore>()(
     (set, get) => ({
       ...buildInitialState(),
 
-      login: async ({ email, displayName, userId = SIGMAFIT_DEMO_USER_ID }) => {
+      login: async ({ email, displayName, userId = SIGMAFIT_DEMO_USER_ID, role = 'athlete' }) => {
         set((state) => ({
           session: {
             ...state.session,
             userId,
+            role,
             isAuthenticated: true,
+            onboardingComplete: role === 'coach' ? true : state.session.onboardingComplete,
             backendStatus: 'idle',
             lastSyncError: null,
             lastLoginAt: new Date().toISOString(),
@@ -624,6 +633,14 @@ export const useSigmafitStore = create<SigmafitStore>()(
             displayName: displayName || state.profile.displayName || email.split('@')[0] || 'Atleta',
           },
         }))
+
+        if (role === 'coach') {
+          return {
+            onboardingComplete: true,
+            backendStatus: 'offline',
+            warning: null,
+          }
+        }
 
         try {
           const remoteProfile = await sigmafitApi.getUserProfile(userId)
@@ -652,7 +669,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
           }
         } catch (error) {
           if (isApiUnavailable(error)) {
-            const warning = 'Backend no disponible. SigmaFit seguira usando persistencia local.'
+            const warning = 'No se pudo sincronizar. SigmaFit conservara tus datos en este dispositivo.'
 
             set((state) => ({
               session: {
@@ -674,10 +691,34 @@ export const useSigmafitStore = create<SigmafitStore>()(
         }
       },
 
+      createAccount: ({ email, displayName, role = 'athlete' }) => {
+        const defaults = getResetSlices()
+
+        set((state) => ({
+          session: {
+            ...state.session,
+            userId: SIGMAFIT_DEMO_USER_ID,
+            role,
+            isAuthenticated: true,
+            onboardingComplete: role === 'coach',
+            backendStatus: 'idle',
+            lastSyncError: null,
+            lastLoginAt: new Date().toISOString(),
+          },
+          profile: {
+            ...state.profile,
+            email,
+            displayName: displayName || (role === 'coach' ? 'Coach SigmaFit' : 'Atleta Sigma'),
+          },
+          ...(role === 'athlete' ? getResetSlices() : defaults),
+        }))
+      },
+
       logout: () =>
         set((state) => ({
           session: {
             ...state.session,
+            role: 'athlete',
             isAuthenticated: false,
             backendStatus: 'idle',
             lastSyncError: null,
@@ -738,7 +779,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
         } catch (error) {
           if (isApiUnavailable(error)) {
             const warning =
-              'No se pudo sincronizar con el backend. El perfil quedo guardado localmente.'
+              'No se pudo sincronizar. El perfil quedo guardado en este dispositivo.'
 
             set((state) => ({
               session: {
@@ -818,7 +859,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
 
           if (isApiUnavailable(error)) {
             const warning =
-              'No se pudo consultar la rutina en backend. SigmaFit usara el ultimo estado local disponible.'
+              'No se pudo sincronizar la rutina. Se usara el ultimo estado guardado.'
 
             set((current) => ({
               session: {
@@ -909,7 +950,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
         } catch (error) {
           if (isApiUnavailable(error)) {
             const warning =
-              'No se pudo cargar el catalogo desde backend. SigmaFit usara el catalogo local de respaldo.'
+              'No se pudo actualizar el catalogo. Se usara el catalogo guardado.'
 
             set((current) => ({
               routine: {
@@ -1012,7 +1053,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
           if (isApiUnavailable(error)) {
             const fallbackRoutine = generateLocalRoutine(state.profile, userId)
             const warning =
-              'No se pudo generar la propuesta en backend. SigmaFit activo una propuesta local controlada.'
+              'No se pudo sincronizar la propuesta. SigmaFit preparo una alternativa en este dispositivo.'
 
             set((current) => ({
               ...applyProposedRoutineToState(current, fallbackRoutine, 'fallback'),
@@ -1129,7 +1170,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
                 : sigmaExerciseCatalogFallback
             const fallbackRoutine = createLocalManualRoutine(payload, userId, catalog)
             const warning =
-              'No se pudo guardar la rutina manual en backend. SigmaFit la activo localmente como respaldo.'
+              'No se pudo sincronizar la rutina manual. SigmaFit la dejo activa en este dispositivo.'
 
             set((current) => ({
               ...applyCurrentRoutineToState(current, fallbackRoutine, 'fallback'),
@@ -1219,7 +1260,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
         } catch (error) {
           if (isApiUnavailable(error)) {
             const summary = createLocalAdaptiveSummary(get())
-            const warning = 'Backend no disponible. La lectura adaptativa usa el resumen local disponible.'
+            const warning = 'No se pudo sincronizar la lectura adaptativa. Se usara el resumen disponible.'
 
             set((state) => ({
               adaptive: {
@@ -1300,7 +1341,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
         } catch (error) {
           if (isApiUnavailable(error)) {
             const summary = createLocalAdaptiveSummary(get())
-            const warning = 'Backend no disponible. SigmaFit genero una recomendacion local temporal.'
+            const warning = 'No se pudo sincronizar. SigmaFit genero una recomendacion disponible para esta sesion.'
 
             set((state) => ({
               adaptive: {
@@ -1397,7 +1438,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
         } catch (error) {
           if (isApiUnavailable(error)) {
             const result = parseLocalTrainingLog(text, get())
-            const warning = 'Backend no disponible. El registro asistido usa parser local temporal.'
+            const warning = 'No se pudo sincronizar. El registro asistido seguira interpretando en este dispositivo.'
 
             set((state) => ({
               assistedLog: {
@@ -1483,7 +1524,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
         } catch (error) {
           if (isApiUnavailable(error)) {
             const summary = createLocalMonthlySummary(get())
-            const warning = 'Backend no disponible. Resumen mensual local con datos visibles.'
+            const warning = 'No se pudo sincronizar el resumen mensual. Se usaran los datos visibles.'
 
             set((state) => ({
               monthlySummary: {
@@ -1556,7 +1597,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
         } catch (error) {
           if (isApiUnavailable(error)) {
             const overview = createLocalCoachOverview(get())
-            const warning = 'Backend no disponible. Vista coach local temporal.'
+            const warning = 'No se pudo sincronizar el panel coach. Se usaran los datos visibles.'
 
             set((state) => ({
               coach: {
@@ -1644,7 +1685,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
           if (isApiUnavailable(error)) {
             const workoutSession = createLocalWorkoutSession(routine, payload.routineDayId, payload.unit)
             const warning =
-              'Backend temporalmente no disponible. La sesion activa seguira con persistencia local.'
+              'No se pudo sincronizar. La sesion activa seguira guardada en este dispositivo.'
 
             set((current) => ({
               ...applyWorkoutSessionToState(current, workoutSession, 'local'),
@@ -1757,7 +1798,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
           if (isApiUnavailable(error)) {
             const fallbackSession = updateLocalWorkoutSessionSet(activeSession, setId, payload)
             const warning =
-              'No se pudo registrar la serie en backend. El cambio queda persistido localmente.'
+              'No se pudo sincronizar la serie. El cambio quedo guardado en este dispositivo.'
 
             set((current) => ({
               ...applyWorkoutSessionToState(current, fallbackSession, 'local'),
@@ -1895,7 +1936,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
           if (isApiUnavailable(error)) {
             const localResult = finishLocalWorkoutSession(activeSession, payload)
             const warning =
-              'No se pudo cerrar la sesion en backend. SigmaFit guardo el resumen localmente.'
+              'No se pudo sincronizar el cierre. SigmaFit guardo el resumen en este dispositivo.'
 
             set((current) => {
               const lastPointIndex = current.progressHistory.length - 1

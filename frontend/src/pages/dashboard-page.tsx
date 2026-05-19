@@ -64,14 +64,14 @@ function getRoutineRecommendation(experienceLevel: SigmaExperienceLevel): Routin
 
 function getRoutineSourceLabel(source: 'backend' | 'fallback' | 'none') {
   if (source === 'fallback') {
-    return 'fallback local'
+    return 'guardada en este dispositivo'
   }
 
   if (source === 'backend') {
-    return 'backend'
+    return 'sincronizada'
   }
 
-  return 'sin fuente'
+  return 'pendiente'
 }
 
 function getRoutineModeLabel(mode: SigmaRoutineCreationMode) {
@@ -183,7 +183,7 @@ export function DashboardPage() {
       {
         title: 'Volumen',
         value: `${latestProgressPoint?.volume.toLocaleString('es-EC') ?? 0} kg`,
-        caption: 'Historial mock acumulado que convivira con las nuevas sesiones.',
+        caption: 'Historial acumulado de entrenamiento.',
         icon: <Dumbbell size={18} className="text-red-200" />,
       },
     ],
@@ -335,7 +335,7 @@ export function DashboardPage() {
               `Rutina: ${proposedRoutine.name}.`,
               `Objetivo: ${formatSigmaGoal(profile.goal)}.`,
               `Nivel: ${formatSigmaExperienceLevel(profile.experienceLevel)}.`,
-              `Fuente: ${getRoutineSourceLabel(routine.proposalSource)}.`,
+              `Origen: ${getRoutineSourceLabel(routine.proposalSource)}.`,
             ].map((line) => (
               <div key={line} className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-sm text-slate-300">
                 {line}
@@ -395,7 +395,7 @@ export function DashboardPage() {
     return (
       <PanelCard
         title={activeRoutine.creationMode === 'manual' ? 'Rutina manual activa' : 'Rutina activa del Coach'}
-        subtitle="La rutina ya fue creada explicitamente por el usuario y esta lista para el tracker."
+        subtitle="Tu plan esta listo para iniciar sesiones."
         action={
           <div className="inline-flex items-center gap-2 rounded-full border border-red-500/14 bg-red-500/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-red-200">
             <Sparkles size={14} />
@@ -409,7 +409,7 @@ export function DashboardPage() {
               `Nombre: ${activeRoutine.name}.`,
               `Dias: ${activeRoutine.daysPerWeek}.`,
               `Creacion: ${getRoutineModeLabel(activeRoutine.creationMode)}.`,
-              `Backend: ${session.backendStatus}.`,
+              `Estado: ${session.backendStatus === 'online' ? 'sincronizado' : 'en dispositivo'}.`,
             ].map((line) => (
               <div key={line} className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-sm text-slate-300">
                 {line}
@@ -500,7 +500,7 @@ export function DashboardPage() {
           </div>
 
           <div className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-sm text-slate-300">
-            Sesiones analizadas: {summary?.sessionsAnalyzed ?? 0}. Fuente: {adaptive.source}.
+            Sesiones analizadas: {summary?.sessionsAnalyzed ?? 0}.
             {recommendation?.riskLevel === 'high'
               ? ' Precaucion: dolor alto no es diagnostico medico; reduce carga y revisa tecnica si persiste.'
               : ''}
@@ -525,7 +525,7 @@ export function DashboardPage() {
           activeRoutine
             ? 'Tu rutina activa ya esta definida y el tracker puede usarla sin pasos extra.'
             : proposedRoutine
-              ? 'Ya tienes una propuesta del Coach. Revísala antes de activarla.'
+              ? 'Ya tienes una propuesta del Coach. Revisala antes de activarla.'
               : 'El onboarding solo define tu perfil. Ahora decide como quieres crear tu plan.'
         }
         actions={
@@ -564,7 +564,7 @@ export function DashboardPage() {
       <section className="grid gap-6 xl:grid-cols-[1.12fr_0.88fr]">
         {activeRoutine ? renderActiveRoutinePanel() : proposedRoutine ? renderProposalPanel() : renderRoutineDecisionPanel()}
 
-        <PanelCard title="Proxima accion" subtitle="Estado del flujo de rutina y acceso al entrenamiento en vivo.">
+        <PanelCard title="Proxima accion" subtitle="Acceso directo al entrenamiento.">
           <div className="space-y-6">
             <div className="rounded-[24px] border border-red-500/14 bg-red-500/8 px-4 py-4 text-sm leading-7 text-slate-200">
               {training.activeSession

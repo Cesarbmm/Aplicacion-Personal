@@ -53,15 +53,13 @@ export function WorkoutPage() {
       },
       {
         icon: CalendarRange,
-        label: 'Fuente',
-        value: routine.currentRoutine ? routine.source : routine.proposedRoutine ? routine.proposalSource : 'Pendiente',
+        label: 'Estado',
+        value: routine.currentRoutine ? 'Lista' : routine.proposedRoutine ? 'Propuesta' : 'Pendiente',
       },
     ]
   }, [
     routine.currentRoutine,
-    routine.proposalSource,
     routine.proposedRoutine,
-    routine.source,
     training.activeSession,
     workout.readiness,
   ])
@@ -137,7 +135,7 @@ export function WorkoutPage() {
         />
 
         <div className="space-y-6">
-          <PanelCard title="Estado del flujo" subtitle="Workout solo opera sobre rutinas activas, no sobre propuestas pendientes.">
+          <PanelCard title="Estado del entrenamiento" subtitle="El tracker usa solo rutinas activas.">
             <div className="space-y-3">
               {[
                 routine.currentRoutine
@@ -148,7 +146,7 @@ export function WorkoutPage() {
                 training.activeSession
                   ? `Sesion activa: ${training.activeSession.title}.`
                   : 'No hay una sesion activa en este momento.',
-                `Backend: ${session.backendStatus}.`,
+                `Conexion: ${session.backendStatus === 'online' ? 'sincronizada' : 'en dispositivo'}.`,
               ].map((item) => (
                 <div key={item} className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-sm text-slate-300">
                   {item}
@@ -157,7 +155,7 @@ export function WorkoutPage() {
             </div>
           </PanelCard>
 
-          <PanelCard title="Resumen de sesion" subtitle="Cierre del entrenamiento en vivo del Sprint 2.">
+          <PanelCard title="Resumen de sesion" subtitle="Cierre del entrenamiento en vivo.">
             {training.lastCompletedSummary ? (
               <div className="space-y-3">
                 <div className="rounded-[24px] border border-red-500/14 bg-red-500/8 px-4 py-4">

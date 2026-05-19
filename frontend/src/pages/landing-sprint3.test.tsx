@@ -39,7 +39,7 @@ const adaptiveSummaryResponse = {
   },
 }
 
-describe('SigmaFit sprint 3 landing and adaptive UI', () => {
+describe('SigmaFit landing and adaptive UI', () => {
   beforeEach(() => {
     useSigmafitStore.setState(createDefaultSigmafitState())
   })
@@ -48,9 +48,11 @@ describe('SigmaFit sprint 3 landing and adaptive UI', () => {
     await renderRoute('/')
 
     expect(await screen.findByRole('heading', { level: 1, name: /entrena.*duro/i })).toBeTruthy()
-    expect(screen.getAllByText(/solicitar acceso/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/crear cuenta/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/iniciar sesión/i).length).toBeGreaterThan(0)
     expect(screen.getByTestId('final-video-cta')).toBeTruthy()
     expect(screen.getByRole('heading', { level: 2, name: /adquiere ahora sigmafit/i })).toBeTruthy()
+    expect(screen.queryByText(/ver demo/i)).toBeNull()
   })
 
   it('shows adaptive reading in progress when a recommendation exists', async () => {

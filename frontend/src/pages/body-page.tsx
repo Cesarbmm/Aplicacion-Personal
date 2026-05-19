@@ -68,8 +68,8 @@ export function ProfilePage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Profile"
-        title="Perfil, preferencias y base del coach."
-        subtitle="Body y settings se consolidan aqui usando tabs y persistencia local para que el siguiente sprint solo conecte adapters reales."
+        title="Perfil y preferencias."
+        subtitle="Datos deportivos que SigmaFit usa para rutinas, progreso y recomendaciones."
         actions={
           <Link
             to="/register"
@@ -219,7 +219,7 @@ export function ProfilePage() {
                   className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-slate-300 transition hover:bg-white/[0.08]"
                 >
                   <RefreshCcw size={16} />
-                  Reset demo
+                  Reiniciar datos
                 </button>
                 <button
                   type="button"
@@ -227,7 +227,7 @@ export function ProfilePage() {
                   className="inline-flex items-center gap-2 rounded-full border border-red-500/16 bg-red-500/10 px-4 py-2.5 text-sm text-red-200 transition hover:bg-red-500/16"
                 >
                   <Save size={16} />
-                  {saved ? 'Guardado local' : 'Guardar cambios'}
+                  {saved ? 'Guardado' : 'Guardar cambios'}
                 </button>
               </div>
             </PanelCard>
@@ -262,7 +262,7 @@ export function ProfilePage() {
         </Tabs.Content>
 
         <Tabs.Content value="preferences" className="space-y-6">
-          <PanelCard title="Preferencias SigmaFit" subtitle="Todo se guarda localmente para validar la experiencia.">
+          <PanelCard title="Preferencias SigmaFit" subtitle="Ajustes personales de seguimiento y alertas.">
             <div className="grid gap-4 md:grid-cols-2">
               {[
                 {

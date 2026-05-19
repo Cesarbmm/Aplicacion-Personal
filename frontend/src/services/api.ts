@@ -95,7 +95,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     })
   } catch {
     throw new ApiRequestError({
-      message: 'No se pudo conectar con el backend SigmaFit.',
+      message: 'No se pudo conectar con SigmaFit.',
       status: 0,
       code: 'API_UNAVAILABLE',
     })

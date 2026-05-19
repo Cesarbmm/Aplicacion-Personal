@@ -24,6 +24,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const readiness = useSigmafitStore((state) => state.workout.readiness)
   const logout = useSigmafitStore((state) => state.logout)
   const resetDemo = useSigmafitStore((state) => state.resetDemo)
+  const role = useSigmafitStore((state) => state.session.role)
+  const visibleNavItems = role === 'coach' ? navItems.filter((item) => item.to === '/coach') : navItems.filter((item) => item.to !== '/coach')
 
   return (
     <aside className="border-b border-white/8 px-4 py-4 xl:border-b-0 xl:border-r xl:px-5 xl:py-5">
@@ -48,16 +50,18 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </div>
 
         <div className={`mb-6 rounded-[26px] border border-white/8 bg-white/[0.03] p-4 ${collapsed ? 'hidden xl:block xl:p-2' : ''}`}>
-          <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Atleta</p>
+          <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{role === 'coach' ? 'Coach' : 'Atleta'}</p>
           <p className={`mt-2 font-['Space_Grotesk'] text-2xl font-semibold text-white ${collapsed ? 'hidden' : ''}`}>{athlete}</p>
-          <p className={`mt-2 text-sm text-slate-400 ${collapsed ? 'hidden' : ''}`}>Foco activo: {focus}</p>
+          <p className={`mt-2 text-sm text-slate-400 ${collapsed ? 'hidden' : ''}`}>
+            {role === 'coach' ? 'Seguimiento de atletas' : `Foco activo: ${focus}`}
+          </p>
           <div className={`mt-4 rounded-full border border-red-400/12 bg-red-500/8 px-4 py-2 text-sm text-red-100 ${collapsed ? 'px-2 text-center text-xs' : ''}`}>
-            Readiness {readiness}%
+            {role === 'coach' ? 'Panel coach' : `Readiness ${readiness}%`}
           </div>
         </div>
 
         <nav className="space-y-2">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const active = pathname === item.to
             const Icon = item.icon
             return (
@@ -93,20 +97,20 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           <button
             type="button"
             onClick={resetDemo}
-            title="Reset demo"
+            title="Reiniciar datos"
             className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition hover:border-red-400/20 hover:bg-red-500/10"
           >
             <RotateCcw size={16} />
-            <span className={collapsed ? 'hidden' : 'inline'}>Reset demo</span>
+            <span className={collapsed ? 'hidden' : 'inline'}>Reiniciar datos</span>
           </button>
           <button
             type="button"
             onClick={logout}
-            title="Cerrar sesion mock"
+            title="Cerrar sesion"
             className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-slate-300 transition hover:border-white/14 hover:bg-white/[0.05]"
           >
             <LogOut size={16} />
-            <span className={collapsed ? 'hidden' : 'inline'}>Cerrar sesion mock</span>
+            <span className={collapsed ? 'hidden' : 'inline'}>Cerrar sesion</span>
           </button>
         </div>
       </div>

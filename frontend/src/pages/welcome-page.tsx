@@ -30,8 +30,8 @@ export function RegisterPage() {
   const profile = useSigmafitStore((state) => state.profile)
   const session = useSigmafitStore((state) => state.session)
   const [step, setStep] = useState(0)
-  const [displayName, setDisplayName] = useState(profile.displayName === 'Atleta' ? '' : profile.displayName)
-  const [email, setEmail] = useState(profile.email)
+  const displayName = profile.displayName === 'Atleta' ? '' : profile.displayName
+  const email = profile.email
   const [goal, setGoal] = useState<SigmaGoal | null>(session.onboardingComplete ? profile.goal : null)
   const [experienceLevel, setExperienceLevel] = useState<SigmaExperienceLevel | null>(
     session.onboardingComplete ? profile.experienceLevel : null,
@@ -165,7 +165,7 @@ export function RegisterPage() {
     try {
       const result = await completeOnboarding({
         displayName: displayName || 'Atleta Sigma',
-        email: email || 'demo@sigmafit.app',
+        email: email || 'atleta@sigmafit.app',
         goal: goal!,
         experienceLevel: experienceLevel!,
         daysPerWeek: daysPerWeek!,
@@ -196,13 +196,12 @@ export function RegisterPage() {
         <section className="panel-surface rounded-[36px] p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-sm uppercase tracking-[0.28em] text-red-300/80">SigmaFit setup</p>
+              <p className="text-sm uppercase tracking-[0.28em] text-red-300/80">Perfil deportivo</p>
               <h1 className="mt-3 font-['Space_Grotesk'] text-4xl font-semibold tracking-[-0.05em] text-white md:text-5xl">
-                Perfilado inicial para tu primer bloque.
+                Configura tu entrenamiento.
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-400">
-                Define objetivo, nivel y frecuencia semanal. SigmaFit guarda este perfil para decidir
-                la entrada al dashboard y dejar listo el coach virtual del siguiente sprint.
+                Define objetivo, nivel, frecuencia y datos base para crear rutinas y recomendaciones.
               </p>
             </div>
           </div>
@@ -236,27 +235,6 @@ export function RegisterPage() {
           <div className="mt-8">
             {step === 0 ? (
               <div className="space-y-5">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="space-y-2">
-                    <span className="text-xs uppercase tracking-[0.2em] text-slate-500">Nombre visible</span>
-                    <input
-                      value={displayName}
-                      onChange={(event) => setDisplayName(event.target.value)}
-                      placeholder="Como quieres que te llame la app"
-                      className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
-                    />
-                  </label>
-                  <label className="space-y-2">
-                    <span className="text-xs uppercase tracking-[0.2em] text-slate-500">Email</span>
-                    <input
-                      value={email}
-                      onChange={(event) => setEmail(event.target.value)}
-                      placeholder="demo@sigmafit.app"
-                      className="w-full rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none"
-                    />
-                  </label>
-                </div>
-
                 <div className="grid gap-4 md:grid-cols-3">
                   {sigmaGoalOptions.map((item) => {
                     const goalImages: Record<string, string> = {

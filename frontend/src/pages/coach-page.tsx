@@ -38,7 +38,7 @@ export function CoachPage() {
         <MetricCard
           title="Atletas"
           value={`${athletes.length}`}
-          caption="Usuarios visibles para el gimnasio en esta demo."
+          caption="Usuarios visibles para el gimnasio."
           icon={<UsersRound size={18} className="text-red-200" />}
         />
         <MetricCard
@@ -48,9 +48,9 @@ export function CoachPage() {
           icon={<AlertTriangle size={18} className="text-red-200" />}
         />
         <MetricCard
-          title="Fuente"
-          value={coach.source === 'backend' ? 'Backend' : coach.source === 'local' ? 'Local' : 'Pendiente'}
-          caption="El panel usa datos reales cuando el backend esta disponible."
+          title="Seguimiento"
+          value={athletes.length > 0 ? 'Activo' : 'Pendiente'}
+          caption="Resumen de progreso y alertas del grupo."
           icon={<BarChart3 size={18} className="text-red-200" />}
         />
       </section>
@@ -73,7 +73,7 @@ export function CoachPage() {
 
         {!coach.isLoading && athletes.length === 0 ? (
           <div className="rounded-[24px] border border-white/8 bg-black/20 px-4 py-5 text-sm leading-7 text-slate-300">
-            Todavia no hay atletas con perfil para mostrar. Completa onboarding con el usuario demo o sincroniza el backend.
+            Todavia no hay atletas con perfil para mostrar.
           </div>
         ) : null}
 

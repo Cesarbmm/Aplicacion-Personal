@@ -9,6 +9,7 @@ export type SigmaAdaptiveRiskLevel = 'low' | 'medium' | 'high'
 export type SigmaAdaptiveVolumeChange = 'increase' | 'maintain' | 'reduce'
 export type SigmaTrainingLogParseStatus = 'complete' | 'needs_follow_up'
 export type SigmaMonthlyTrend = 'improving' | 'stable' | 'declining' | 'insufficient_data'
+export type SigmaUserRole = 'athlete' | 'coach'
 
 export type SigmaWorkoutSet = {
   id: string
@@ -320,6 +321,7 @@ export type SigmaPreferences = {
 
 export type SigmaSession = {
   userId: string | null
+  role: SigmaUserRole
   isAuthenticated: boolean
   onboardingComplete: boolean
   backendStatus: 'idle' | 'online' | 'offline'

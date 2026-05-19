@@ -8,27 +8,27 @@ import { useSigmafitStore } from '@/store/sigmafit-store'
 const routeMeta: Record<string, { label: string; subtitle: string }> = {
   '/dashboard': {
     label: 'Dashboard',
-    subtitle: 'Resumen operativo para atleta, entrenador y gimnasio.',
+    subtitle: 'Rutina, progreso y recomendacion principal del atleta.',
   },
   '/workout': {
     label: 'Workout',
-    subtitle: 'Tracker activo, descanso y captura de RPE sin depender del backend.',
+    subtitle: 'Registro de entrenamiento, descanso y cierre de sesion.',
   },
   '/progress': {
     label: 'Progress',
-    subtitle: 'Volumen, consistencia, resumen mensual y ajuste adaptativo.',
+    subtitle: 'Volumen, consistencia y resumen mensual personal.',
   },
   '/profile': {
     label: 'Profile',
-    subtitle: 'Identidad del atleta, preferencias y base de seguimiento.',
+    subtitle: 'Datos deportivos, preferencias y medidas base.',
   },
   '/routine-builder': {
     label: 'Routine Builder',
-    subtitle: 'Constructor manual de bloques usando el catalogo oficial de ejercicios.',
+    subtitle: 'Constructor manual de rutinas por dia.',
   },
   '/coach': {
     label: 'Coach',
-    subtitle: 'Panel para entrenadores y administradores del gimnasio.',
+    subtitle: 'Seguimiento de alumnos, alertas y adherencia.',
   },
 }
 
@@ -47,7 +47,7 @@ export function AppShell({ children }: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(239,27,27,0.16),transparent_30%),linear-gradient(180deg,#100606_0%,#050505_100%)] text-white">
+    <div className="app-training-background min-h-screen text-white">
       <div
         className={`mx-auto grid min-h-screen max-w-[1700px] ${
           sidebarCollapsed ? 'xl:grid-cols-[96px_minmax(0,1fr)]' : 'xl:grid-cols-[310px_minmax(0,1fr)]'
@@ -76,12 +76,20 @@ export function AppShell({ children }: AppShellProps) {
                 <div className="rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-300">
                   {athleteName}
                 </div>
-                <div className="rounded-full border border-red-400/16 bg-red-500/10 px-4 py-2 text-sm text-red-100">
-                  Readiness {readiness}%
-                </div>
-                <div className="rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-300">
-                  Ultimo RPE {lastRpe ?? 7}/10
-                </div>
+                {session.role === 'coach' ? (
+                  <div className="rounded-full border border-red-400/16 bg-red-500/10 px-4 py-2 text-sm text-red-100">
+                    Modo coach
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-full border border-red-400/16 bg-red-500/10 px-4 py-2 text-sm text-red-100">
+                      Readiness {readiness}%
+                    </div>
+                    <div className="rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-sm text-slate-300">
+                      Ultimo RPE {lastRpe ?? 7}/10
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </header>

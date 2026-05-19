@@ -4,7 +4,7 @@ import { useSigmafitStore } from '@/store/sigmafit-store'
 export function CtaSection() {
   const isAuthenticated = useSigmafitStore((state) => state.session.isAuthenticated)
   const onboardingComplete = useSigmafitStore((state) => state.session.onboardingComplete)
-  const route = isAuthenticated && onboardingComplete ? '/dashboard' : '/register'
+  const route = isAuthenticated && onboardingComplete ? '/dashboard' : '/signup'
 
   return <FinalVideoCta route={route} />
 }

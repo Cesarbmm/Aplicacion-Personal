@@ -206,6 +206,7 @@ export function createDefaultSigmafitState(): SigmafitStateSnapshot {
   return {
     session: {
       userId: null,
+      role: 'athlete',
       isAuthenticated: false,
       onboardingComplete: false,
       backendStatus: 'idle',
@@ -260,6 +261,7 @@ export function onboardingToStatePatch(payload: SigmaOnboardingPayload) {
   return {
     session: {
       userId: null,
+      role: 'athlete' as const,
       isAuthenticated: true,
       onboardingComplete: true,
       backendStatus: 'idle' as const,

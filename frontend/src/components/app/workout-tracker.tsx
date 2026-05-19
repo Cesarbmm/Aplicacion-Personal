@@ -343,7 +343,7 @@ export function WorkoutTracker({
                   </p>
                 </div>
                 <span className="rounded-full border border-white/10 bg-black/24 px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-slate-300">
-                  {assistedLog.source === 'backend' ? 'backend' : assistedLog.source === 'local' ? 'local' : 'parser'}
+                  Asistente
                 </span>
               </div>
 

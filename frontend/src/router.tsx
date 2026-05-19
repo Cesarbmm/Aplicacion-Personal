@@ -10,6 +10,7 @@ import { ProgressPage } from './pages/history-page'
 import { LandingPage } from './pages/landing-page'
 import { LoginPage } from './pages/login-page'
 import { RoutineBuilderPage } from './pages/routine-builder-page'
+import { SignupPage } from './pages/signup-page'
 import { WorkoutPage } from './pages/training-page'
 import { RegisterPage } from './pages/welcome-page'
 
@@ -31,6 +32,12 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
   component: LoginPage,
+})
+
+const signupRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/signup',
+  component: SignupPage,
 })
 
 const registerRoute = createRoute({
@@ -94,6 +101,7 @@ const legacyExercisesRoute = createRedirectRoute('/exercises', '/workout')
 export const routeTree = rootRoute.addChildren([
   landingRoute,
   loginRoute,
+  signupRoute,
   registerRoute,
   dashboardRoute,
   workoutRoute,

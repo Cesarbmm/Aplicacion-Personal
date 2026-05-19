@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { ArrowRight, Sparkles, Zap } from 'lucide-react'
+import { ArrowRight, Zap } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 import { ContainerScroll } from '@/components/ui/container-scroll-animation'
@@ -8,19 +8,20 @@ import { useSigmafitStore } from '@/store/sigmafit-store'
 export function HeroSection() {
   const isAuthenticated = useSigmafitStore((state) => state.session.isAuthenticated)
   const onboardingComplete = useSigmafitStore((state) => state.session.onboardingComplete)
-  const ctaRoute = isAuthenticated && onboardingComplete ? '/dashboard' : '/register'
+  const ctaRoute = isAuthenticated && onboardingComplete ? '/dashboard' : '/signup'
 
   return (
     <section className="relative flex min-h-screen flex-col overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
         <div
           className="landing-bg-media"
+          data-testid="landing-hero-background"
           style={{
             backgroundImage:
-              'url("/landing/sigmafit-background.png"), url("/landing/sigmafit-background.jpg"), radial-gradient(circle at 50% 35%, rgba(80,80,80,0.4), transparent 28%), linear-gradient(135deg, #171717, #030303)',
-            backgroundSize: 'cover, cover, auto, auto',
+              'url("/landing/sigmafit-background%20(Large).png"), url("/landing/sigmafit-background.png"), url("/landing/sigmafit-background.jpg"), radial-gradient(circle at 50% 35%, rgba(80,80,80,0.4), transparent 28%), linear-gradient(135deg, #171717, #030303)',
+            backgroundSize: 'cover, cover, cover, auto, auto',
             backgroundPosition: 'center center',
-            backgroundRepeat: 'no-repeat, no-repeat, no-repeat, no-repeat',
+            backgroundRepeat: 'no-repeat, no-repeat, no-repeat, no-repeat, no-repeat',
           }}
           aria-hidden="true"
         />
@@ -74,13 +75,12 @@ export function HeroSection() {
             >
               <Link to={ctaRoute} className="landing-primary-button h-14 gap-2 px-8 text-base font-semibold">
                 <span className="relative z-10 flex items-center gap-2">
-                  Solicitar acceso
+                  Crear cuenta
                   <ArrowRight className="h-4 w-4" />
                 </span>
               </Link>
               <Link to="/login" className="landing-metal-button h-14 gap-2 px-6 text-sm font-medium">
-                <Sparkles className="h-4 w-4 text-red-300" />
-                Ver demo
+                Iniciar sesión
               </Link>
             </motion.div>
           </div>

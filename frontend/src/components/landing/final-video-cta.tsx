@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { ArrowRight, Play } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 
 
 type FinalVideoCtaProps = {
@@ -30,18 +30,14 @@ export function FinalVideoCta({ route }: FinalVideoCtaProps) {
           <div className="mt-8 flex flex-wrap gap-4">
             <Link to={route} className="landing-primary-button h-14 gap-2 px-8 text-base font-semibold">
               <span className="relative z-10 flex items-center gap-2">
-                Solicitar acceso
+                Adquiere ahora SigmaFit
                 <ArrowRight className="h-4 w-4" />
               </span>
-            </Link>
-            <Link to="/login" className="landing-metal-button h-14 gap-2 px-6 text-sm font-medium">
-              <Play className="h-4 w-4 text-red-300" />
-              Ver demo
             </Link>
           </div>
         </div>
 
-        <div className="relative" data-testid="final-video-cta">
+        <Link to={route} className="relative block" data-testid="final-video-cta" aria-label="Adquiere ahora SigmaFit">
           <div className="absolute -inset-6 rounded-[42px] bg-red-600/12 blur-[70px]" aria-hidden="true" />
           <div className="relative overflow-hidden rounded-[38px] border border-white/16 bg-[linear-gradient(135deg,rgba(245,245,245,0.18),rgba(8,8,8,0.9))] p-[1px] shadow-[0_34px_130px_rgba(0,0,0,0.62),0_0_80px_rgba(239,27,27,0.2)]">
               <video
@@ -55,7 +51,7 @@ export function FinalVideoCta({ route }: FinalVideoCtaProps) {
                 aria-hidden="true"
               />
           </div>
-        </div>
+        </Link>
       </div>
     </section>
   )

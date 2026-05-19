@@ -218,7 +218,7 @@ export function ProgressPage() {
 
       <PanelCard
         title="Objetivo corporal"
-        subtitle={profile.goal === 'weight_loss' ? 'La app registra peso objetivo, pero calorias queda pendiente para un sprint nutricional.' : 'Referencia corporal para interpretar el bloque actual.'}
+        subtitle={profile.goal === 'weight_loss' ? 'Peso actual y objetivo para contextualizar el progreso.' : 'Referencia corporal para interpretar el bloque actual.'}
       >
         <div className="grid gap-3 md:grid-cols-3">
           <div className="rounded-[24px] border border-white/8 bg-black/20 px-4 py-4">
