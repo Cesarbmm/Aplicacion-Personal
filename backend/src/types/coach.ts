@@ -13,5 +13,7 @@ export type CoachAthleteOverview = {
 }
 
 export type CoachOverviewResponse = {
+  gymId: string | null
+  gymName: string | null
   athletes: CoachAthleteOverview[]
 }

@@ -1,21 +1,32 @@
 import request from 'supertest'
+import { readFileSync } from 'node:fs'
 
 import { createApp } from '../src/app.js'
 import { createInMemoryTrainingRepository } from './helpers/in-memory-training-repository.js'
 import { createInMemoryUserProfileRepository } from './helpers/in-memory-user-profile-repository.js'
 
 const demoUserId = '11111111-1111-4111-8111-111111111111'
+const demoCoachId = 'c0000000-0000-4000-8000-000000000001'
 const missingUserId = '22222222-2222-4222-8222-222222222222'
 
 function createTestApp(onboardingCompleted = true) {
   return createApp({
-    userProfileRepository: createInMemoryUserProfileRepository({
-      userId: demoUserId,
-      onboardingCompleted,
-      goal: onboardingCompleted ? 'hypertrophy' : null,
-      experienceLevel: onboardingCompleted ? 'intermediate' : null,
-      daysPerWeek: onboardingCompleted ? 3 : null,
-    }),
+    userProfileRepository: createInMemoryUserProfileRepository([
+      {
+        userId: demoCoachId,
+        email: 'coach@sigmafit.app',
+        name: 'Coach Sigma',
+        role: 'coach',
+        onboardingCompleted: false,
+      },
+      {
+        userId: demoUserId,
+        onboardingCompleted,
+        goal: onboardingCompleted ? 'hypertrophy' : null,
+        experienceLevel: onboardingCompleted ? 'intermediate' : null,
+        daysPerWeek: onboardingCompleted ? 3 : null,
+      },
+    ]),
     trainingRepository: createInMemoryTrainingRepository(),
     frontendOrigin: 'http://localhost:5180',
   })
@@ -96,6 +107,55 @@ describe('SigmaFit backend API', () => {
     })
   })
 
+  it('lists gyms and creates coach and athlete accounts with gym membership', async () => {
+    const repository = createInMemoryUserProfileRepository()
+    const app = createApp({
+      userProfileRepository: repository,
+      trainingRepository: createInMemoryTrainingRepository(),
+      frontendOrigin: 'http://localhost:5180',
+    })
+
+    const gymsResponse = await request(app).get('/api/gyms')
+    expect(gymsResponse.status).toBe(200)
+    expect(gymsResponse.body.length).toBeGreaterThan(0)
+
+    const coachResponse = await request(app).post('/api/accounts').send({
+      email: 'new.coach@sigmafit.app',
+      name: 'New Coach',
+      role: 'coach',
+      gymName: 'Power House',
+    })
+    expect(coachResponse.status).toBe(201)
+    expect(coachResponse.body).toMatchObject({
+      role: 'coach',
+      gymName: 'Power House',
+    })
+
+    const athleteResponse = await request(app).post('/api/accounts').send({
+      email: 'new.athlete@sigmafit.app',
+      name: 'New Athlete',
+      role: 'athlete',
+      gymId: gymsResponse.body[0].gymId,
+    })
+    expect(athleteResponse.status).toBe(201)
+    expect(athleteResponse.body).toMatchObject({
+      role: 'athlete',
+      gymId: gymsResponse.body[0].gymId,
+    })
+  })
+
+  it('rejects athlete account creation without a gym', async () => {
+    const app = createTestApp()
+    const response = await request(app).post('/api/accounts').send({
+      email: 'without.gym@sigmafit.app',
+      name: 'No Gym',
+      role: 'athlete',
+    })
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBe('VALIDATION_ERROR')
+  })
+
   it('parses a complete assisted training log', async () => {
     const app = createTestApp()
 
@@ -105,8 +165,18 @@ describe('SigmaFit backend API', () => {
     })
 
     expect(response.status).toBe(200)
-    expect(response.body).toEqual({
+    expect(response.body).toMatchObject({
       status: 'complete',
+      items: [
+        {
+          exerciseName: 'Press de banca',
+          sets: 4,
+          reps: 8,
+          weight: 80,
+          unit: 'kg',
+          trackingType: 'weight_reps',
+        },
+      ],
       parsed: {
         exerciseName: 'Press de banca',
         sets: 4,
@@ -115,6 +185,7 @@ describe('SigmaFit backend API', () => {
         unit: 'kg',
       },
       followUpQuestion: null,
+      followUpQuestions: [],
     })
   })
 
@@ -133,7 +204,78 @@ describe('SigmaFit backend API', () => {
       weight: 80,
       unit: 'kg',
     })
-    expect(response.body.followUpQuestion).toMatch(/series y repeticiones/i)
+    expect(response.body.followUpQuestions).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/cuantas series/i),
+        expect.stringMatching(/cuantas repeticiones/i),
+      ]),
+    )
+  })
+
+  it('parses multiple exercises, time work, fatigue and pain', async () => {
+    const app = createTestApp()
+    const response = await request(app).post('/api/training-log/parse').send({
+      userId: demoUserId,
+      text: 'Hoy hice banca 4x8 80kg, sentadilla 3x10 100kg y plancha 3 series de 45 segundos. Fatiga 7, dolor 2. Nota: rodilla estable.',
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.body.status).toBe('complete')
+    expect(response.body.items).toHaveLength(3)
+    expect(response.body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ exerciseName: 'Press de banca', sets: 4, reps: 8, weight: 80 }),
+        expect.objectContaining({ exerciseName: 'Sentadilla con barra', sets: 3, reps: 10, weight: 100 }),
+        expect.objectContaining({ exerciseName: 'Plancha abdominal', sets: 3, actualSeconds: 45 }),
+      ]),
+    )
+    expect(response.body.sessionFeedback).toMatchObject({
+      fatigueLevel: 7,
+      painLevel: 2,
+      athleteNotes: 'rodilla estable',
+    })
+  })
+
+  it('stores a completed post-workout session without requiring an active routine', async () => {
+    const app = createTestApp()
+    const response = await request(app).post(`/api/users/${demoUserId}/post-workout-sessions`).send({
+      routineId: null,
+      routineDayId: null,
+      rawText: 'Banca 4x8 80kg y plancha 3 series de 45 segundos. Fatiga 7 dolor 2.',
+      items: [
+        {
+          exerciseName: 'Press de banca',
+          sets: 4,
+          reps: 8,
+          weight: 80,
+          unit: 'kg',
+          actualSeconds: null,
+        },
+        {
+          exerciseName: 'Plancha abdominal',
+          sets: 3,
+          reps: null,
+          weight: null,
+          unit: 'kg',
+          actualSeconds: 45,
+        },
+      ],
+      feedback: {
+        fatigueLevel: 7,
+        painLevel: 2,
+        athleteNotes: 'Buen entrenamiento.',
+      },
+    })
+
+    expect(response.status).toBe(201)
+    expect(response.body).toMatchObject({
+      status: 'completed',
+      completedSets: 7,
+      totalReps: 32,
+      totalSeconds: 135,
+      fatigueLevel: 7,
+      painLevel: 2,
+    })
   })
 
   it('returns a controlled error when parsing logs for missing users', async () => {
@@ -606,6 +748,70 @@ describe('SigmaFit backend API', () => {
       weakPoints: expect.any(Array),
       coachInsight: expect.any(String),
     })
+  })
+
+  it('limits coach overview to athletes from the coach gym', async () => {
+    const repository = createInMemoryUserProfileRepository([
+      {
+        userId: demoCoachId,
+        email: 'coach@sigmafit.app',
+        name: 'Sigma Coach',
+        role: 'coach',
+      },
+      {
+        userId: demoUserId,
+        email: 'atleta1@sigmafit.app',
+        name: 'Sigma Athlete',
+        role: 'athlete',
+        onboardingCompleted: true,
+        goal: 'hypertrophy',
+        experienceLevel: 'intermediate',
+        daysPerWeek: 3,
+      },
+    ])
+    const titanCoach = await repository.createAccount({
+      email: 'titan.coach@sigmafit.app',
+      name: 'Titan Coach',
+      role: 'coach',
+      gymName: 'Titan Fitness',
+    })
+    const titanGym = (await repository.listGyms()).find((gym) => gym.name === 'Titan Fitness')!
+    const titanAthlete = await repository.createAccount({
+      email: 'titan1@sigmafit.app',
+      name: 'Titan Athlete',
+      role: 'athlete',
+      gymId: titanGym.gymId,
+    })
+    const app = createApp({
+      userProfileRepository: repository,
+      trainingRepository: createInMemoryTrainingRepository(),
+      frontendOrigin: 'http://localhost:5180',
+    })
+
+    const response = await request(app).get(
+      `/api/coach/athletes-overview?coachUserId=${titanCoach.userId}`,
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body.gymName).toBe('Titan Fitness')
+    expect(response.body.athletes).toHaveLength(1)
+    expect(response.body.athletes[0].userId).toBe(titanAthlete.userId)
+  })
+
+  it('ships a month demo seed with two gyms, coaches and ten athletes', () => {
+    const schemaSeed = readFileSync(
+      new URL('../../database/init/007_gyms_and_demo_data.sql', import.meta.url),
+      'utf8',
+    )
+    const monthSeed = readFileSync(
+      new URL('../../database/init/008_demo_month_data.sql', import.meta.url),
+      'utf8',
+    )
+
+    expect(schemaSeed).toContain('Sigma Gym Norte')
+    expect(schemaSeed).toContain('Titan Fitness')
+    expect(monthSeed.match(/@sigmafit\.app/g)?.length ?? 0).toBeGreaterThanOrEqual(12)
+    expect(monthSeed).toContain('perceived_fatigue')
   })
 
   it('creates and stores an adaptive recommendation', async () => {

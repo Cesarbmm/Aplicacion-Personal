@@ -24,7 +24,7 @@ const roleOptions = [
 export function LoginPage() {
   const navigate = useNavigate()
   const login = useSigmafitStore((state) => state.login)
-  const [email, setEmail] = useState('atleta@sigmafit.app')
+  const [email, setEmail] = useState('atleta1@sigmafit.app')
   const [role, setRole] = useState<SigmaUserRole>('athlete')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -74,7 +74,7 @@ export function LoginPage() {
                   type="button"
                   onClick={() => {
                     setRole(item.role)
-                    setEmail(item.role === 'coach' ? 'coach@sigmafit.app' : 'atleta@sigmafit.app')
+                    setEmail(item.role === 'coach' ? 'coach@sigmafit.app' : 'atleta1@sigmafit.app')
                   }}
                   className={`rounded-[26px] border p-5 text-left transition ${
                     active

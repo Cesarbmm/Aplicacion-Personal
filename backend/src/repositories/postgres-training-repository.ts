@@ -17,6 +17,7 @@ import type {
   WorkoutSessionSummary,
 } from '../types/routine.js'
 import {
+  ExerciseNotFoundError,
   RoutineDayNotFoundError,
   RoutineNotFoundError,
   WorkoutSessionNotFoundError,
@@ -567,12 +568,14 @@ export function createPostgresTrainingRepository(pool: Pool): TrainingRepository
 
         const routineExercisesResult = await client.query<{
           routine_exercise_id: string
+          exercise_id: string
           sets: number
           reps: string
         }>(
           `
             SELECT
               id AS routine_exercise_id,
+              exercise_id,
               sets,
               reps
             FROM routine_exercises
@@ -606,15 +609,23 @@ export function createPostgresTrainingRepository(pool: Pool): TrainingRepository
                 INSERT INTO workout_session_sets (
                   workout_session_id,
                   routine_exercise_id,
+                  exercise_id,
                   set_number,
                   target_reps,
                   completed,
                   weight,
                   unit
                 )
-                VALUES ($1, $2, $3, $4, FALSE, NULL, $5)
+                VALUES ($1, $2, $3, $4, $5, FALSE, NULL, $6)
               `,
-              [sessionId, exercise.routine_exercise_id, setNumber, targetReps, input.unit],
+              [
+                sessionId,
+                exercise.routine_exercise_id,
+                exercise.exercise_id,
+                setNumber,
+                targetReps,
+                input.unit,
+              ],
             )
           }
         }
@@ -629,6 +640,153 @@ export function createPostgresTrainingRepository(pool: Pool): TrainingRepository
         }
 
         return workoutSession
+      } catch (error) {
+        await client.query('ROLLBACK')
+        throw error
+      } finally {
+        client.release()
+      }
+    },
+
+    async createPostWorkoutSession(input) {
+      const client = await pool.connect()
+
+      try {
+        await client.query('BEGIN')
+
+        if (input.routineId && input.routineDayId) {
+          const routineDay = await client.query<{ id: string }>(
+            `
+              SELECT rd.id
+              FROM routines r
+              JOIN routine_days rd ON rd.routine_id = r.id
+              WHERE r.id = $1 AND r.user_id = $2 AND rd.id = $3
+            `,
+            [input.routineId, input.userId, input.routineDayId],
+          )
+
+          if (routineDay.rowCount === 0) {
+            throw new RoutineDayNotFoundError(input.routineDayId)
+          }
+        }
+
+        const sessionResult = await client.query<{ id: string }>(
+          `
+            INSERT INTO workout_sessions (
+              user_id,
+              routine_id,
+              routine_day_id,
+              status,
+              source,
+              raw_text,
+              perceived_fatigue,
+              pain_level,
+              athlete_notes,
+              finished_at
+            )
+            VALUES ($1, $2, $3, 'completed', 'post_workout', $4, $5, $6, $7, NOW())
+            RETURNING id
+          `,
+          [
+            input.userId,
+            input.routineId ?? null,
+            input.routineDayId ?? null,
+            input.rawText,
+            input.feedback.fatigueLevel,
+            input.feedback.painLevel,
+            input.feedback.athleteNotes,
+          ],
+        )
+        const sessionId = sessionResult.rows[0]?.id
+
+        if (!sessionId) {
+          throw new WorkoutSessionNotFoundError(input.userId)
+        }
+
+        let totalVolume = 0
+        let totalReps = 0
+        let totalSeconds = 0
+        let completedSets = 0
+
+        for (const item of input.items) {
+          const exerciseResult = await client.query<{ id: string }>(
+            'SELECT id FROM exercises WHERE LOWER(name) = LOWER($1)',
+            [item.exerciseName],
+          )
+          const exerciseId = exerciseResult.rows[0]?.id
+
+          if (!exerciseId) {
+            throw new ExerciseNotFoundError(item.exerciseName)
+          }
+
+          let routineExerciseId: string | null = null
+          if (input.routineDayId) {
+            const routineExerciseResult = await client.query<{ id: string }>(
+              `
+                SELECT id
+                FROM routine_exercises
+                WHERE routine_day_id = $1 AND exercise_id = $2
+                LIMIT 1
+              `,
+              [input.routineDayId, exerciseId],
+            )
+            routineExerciseId = routineExerciseResult.rows[0]?.id ?? null
+          }
+
+          for (let setNumber = 1; setNumber <= item.sets; setNumber += 1) {
+            const actualReps = item.reps ?? null
+            const actualSeconds = item.actualSeconds ?? null
+            const weight = item.weight ?? null
+            await client.query(
+              `
+                INSERT INTO workout_session_sets (
+                  workout_session_id,
+                  routine_exercise_id,
+                  exercise_id,
+                  set_number,
+                  target_reps,
+                  actual_reps,
+                  actual_seconds,
+                  completed,
+                  weight,
+                  unit,
+                  completed_at
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8, $9, NOW())
+              `,
+              [
+                sessionId,
+                routineExerciseId,
+                exerciseId,
+                setNumber,
+                actualReps ?? 1,
+                actualReps,
+                actualSeconds,
+                weight,
+                item.unit,
+              ],
+            )
+
+            completedSets += 1
+            totalReps += actualReps ?? 0
+            totalSeconds += actualSeconds ?? 0
+            totalVolume += (weight ?? 0) * (actualReps ?? 0)
+          }
+        }
+
+        await client.query('COMMIT')
+
+        return {
+          sessionId,
+          status: 'completed',
+          completedSets,
+          totalVolume,
+          totalReps,
+          totalSeconds,
+          fatigueLevel: input.feedback.fatigueLevel,
+          painLevel: input.feedback.painLevel,
+          athleteNotes: input.feedback.athleteNotes,
+        }
       } catch (error) {
         await client.query('ROLLBACK')
         throw error

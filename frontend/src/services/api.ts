@@ -2,10 +2,13 @@ import type {
   SigmaExerciseCatalogEntry,
   SigmaAdaptiveSummary,
   SigmaCoachOverviewResponse,
+  SigmaCreateAccountPayload,
   SigmaManualRoutinePayload,
   SigmaMonthlySummary,
   SigmaOnboardingPayload,
+  SigmaPostWorkoutSessionPayload,
   SigmaRoutine,
+  SigmaGym,
   SigmaTrainingLogParseResult,
   SigmaUnit,
   SigmaWorkoutSession,
@@ -25,6 +28,9 @@ export type UserProfileResponse = {
   userId: string
   email: string
   name: string
+  role: 'athlete' | 'coach' | 'admin'
+  gymId: string | null
+  gymName: string | null
   onboardingCompleted: boolean
   goal: SigmaOnboardingPayload['goal'] | null
   experienceLevel: SigmaOnboardingPayload['experienceLevel'] | null
@@ -124,6 +130,21 @@ export const sigmafitApi = {
   getUserProfile(userId: string) {
     return request<UserProfileResponse>(`/users/${userId}/profile`)
   },
+  getGyms() {
+    return request<SigmaGym[]>('/gyms')
+  },
+  createAccount(payload: SigmaCreateAccountPayload) {
+    return request<UserProfileResponse>('/accounts', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+  loginAccount(payload: { email: string; role: 'athlete' | 'coach' }) {
+    return request<UserProfileResponse>('/accounts/login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
   submitOnboarding(userId: string, payload: SigmaOnboardingPayload) {
     return request<UserProfileResponse>(`/users/${userId}/onboarding`, {
       method: 'POST',
@@ -167,8 +188,9 @@ export const sigmafitApi = {
     const search = month ? `?month=${encodeURIComponent(month)}` : ''
     return request<SigmaMonthlySummary>(`/users/${userId}/monthly-summary${search}`)
   },
-  getCoachOverview() {
-    return request<SigmaCoachOverviewResponse>('/coach/athletes-overview')
+  getCoachOverview(coachUserId?: string) {
+    const search = coachUserId ? `?coachUserId=${encodeURIComponent(coachUserId)}` : ''
+    return request<SigmaCoachOverviewResponse>(`/coach/athletes-overview${search}`)
   },
   generateAdaptiveRecommendation(userId: string) {
     return request<SigmaAdaptiveSummary>(`/users/${userId}/adaptive-recommendations`, {
@@ -190,6 +212,12 @@ export const sigmafitApi = {
   finishWorkoutSession(sessionId: string, payload: FinishWorkoutSessionPayload = {}) {
     return request<SigmaWorkoutSessionSummary>(`/workout-sessions/${sessionId}/finish`, {
       method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+  },
+  createPostWorkoutSession(userId: string, payload: SigmaPostWorkoutSessionPayload) {
+    return request<SigmaWorkoutSessionSummary>(`/users/${userId}/post-workout-sessions`, {
+      method: 'POST',
       body: JSON.stringify(payload),
     })
   },

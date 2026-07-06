@@ -185,8 +185,10 @@ export function createDefaultSigmafitState(): SigmafitStateSnapshot {
   const assistedLogState: SigmaAssistedLogState = {
     result: null,
     isParsing: false,
+    isSaving: false,
     error: null,
     source: 'none',
+    lastSavedSummary: null,
   }
 
   const monthlySummaryState: SigmaMonthlySummaryState = {
@@ -207,6 +209,8 @@ export function createDefaultSigmafitState(): SigmafitStateSnapshot {
     session: {
       userId: null,
       role: 'athlete',
+      gymId: null,
+      gymName: null,
       isAuthenticated: false,
       onboardingComplete: false,
       backendStatus: 'idle',

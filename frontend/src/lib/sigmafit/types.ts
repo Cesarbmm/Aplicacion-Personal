@@ -11,6 +11,13 @@ export type SigmaTrainingLogParseStatus = 'complete' | 'needs_follow_up'
 export type SigmaMonthlyTrend = 'improving' | 'stable' | 'declining' | 'insufficient_data'
 export type SigmaUserRole = 'athlete' | 'coach'
 
+export type SigmaGym = {
+  gymId: string
+  name: string
+  slug: string
+  createdAt: string
+}
+
 export type SigmaWorkoutSet = {
   id: string
   reps: number
@@ -210,10 +217,21 @@ export type SigmaParsedTrainingLog = {
   reps?: number
   weight?: number
   unit?: SigmaUnit
+  actualSeconds?: number
+  trackingType?: SigmaExerciseTrackingType
+}
+
+export type SigmaTrainingLogFeedback = {
+  fatigueLevel: number | null
+  painLevel: number | null
+  athleteNotes: string | null
 }
 
 export type SigmaTrainingLogParseResult = {
   status: SigmaTrainingLogParseStatus
+  sessionFeedback: SigmaTrainingLogFeedback
+  items: SigmaParsedTrainingLog[]
+  followUpQuestions: string[]
   parsed: SigmaParsedTrainingLog
   followUpQuestion: string | null
 }
@@ -221,8 +239,10 @@ export type SigmaTrainingLogParseResult = {
 export type SigmaAssistedLogState = {
   result: SigmaTrainingLogParseResult | null
   isParsing: boolean
+  isSaving: boolean
   error: string | null
   source: 'none' | 'backend' | 'local'
+  lastSavedSummary: SigmaWorkoutSessionSummary | null
 }
 
 export type SigmaMonthlySummary = {
@@ -256,6 +276,8 @@ export type SigmaCoachAthleteOverview = {
 }
 
 export type SigmaCoachOverviewResponse = {
+  gymId: string | null
+  gymName: string | null
   athletes: SigmaCoachAthleteOverview[]
 }
 
@@ -322,11 +344,36 @@ export type SigmaPreferences = {
 export type SigmaSession = {
   userId: string | null
   role: SigmaUserRole
+  gymId: string | null
+  gymName: string | null
   isAuthenticated: boolean
   onboardingComplete: boolean
   backendStatus: 'idle' | 'online' | 'offline'
   lastSyncError: string | null
   lastLoginAt: string | null
+}
+
+export type SigmaCreateAccountPayload = {
+  email: string
+  name: string
+  role: SigmaUserRole
+  gymId?: string
+  gymName?: string
+}
+
+export type SigmaPostWorkoutSessionPayload = {
+  routineId: string | null
+  routineDayId: string | null
+  rawText: string
+  items: Array<{
+    exerciseName: string
+    sets: number
+    reps: number | null
+    weight: number | null
+    unit: SigmaUnit
+    actualSeconds: number | null
+  }>
+  feedback: SigmaTrainingLogFeedback
 }
 
 export type SigmafitStateSnapshot = {

@@ -48,6 +48,9 @@ describe('SigmaFit product polish', () => {
         userId: demoUserId,
         email: 'atleta@sigmafit.app',
         name: 'Atleta Sigma',
+        role: 'athlete',
+        gymId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        gymName: 'Sigma Gym Norte',
         onboardingCompleted: false,
         goal: null,
         experienceLevel: null,
@@ -73,6 +76,9 @@ describe('SigmaFit product polish', () => {
         userId: demoUserId,
         email: 'atleta@sigmafit.app',
         name: 'Atleta Sigma',
+        role: 'athlete',
+        gymId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        gymName: 'Sigma Gym Norte',
         onboardingCompleted: true,
         goal: 'hypertrophy',
         experienceLevel: 'intermediate',
@@ -93,6 +99,31 @@ describe('SigmaFit product polish', () => {
   })
 
   it('login coach goes directly to coach panel and athletes are redirected away from coach route', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        jsonResponse({
+          userId: 'c0000000-0000-4000-8000-000000000001',
+          email: 'coach@sigmafit.app',
+          name: 'Coach SigmaFit',
+          role: 'coach',
+          gymId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          gymName: 'Sigma Gym Norte',
+          onboardingCompleted: false,
+          goal: null,
+          experienceLevel: null,
+          daysPerWeek: null,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: null,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          gymId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          gymName: 'Sigma Gym Norte',
+          athletes: [],
+        }),
+      )
+
     const coachRouter = await renderRoute('/login')
     const user = userEvent.setup()
 
@@ -119,5 +150,31 @@ describe('SigmaFit product polish', () => {
     await waitFor(() => {
       expect(athleteRouter.state.location.pathname).toBe('/dashboard')
     })
+  })
+
+  it('signup requires a gym for athletes and exposes the coach gym field', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      jsonResponse([
+        {
+          gymId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          name: 'Sigma Gym Norte',
+          slug: 'sigma-gym-norte',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ]),
+    )
+
+    await renderRoute('/signup')
+    const user = userEvent.setup()
+
+    const gymSelect = await screen.findByLabelText(/^gimnasio$/i)
+    await user.selectOptions(gymSelect, '')
+    await user.type(screen.getByPlaceholderText(/nombre completo/i), 'Atleta Nuevo')
+    await user.type(screen.getByPlaceholderText(/atleta1@sigmafit.app/i), 'nuevo@sigmafit.app')
+    await user.click(screen.getByRole('button', { name: /continuar al perfil deportivo/i }))
+    expect(await screen.findByText(/selecciona el gimnasio/i)).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: /crear cuenta como coach/i }))
+    expect(screen.getByLabelText(/nombre del gimnasio/i)).toBeTruthy()
   })
 })

@@ -25,13 +25,17 @@ export function CoachPage() {
   const athletesToReview = athletes.filter(
     (athlete) => athlete.weakPoints.length > 0 || (athlete.averagePain ?? 0) >= 7,
   ).length
+  const improving = athletes.filter((athlete) => athlete.progressionTrend === 'improving').length
+  const stalled = athletes.filter((athlete) =>
+    ['stable', 'declining'].includes(athlete.progressionTrend),
+  ).length
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Coach"
-        title="Panel de seguimiento para entrenadores."
-        subtitle="Vista inicial B2B2C para detectar adherencia, fatiga, dolor reportado y prioridades de seguimiento por atleta."
+        title={coach.overview?.gymName ? coach.overview.gymName : 'Panel de seguimiento'}
+        subtitle="Adherencia, progreso y alertas de los atletas de tu gimnasio."
       />
 
       <section className="grid gap-4 md:grid-cols-3">
@@ -55,8 +59,32 @@ export function CoachPage() {
         />
       </section>
 
+      <PanelCard title="Estado mensual del equipo" subtitle="Distribucion rapida para priorizar seguimiento.">
+        <div className="grid gap-4 md:grid-cols-3">
+          {[
+            { label: 'Progresando', value: improving, color: 'bg-red-500' },
+            { label: 'Estables o estancados', value: stalled, color: 'bg-amber-400' },
+            { label: 'Con alertas', value: athletesToReview, color: 'bg-rose-500' },
+          ].map((item) => {
+            const percentage = athletes.length > 0 ? Math.round((item.value / athletes.length) * 100) : 0
+            return (
+              <div key={item.label} className="rounded-[24px] border border-white/8 bg-black/20 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-slate-300">{item.label}</p>
+                  <p className="font-['Space_Grotesk'] text-2xl font-semibold text-white">{item.value}</p>
+                </div>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                  <div className={`h-full rounded-full ${item.color}`} style={{ width: `${percentage}%` }} />
+                </div>
+                <p className="mt-2 text-xs text-slate-500">{percentage}% del grupo</p>
+              </div>
+            )
+          })}
+        </div>
+      </PanelCard>
+
       <PanelCard
-        title="Athletes overview"
+        title="Atletas"
         subtitle="Resumen accionable para entrenadores y administradores del gimnasio."
       >
         {coach.isLoading ? (

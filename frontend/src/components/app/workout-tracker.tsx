@@ -4,7 +4,6 @@ import { CheckCircle2, Clock3, Dumbbell, PlayCircle, TimerReset } from 'lucide-r
 import { ProgressBar } from '@/components/ui/progress-bar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { SigmaRoutine, SigmaUnit, SigmaWorkoutSession } from '@/lib/sigmafit/types'
-import { useSigmafitStore } from '@/store/sigmafit-store'
 
 type WorkoutTrackerProps = {
   routine: SigmaRoutine | null
@@ -52,14 +51,6 @@ function formatSeconds(value: number) {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`
 }
 
-function normalizeExerciseName(value: string) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim()
-}
-
 export function WorkoutTracker({
   routine,
   activeSession,
@@ -83,11 +74,6 @@ export function WorkoutTracker({
   const [fatigueLevel, setFatigueLevel] = useState(5)
   const [painLevel, setPainLevel] = useState(0)
   const [athleteNotes, setAthleteNotes] = useState('')
-  const [assistedText, setAssistedText] = useState('')
-  const [followUpText, setFollowUpText] = useState('')
-  const assistedLog = useSigmafitStore((state) => state.assistedLog)
-  const parseTrainingLog = useSigmafitStore((state) => state.parseTrainingLog)
-  const clearAssistedLog = useSigmafitStore((state) => state.clearAssistedLog)
 
   useEffect(() => {
     if (restTimer.value <= 0) {
@@ -173,49 +159,6 @@ export function WorkoutTracker({
       exerciseName,
       value,
     })
-  }
-
-  async function handleParseAssistedText(text: string) {
-    if (!text.trim()) {
-      return
-    }
-
-    await parseTrainingLog(text)
-  }
-
-  async function handleConfirmAssistedLog() {
-    const parsed = assistedLog.result?.parsed
-
-    if (!activeSession || !parsed?.exerciseName || !parsed.reps) {
-      return
-    }
-
-    const normalizedParsedName = normalizeExerciseName(parsed.exerciseName)
-    const matchingExercise = activeSession.exercises.find((exercise) => {
-      const normalizedName = normalizeExerciseName(exercise.name)
-      return normalizedName.includes(normalizedParsedName) || normalizedParsedName.includes(normalizedName)
-    })
-    const nextSet = matchingExercise?.sessionSets.find((setItem) => !setItem.completed)
-
-    if (!matchingExercise || !nextSet) {
-      return
-    }
-
-    await handleCompleteSet({
-      sessionId: activeSession.sessionId,
-      setId: nextSet.setId,
-      completed: true,
-      weight: matchingExercise.trackingType === 'time' ? null : (parsed.weight ?? nextSet.weight ?? 0),
-      unit: parsed.unit ?? nextSet.unit,
-      actualReps: matchingExercise.trackingType === 'time' ? null : parsed.reps,
-      actualSeconds: matchingExercise.trackingType === 'time' ? parsed.reps : null,
-      exerciseName: matchingExercise.name,
-      restSeconds: matchingExercise.restSeconds,
-    })
-
-    setAssistedText('')
-    setFollowUpText('')
-    clearAssistedLog()
   }
 
   return (
@@ -332,89 +275,6 @@ export function WorkoutTracker({
                   <p className="mt-2 text-sm font-medium text-white">{item.value}</p>
                 </div>
               ))}
-            </div>
-
-            <div className="mt-6 rounded-[26px] border border-red-400/14 bg-red-500/8 p-4" data-testid="assisted-training-log">
-              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <p className="font-medium text-white">Registro asistido</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-400">
-                    Escribe una frase como: Hice press de banca, 4 series de 8 con 80kg.
-                  </p>
-                </div>
-                <span className="rounded-full border border-white/10 bg-black/24 px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-slate-300">
-                  Asistente
-                </span>
-              </div>
-
-              <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
-                <input
-                  value={assistedText}
-                  onChange={(event) => setAssistedText(event.target.value)}
-                  placeholder="Ejemplo: hice banca 4 series de 8 con 80kg"
-                  className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    void handleParseAssistedText(assistedText)
-                  }}
-                  disabled={assistedLog.isParsing || !assistedText.trim()}
-                  className="inline-flex items-center justify-center rounded-2xl border border-red-400/16 bg-red-500/10 px-4 py-3 text-sm text-red-100 transition hover:bg-red-500/16 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {assistedLog.isParsing ? 'Interpretando...' : 'Interpretar'}
-                </button>
-              </div>
-
-              {assistedLog.error ? (
-                <div className="mt-3 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-                  {assistedLog.error}
-                </div>
-              ) : null}
-
-              {assistedLog.result ? (
-                <div className="mt-4 rounded-[22px] border border-white/8 bg-black/22 px-4 py-4 text-sm leading-7 text-slate-300">
-                  <p className="font-medium text-white">Datos interpretados</p>
-                  <p>
-                    {assistedLog.result.parsed.exerciseName ?? 'Ejercicio pendiente'} -{' '}
-                    {assistedLog.result.parsed.sets ?? '?'} series x {assistedLog.result.parsed.reps ?? '?'} reps
-                    {assistedLog.result.parsed.weight !== undefined
-                      ? ` - ${assistedLog.result.parsed.weight}${assistedLog.result.parsed.unit ?? 'kg'}`
-                      : ''}
-                  </p>
-                  {assistedLog.result.followUpQuestion ? (
-                    <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto]">
-                      <input
-                        value={followUpText}
-                        onChange={(event) => setFollowUpText(event.target.value)}
-                        placeholder={assistedLog.result.followUpQuestion}
-                        className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-white outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void handleParseAssistedText(`${assistedText}. ${followUpText}`)
-                        }}
-                        disabled={!followUpText.trim() || assistedLog.isParsing}
-                        className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition hover:border-red-400/20 hover:bg-red-500/10 disabled:opacity-50"
-                      >
-                        Responder
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void handleConfirmAssistedLog()
-                      }}
-                      disabled={isUpdatingSet}
-                      className="mt-3 inline-flex items-center justify-center rounded-2xl border border-red-400/18 bg-red-500/10 px-4 py-3 text-sm text-red-100 transition hover:bg-red-500/16 disabled:opacity-50"
-                    >
-                      Confirmar y guardar primera serie pendiente
-                    </button>
-                  )}
-                </div>
-              ) : null}
             </div>
 
             <div className="mt-6 space-y-4">

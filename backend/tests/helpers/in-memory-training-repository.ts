@@ -17,6 +17,7 @@ import type {
   WorkoutSessionSummary,
 } from '../../src/types/routine.js'
 import {
+  ExerciseNotFoundError,
   RoutineDayNotFoundError,
   RoutineNotFoundError,
   WorkoutSessionNotFoundError,
@@ -145,6 +146,17 @@ function createExerciseCatalog(): ExerciseCatalogEntry[] {
       difficulty: 'beginner',
       goalFocus: 'general',
     },
+    {
+      exerciseId: 'exercise-pushups',
+      name: 'Flexiones',
+      muscleGroup: 'Pecho',
+      movementPattern: 'Empuje horizontal',
+      equipment: 'Peso corporal',
+      trackingType: 'bodyweight_reps',
+      coachingCue: 'Mantener tronco firme y rango controlado.',
+      difficulty: 'beginner',
+      goalFocus: 'general',
+    },
   ]
 }
 
@@ -264,6 +276,81 @@ export function createInMemoryTrainingRepository(seedRoutine?: Routine): Trainin
 
       sessions.set(session.sessionId, structuredClone(session))
       return session
+    },
+
+    async createPostWorkoutSession(input) {
+      const sessionId = randomUUID()
+      const completedAt = new Date('2026-01-04T11:05:00.000Z').toISOString()
+      const session: WorkoutSession = {
+        sessionId,
+        userId: input.userId,
+        routineId: input.routineId ?? 'post-workout-free',
+        routineDayId: input.routineDayId ?? 'post-workout-free-day',
+        dayNumber: 0,
+        title: 'Registro post-entrenamiento',
+        status: 'completed',
+        startedAt: completedAt,
+        finishedAt: completedAt,
+        exercises: input.items.map((item, exerciseIndex) => {
+          const exercise = exerciseCatalog.find(
+            (candidate) => candidate.name.toLowerCase() === item.exerciseName.toLowerCase(),
+          )
+
+          if (!exercise) {
+            throw new ExerciseNotFoundError(item.exerciseName)
+          }
+
+          const routineExerciseId = `post-${exercise.exerciseId}-${exerciseIndex}`
+          return {
+            routineExerciseId,
+            exerciseId: exercise.exerciseId,
+            name: exercise.name,
+            muscleGroup: exercise.muscleGroup,
+            equipment: exercise.equipment,
+            trackingType: exercise.trackingType,
+            coachingCue: exercise.coachingCue,
+            exerciseOrder: exerciseIndex + 1,
+            sets: item.sets,
+            reps: item.actualSeconds ? `${item.actualSeconds}s` : String(item.reps ?? 1),
+            restSeconds: 0,
+            sessionSets: Array.from({ length: item.sets }, (_, setIndex) => ({
+              setId: randomUUID(),
+              routineExerciseId,
+              exerciseId: exercise.exerciseId,
+              exerciseName: exercise.name,
+              setNumber: setIndex + 1,
+              targetReps: item.reps ?? 1,
+              actualReps: item.reps ?? null,
+              actualSeconds: item.actualSeconds ?? null,
+              completed: true,
+              weight: item.weight ?? null,
+              unit: item.unit,
+              completedAt,
+            })),
+          }
+        }),
+      }
+
+      sessions.set(sessionId, structuredClone(session))
+      sessionFeedback.set(sessionId, structuredClone(input.feedback))
+
+      return {
+        sessionId,
+        status: 'completed',
+        completedSets: input.items.reduce((total, item) => total + item.sets, 0),
+        totalVolume: input.items.reduce(
+          (total, item) => total + (item.weight ?? 0) * (item.reps ?? 0) * item.sets,
+          0,
+        ),
+        totalReps: input.items.reduce((total, item) => total + (item.reps ?? 0) * item.sets, 0),
+        totalSeconds: input.items.reduce(
+          (total, item) => total + (item.actualSeconds ?? 0) * item.sets,
+          0,
+        ),
+        fatigueLevel: input.feedback.fatigueLevel,
+        painLevel: input.feedback.painLevel,
+        athleteNotes: input.feedback.athleteNotes,
+      }
     },
 
     async updateWorkoutSessionSet(sessionId, setId, input: UpdateWorkoutSessionSetInput) {

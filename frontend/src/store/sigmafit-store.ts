@@ -1,7 +1,12 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 
-import { SIGMAFIT_DEMO_USER_ID, sigmaExerciseCatalogFallback } from '@/lib/sigmafit/catalog'
+import {
+  SIGMAFIT_DEMO_COACH_ID,
+  SIGMAFIT_DEMO_GYM_ID,
+  SIGMAFIT_DEMO_USER_ID,
+  sigmaExerciseCatalogFallback,
+} from '@/lib/sigmafit/catalog'
 import {
   createLocalManualRoutine,
   createLocalWorkoutSession,
@@ -15,10 +20,12 @@ import { createDefaultSigmafitState, onboardingToStatePatch } from '@/lib/sigmaf
 import type {
   SigmaAdaptiveSummary,
   SigmaCoachOverviewResponse,
+  SigmaCreateAccountPayload,
   SigmaManualRoutinePayload,
   SigmaMonthlySummary,
   SigmaOnboardingPayload,
   SigmaParsedTrainingLog,
+  SigmaPostWorkoutSessionPayload,
   SigmaPreferences,
   SigmaProfile,
   SigmaRoutine,
@@ -121,9 +128,16 @@ type CoachOverviewResult = {
   warning: string | null
 }
 
+type CreateAccountResult = {
+  created: boolean
+  userId: string
+  onboardingComplete: boolean
+  warning: string | null
+}
+
 type SigmafitActions = {
   login: (payload: { email: string; displayName?: string; userId?: string; role?: SigmaUserRole }) => Promise<LoginResult>
-  createAccount: (payload: { email: string; displayName: string; role?: SigmaUserRole }) => void
+  createAccount: (payload: SigmaCreateAccountPayload) => Promise<CreateAccountResult>
   logout: () => void
   completeOnboarding: (payload: SigmaOnboardingPayload) => Promise<CompleteOnboardingResult>
   loadCurrentRoutine: () => Promise<LoadRoutineResult>
@@ -138,6 +152,7 @@ type SigmafitActions = {
   generateAdaptiveRecommendation: () => Promise<AdaptiveSummaryResult>
   parseTrainingLog: (text: string) => Promise<AssistedLogParseResult>
   clearAssistedLog: () => void
+  savePostWorkoutSession: (payload: SigmaPostWorkoutSessionPayload) => Promise<FinishWorkoutSessionResult>
   loadMonthlySummary: (month?: string) => Promise<MonthlySummaryResult>
   loadCoachOverview: () => Promise<CoachOverviewResult>
   startWorkoutSession: (payload: StartWorkoutSessionPayload) => Promise<StartWorkoutSessionResult>
@@ -166,7 +181,7 @@ type SigmafitActions = {
 
 export type SigmafitStore = SigmafitStateSnapshot & SigmafitActions
 
-const SIGMAFIT_STORE_VERSION = 6
+const SIGMAFIT_STORE_VERSION = 7
 
 function buildInitialState(): SigmafitStateSnapshot {
   return createDefaultSigmafitState()
@@ -500,7 +515,6 @@ function normalizeText(value: string) {
 function parseLocalTrainingLog(text: string, state: SigmafitStateSnapshot): SigmaTrainingLogParseResult {
   const catalog = state.routine.exerciseCatalog.length > 0 ? state.routine.exerciseCatalog : sigmaExerciseCatalogFallback
   const normalizedText = normalizeText(text)
-  const parsed: SigmaParsedTrainingLog = {}
   const aliasMap = new Map<string, string[]>([
     ['Press de banca', ['banca', 'press banca', 'press de banca']],
     ['Sentadilla con barra', ['sentadilla', 'squat']],
@@ -515,48 +529,77 @@ function parseLocalTrainingLog(text: string, state: SigmafitStateSnapshot): Sigm
     ['Extensión de tríceps', ['triceps', 'extension triceps']],
     ['Prensa de piernas', ['prensa', 'leg press']],
     ['Plancha abdominal', ['plancha', 'plank']],
+    ['Flexiones', ['flexiones', 'push ups', 'pushups']],
   ])
 
-  const exercise = catalog.find((item) => {
-    const normalizedName = normalizeText(item.name)
-    const aliases = aliasMap.get(item.name) ?? []
-    return normalizedText.includes(normalizedName) || aliases.some((alias) => normalizedText.includes(normalizeText(alias)))
+  const mentions = catalog
+    .map((exercise) => {
+      const aliases = [exercise.name, ...(aliasMap.get(exercise.name) ?? [])]
+        .map(normalizeText)
+        .sort((left, right) => right.length - left.length)
+      const index = Math.min(
+        ...aliases.map((alias) => normalizedText.indexOf(alias)).filter((value) => value >= 0),
+      )
+      return Number.isFinite(index) ? { exercise, index } : null
+    })
+    .filter((item): item is { exercise: (typeof catalog)[number]; index: number } => Boolean(item))
+    .sort((left, right) => left.index - right.index)
+
+  const items = mentions.map(({ exercise, index }, mentionIndex): SigmaParsedTrainingLog => {
+    const nextIndex = mentions[mentionIndex + 1]?.index ?? normalizedText.length
+    const segment = normalizedText.slice(index, nextIndex)
+    const compact = segment.match(/(\d+)\s*x\s*(\d+)/)
+    const series = segment.match(/(\d+)\s*(?:series|serie|sets|set)\s*(?:de|x)?\s*(\d+)?/)
+    const weight = segment.match(/(\d+(?:[.,]\d+)?)\s*(kg|kilos?|lb|lbs|libras?)\b/)
+    const isTime = exercise.trackingType === 'time' || /\bsegundos?\b/.test(segment)
+    const sets = Number(compact?.[1] ?? series?.[1] ?? 0) || undefined
+    const amount = Number(compact?.[2] ?? series?.[2] ?? 0) || undefined
+
+    return {
+      exerciseName: exercise.name,
+      sets,
+      reps: isTime ? undefined : amount,
+      actualSeconds: isTime ? amount : undefined,
+      weight: weight?.[1]
+        ? Number(weight[1].replace(',', '.'))
+        : /\b(?:sin peso|peso corporal)\b/.test(segment)
+          ? 0
+          : undefined,
+      unit: weight?.[2]?.startsWith('lb') || weight?.[2]?.startsWith('libra') ? 'lb' : 'kg',
+      trackingType: exercise.trackingType,
+    }
   })
 
-  if (exercise) {
-    parsed.exerciseName = exercise.name
-  }
-
-  const setsMatch = normalizedText.match(/(\d+)\s*(?:series|serie|sets|set)\b/)
-  const repsMatch =
-    normalizedText.match(/(?:series|serie|sets|set)\s*(?:de|x)?\s*(\d+)\b/) ??
-    normalizedText.match(/\d+\s*x\s*(\d+)/) ??
-    normalizedText.match(/(\d+)\s*(?:reps|repes|repeticiones|rep)\b/)
-  const weightMatch = normalizedText.match(/(\d+(?:[.,]\d+)?)\s*(kg|kilos|kilogramos|lb|lbs|libras)\b/)
-
-  if (setsMatch?.[1]) {
-    parsed.sets = Number(setsMatch[1])
-  }
-
-  if (repsMatch?.[1]) {
-    parsed.reps = Number(repsMatch[1])
-  }
-
-  if (weightMatch?.[1]) {
-    parsed.weight = Number(weightMatch[1].replace(',', '.'))
-    parsed.unit = weightMatch[2].startsWith('lb') || weightMatch[2] === 'libras' ? 'lb' : 'kg'
-  }
-
-  const followUpQuestion = !parsed.exerciseName
-    ? 'Que ejercicio realizaste?'
-    : !parsed.sets || !parsed.reps
-      ? 'Cuantas series y repeticiones realizaste?'
-      : null
+  const followUpQuestions = items.length === 0
+    ? ['Que ejercicios realizaste?']
+    : items.flatMap((item) => {
+        const questions: string[] = []
+        if (!item.sets) {
+          questions.push(`Cuantas series hiciste en ${item.exerciseName}?`)
+        }
+        if (item.trackingType === 'time' ? !item.actualSeconds : !item.reps) {
+          questions.push(
+            item.trackingType === 'time'
+              ? `Cuantos segundos hiciste por serie en ${item.exerciseName}?`
+              : `Cuantas repeticiones hiciste por serie en ${item.exerciseName}?`,
+          )
+        }
+        return questions
+      })
+  const fatigue = normalizedText.match(/fatiga(?:\s*(?:de|:))?\s*(10|[0-9])\b/)
+  const pain = normalizedText.match(/dolor(?:\s*(?:de|:))?\s*(10|[0-9])\b/)
 
   return {
-    status: followUpQuestion ? 'needs_follow_up' : 'complete',
-    parsed,
-    followUpQuestion,
+    status: followUpQuestions.length > 0 ? 'needs_follow_up' : 'complete',
+    sessionFeedback: {
+      fatigueLevel: fatigue?.[1] ? Number(fatigue[1]) : null,
+      painLevel: pain?.[1] ? Number(pain[1]) : null,
+      athleteNotes: 'Registro post-entrenamiento interpretado desde texto.',
+    },
+    items,
+    followUpQuestions,
+    parsed: items[0] ?? {},
+    followUpQuestion: followUpQuestions[0] ?? null,
   }
 }
 
@@ -591,6 +634,8 @@ function createLocalCoachOverview(state: SigmafitStateSnapshot): SigmaCoachOverv
   ].filter((item): item is string => Boolean(item))
 
   return {
+    gymId: state.session.gymId,
+    gymName: state.session.gymName,
     athletes: [
       {
         userId: state.session.userId || SIGMAFIT_DEMO_USER_ID,
@@ -616,10 +661,11 @@ export const useSigmafitStore = create<SigmafitStore>()(
       ...buildInitialState(),
 
       login: async ({ email, displayName, userId = SIGMAFIT_DEMO_USER_ID, role = 'athlete' }) => {
+        const fallbackUserId = role === 'coach' ? SIGMAFIT_DEMO_COACH_ID : userId
         set((state) => ({
           session: {
             ...state.session,
-            userId,
+            userId: fallbackUserId,
             role,
             isAuthenticated: true,
             onboardingComplete: role === 'coach' ? true : state.session.onboardingComplete,
@@ -634,27 +680,22 @@ export const useSigmafitStore = create<SigmafitStore>()(
           },
         }))
 
-        if (role === 'coach') {
-          return {
-            onboardingComplete: true,
-            backendStatus: 'offline',
-            warning: null,
-          }
-        }
-
         try {
-          const remoteProfile = await sigmafitApi.getUserProfile(userId)
+          const remoteProfile = await sigmafitApi.loginAccount({ email, role })
 
           set((state) => ({
             session: {
               ...state.session,
-              userId,
-              onboardingComplete: remoteProfile.onboardingCompleted,
+              userId: remoteProfile.userId,
+              role: remoteProfile.role === 'coach' ? 'coach' : 'athlete',
+              gymId: remoteProfile.gymId,
+              gymName: remoteProfile.gymName,
+              onboardingComplete: remoteProfile.role === 'coach' || remoteProfile.onboardingCompleted,
               backendStatus: 'online',
               lastSyncError: null,
             },
             profile: applyRemoteProfile(state.profile, remoteProfile),
-            ...(remoteProfile.onboardingCompleted
+            ...(remoteProfile.role === 'coach' || remoteProfile.onboardingCompleted
               ? {}
               : {
                   ...getResetSlices(),
@@ -663,7 +704,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
           }))
 
           return {
-            onboardingComplete: remoteProfile.onboardingCompleted,
+            onboardingComplete: remoteProfile.role === 'coach' || remoteProfile.onboardingCompleted,
             backendStatus: 'online',
             warning: null,
           }
@@ -674,7 +715,11 @@ export const useSigmafitStore = create<SigmafitStore>()(
             set((state) => ({
               session: {
                 ...state.session,
-                userId,
+                userId: fallbackUserId,
+                role,
+                gymId: role === 'coach' ? SIGMAFIT_DEMO_GYM_ID : state.session.gymId,
+                gymName: role === 'coach' ? 'Sigma Gym Norte' : state.session.gymName,
+                onboardingComplete: role === 'coach' ? true : state.session.onboardingComplete,
                 backendStatus: 'offline',
                 lastSyncError: warning,
               },
@@ -691,27 +736,70 @@ export const useSigmafitStore = create<SigmafitStore>()(
         }
       },
 
-      createAccount: ({ email, displayName, role = 'athlete' }) => {
-        const defaults = getResetSlices()
+      createAccount: async (payload) => {
+        const fallbackUserId = payload.role === 'coach' ? SIGMAFIT_DEMO_COACH_ID : SIGMAFIT_DEMO_USER_ID
 
-        set((state) => ({
-          session: {
-            ...state.session,
-            userId: SIGMAFIT_DEMO_USER_ID,
-            role,
-            isAuthenticated: true,
-            onboardingComplete: role === 'coach',
-            backendStatus: 'idle',
-            lastSyncError: null,
-            lastLoginAt: new Date().toISOString(),
-          },
-          profile: {
-            ...state.profile,
-            email,
-            displayName: displayName || (role === 'coach' ? 'Coach SigmaFit' : 'Atleta Sigma'),
-          },
-          ...(role === 'athlete' ? getResetSlices() : defaults),
-        }))
+        try {
+          const account = await sigmafitApi.createAccount(payload)
+          const defaults = getResetSlices()
+
+          set((state) => ({
+            session: {
+              ...state.session,
+              userId: account.userId,
+              role: account.role === 'coach' ? 'coach' : 'athlete',
+              gymId: account.gymId,
+              gymName: account.gymName,
+              isAuthenticated: true,
+              onboardingComplete: account.role === 'coach' || account.onboardingCompleted,
+              backendStatus: 'online',
+              lastSyncError: null,
+              lastLoginAt: new Date().toISOString(),
+            },
+            profile: applyRemoteProfile(state.profile, account),
+            ...(payload.role === 'athlete' ? defaults : {}),
+          }))
+
+          return {
+            created: true,
+            userId: account.userId,
+            onboardingComplete: account.role === 'coach' || account.onboardingCompleted,
+            warning: null,
+          }
+        } catch (error) {
+          if (!isApiUnavailable(error)) {
+            throw error
+          }
+
+          const warning = 'No se pudo sincronizar la cuenta. Se creo un acceso en este dispositivo.'
+          set((state) => ({
+            session: {
+              ...state.session,
+              userId: fallbackUserId,
+              role: payload.role,
+              gymId: payload.gymId ?? SIGMAFIT_DEMO_GYM_ID,
+              gymName: payload.gymName ?? 'Sigma Gym Norte',
+              isAuthenticated: true,
+              onboardingComplete: payload.role === 'coach',
+              backendStatus: 'offline',
+              lastSyncError: warning,
+              lastLoginAt: new Date().toISOString(),
+            },
+            profile: {
+              ...state.profile,
+              email: payload.email,
+              displayName: payload.name,
+            },
+            ...(payload.role === 'athlete' ? getResetSlices() : {}),
+          }))
+
+          return {
+            created: true,
+            userId: fallbackUserId,
+            onboardingComplete: payload.role === 'coach',
+            warning,
+          }
+        }
       },
 
       logout: () =>
@@ -719,6 +807,8 @@ export const useSigmafitStore = create<SigmafitStore>()(
           session: {
             ...state.session,
             role: 'athlete',
+            gymId: null,
+            gymName: null,
             isAuthenticated: false,
             backendStatus: 'idle',
             lastSyncError: null,
@@ -1397,8 +1487,9 @@ export const useSigmafitStore = create<SigmafitStore>()(
         if (get().session.backendStatus === 'offline') {
           const result = parseLocalTrainingLog(text, get())
 
-          set(() => ({
+          set((state) => ({
             assistedLog: {
+              ...state.assistedLog,
               result,
               isParsing: false,
               error: null,
@@ -1418,6 +1509,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
 
           set((state) => ({
             assistedLog: {
+              ...state.assistedLog,
               result,
               isParsing: false,
               error: null,
@@ -1442,6 +1534,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
 
             set((state) => ({
               assistedLog: {
+                ...state.assistedLog,
                 result,
                 isParsing: false,
                 error: null,
@@ -1483,10 +1576,111 @@ export const useSigmafitStore = create<SigmafitStore>()(
             ...state.assistedLog,
             result: null,
             isParsing: false,
+            isSaving: false,
             error: null,
             source: 'none',
           },
         })),
+
+      savePostWorkoutSession: async (payload) => {
+        const userId = get().session.userId || SIGMAFIT_DEMO_USER_ID
+
+        set((state) => ({
+          assistedLog: {
+            ...state.assistedLog,
+            isSaving: true,
+            error: null,
+          },
+        }))
+
+        const createLocalSummary = () => ({
+          sessionId: `post-${Date.now()}`,
+          status: 'completed' as const,
+          completedSets: payload.items.reduce((total, item) => total + item.sets, 0),
+          totalVolume: payload.items.reduce(
+            (total, item) => total + (item.weight ?? 0) * (item.reps ?? 0) * item.sets,
+            0,
+          ),
+          totalReps: payload.items.reduce(
+            (total, item) => total + (item.reps ?? 0) * item.sets,
+            0,
+          ),
+          totalSeconds: payload.items.reduce(
+            (total, item) => total + (item.actualSeconds ?? 0) * item.sets,
+            0,
+          ),
+          fatigueLevel: payload.feedback.fatigueLevel,
+          painLevel: payload.feedback.painLevel,
+          athleteNotes: payload.feedback.athleteNotes,
+        })
+
+        try {
+          const summary = get().session.backendStatus === 'offline'
+            ? createLocalSummary()
+            : await sigmafitApi.createPostWorkoutSession(userId, payload)
+
+          set((state) => ({
+            training: {
+              ...state.training,
+              lastCompletedSummary: summary,
+              source: state.session.backendStatus === 'offline' ? 'local' : 'backend',
+            },
+            assistedLog: {
+              ...state.assistedLog,
+              isSaving: false,
+              error: null,
+              lastSavedSummary: summary,
+            },
+          }))
+
+          return {
+            finished: true,
+            source: get().session.backendStatus === 'offline' ? ('local' as const) : ('backend' as const),
+            warning: null,
+          }
+        } catch (error) {
+          if (isApiUnavailable(error)) {
+            const summary = createLocalSummary()
+            const warning = 'No se pudo sincronizar. La sesion quedo guardada en este dispositivo.'
+            set((state) => ({
+              training: {
+                ...state.training,
+                lastCompletedSummary: summary,
+                source: 'local',
+              },
+              assistedLog: {
+                ...state.assistedLog,
+                isSaving: false,
+                error: null,
+                lastSavedSummary: summary,
+              },
+              session: {
+                ...state.session,
+                backendStatus: 'offline',
+                lastSyncError: warning,
+              },
+            }))
+            return {
+              finished: true,
+              source: 'local' as const,
+              warning,
+            }
+          }
+
+          set((state) => ({
+            assistedLog: {
+              ...state.assistedLog,
+              isSaving: false,
+              error: error instanceof Error ? error.message : 'No se pudo guardar la sesion.',
+            },
+          }))
+          return {
+            finished: false,
+            source: 'backend' as const,
+            warning: null,
+          }
+        }
+      },
 
       loadMonthlySummary: async (month) => {
         const userId = get().session.userId || SIGMAFIT_DEMO_USER_ID
@@ -1573,7 +1767,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
         }))
 
         try {
-          const overview = await sigmafitApi.getCoachOverview()
+          const overview = await sigmafitApi.getCoachOverview(get().session.userId ?? undefined)
 
           set((state) => ({
             coach: {

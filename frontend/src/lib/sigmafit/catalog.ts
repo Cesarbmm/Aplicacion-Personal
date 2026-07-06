@@ -1,6 +1,8 @@
 import type { SigmaExerciseCatalogEntry, SigmaExperienceLevel, SigmaGoal } from './types'
 
 export const SIGMAFIT_DEMO_USER_ID = '11111111-1111-4111-8111-111111111111'
+export const SIGMAFIT_DEMO_COACH_ID = 'c0000000-0000-4000-8000-000000000001'
+export const SIGMAFIT_DEMO_GYM_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 
 export const sigmaGoalOptions: Array<{
   value: SigmaGoal
@@ -156,6 +158,17 @@ export const sigmaExerciseCatalogFallback: SigmaExerciseCatalogEntry[] = [
     equipment: 'Colchoneta o suelo',
     trackingType: 'time',
     coachingCue: 'Controla por segundos: pelvis neutra, abdomen firme y respiracion constante.',
+    difficulty: 'beginner',
+    goalFocus: 'general',
+  },
+  {
+    exerciseId: 'local-flexiones',
+    name: 'Flexiones',
+    muscleGroup: 'Pecho',
+    movementPattern: 'Empuje horizontal',
+    equipment: 'Peso corporal',
+    trackingType: 'bodyweight_reps',
+    coachingCue: 'Mantener tronco firme y rango controlado.',
     difficulty: 'beginner',
     goalFocus: 'general',
   },

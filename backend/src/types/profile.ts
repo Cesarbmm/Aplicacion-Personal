@@ -3,6 +3,22 @@ export const onboardingExperienceLevels = ['beginner', 'intermediate', 'advanced
 
 export type OnboardingGoal = (typeof onboardingGoals)[number]
 export type OnboardingExperienceLevel = (typeof onboardingExperienceLevels)[number]
+export type UserRole = 'athlete' | 'coach' | 'admin'
+
+export type Gym = {
+  gymId: string
+  name: string
+  slug: string
+  createdAt: string
+}
+
+export type CreateAccountInput = {
+  email: string
+  name: string
+  role: Exclude<UserRole, 'admin'>
+  gymId?: string
+  gymName?: string
+}
 
 export type SaveOnboardingInput = {
   goal: OnboardingGoal
@@ -14,6 +30,9 @@ export type UserProfile = {
   userId: string
   email: string
   name: string
+  role: UserRole
+  gymId: string | null
+  gymName: string | null
   onboardingCompleted: boolean
   goal: OnboardingGoal | null
   experienceLevel: OnboardingExperienceLevel | null

@@ -18,6 +18,8 @@ SigmaFit es una plataforma web de apoyo al entrenamiento para gimnasios, con lan
 - `database/init/003_routines_and_sessions.sql`: rutinas y sesiones de entrenamiento Sprint 2
 - `database/init/004_routine_creation_mode.sql`: diferencia entre rutinas del Coach y rutinas manuales
 - `database/init/006_adaptive_recommendations.sql`: recomendaciones adaptativas Sprint 3
+- `database/init/007_gyms_and_demo_data.sql`: gimnasios, roles y soporte para sesiones libres
+- `database/init/008_demo_month_data.sql`: dos gimnasios y datos de entrenamiento de cuatro semanas
 - `assets/`: tipografias y recursos visuales
 
 ## Demo seed
@@ -26,6 +28,13 @@ El seed deja creado un usuario demo para pruebas manuales:
 
 - `userId`: `11111111-1111-4111-8111-111111111111`
 - `email`: `demo@sigmafit.app`
+
+El seed ampliado agrega:
+
+- `coach@sigmafit.app`: coach de Sigma Gym Norte
+- `atleta1@sigmafit.app` a `atleta6@sigmafit.app`: atletas de Sigma Gym Norte
+- `titan.coach@sigmafit.app`: coach de Titan Fitness
+- `titan1@sigmafit.app` a `titan4@sigmafit.app`: atletas de Titan Fitness
 
 El catalogo base incluye, entre otros:
 
@@ -50,6 +59,9 @@ POSTGRES_USER=sigmafit
 POSTGRES_PASSWORD=sigmafit
 POSTGRES_DB=sigmafit
 VITE_API_URL=http://localhost:3000/api
+OLLAMA_BASE_URL=
+OLLAMA_MODEL=llama3.2
+OLLAMA_TIMEOUT_MS=8000
 ```
 
 Referencias:
@@ -71,7 +83,7 @@ Puertos expuestos:
 - backend: `http://localhost:3000`
 - PostgreSQL: `localhost:5432`
 
-Si ya levantaste Sprint 1 antes de agregar `003_routines_and_sessions.sql`, y tu volumen de Postgres ya existia, recrea la base una vez para aplicar la inicializacion completa:
+Los scripts de `database/init` se ejecutan automaticamente solo al crear un volumen nuevo. Para cargar todo el dataset de demostracion desde cero:
 
 ```powershell
 docker compose down -v
@@ -127,10 +139,18 @@ npm.cmd run dev
 - `GET /api/users/:id/monthly-summary?month=YYYY-MM`
 - `GET /api/coach/athletes-overview`
 
+### Gimnasios y registro posterior
+
+- `GET /api/gyms`
+- `POST /api/accounts`
+- `POST /api/accounts/login`
+- `POST /api/users/:id/post-workout-sessions`
+
 ## Rutas del frontend
 
 - `/`: landing publica
 - `/login`: acceso mock
+- `/signup`: alta de atleta o coach y asociacion con gimnasio
 - `/register`: onboarding y perfilado inicial
 - `/dashboard`: resumen del atleta y rutina activa
 - `/routine-builder`: constructor manual de rutina
@@ -381,8 +401,8 @@ SigmaFit se posiciona como una plataforma asistente de entrenamiento para gimnas
 ### Atleta
 
 - puede seguir usando el registro manual con series, reps reales, peso, unidad, segundos, descanso, fatiga, dolor y notas
-- puede usar `Registro asistido` en `/workout` para escribir frases como `Hice press de banca, 4 series de 8 con 80kg`
-- el sistema interpreta la frase, muestra los datos estructurados y pide confirmacion antes de guardar una serie real
+- puede usar `Registrar despues` en `/workout` para describir una sesion completa con varios ejercicios
+- el sistema interpreta el texto, muestra los datos estructurados y pide confirmacion antes de guardar la sesion
 - si faltan datos, responde con una pregunta de seguimiento
 
 ### Registro asistido local
@@ -391,7 +411,8 @@ El parseo no usa APIs externas. Primero intenta Ollama si se configuran las vari
 
 ```env
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.1
+OLLAMA_MODEL=llama3.2
+OLLAMA_TIMEOUT_MS=8000
 ```
 
 Si Ollama no esta disponible, usa regex deterministico con alias del catalogo oficial. El endpoint es:
@@ -456,6 +477,67 @@ curl.exe -X POST "http://localhost:3000/api/users/11111111-1111-4111-8111-111111
 11. Verifica que se active el temporizador de descanso.
 12. Finaliza la sesion y revisa el resumen guardado.
 13. En `/dashboard` o `/progress`, genera la recomendacion adaptativa.
+
+## Gimnasios y registro post-entrenamiento
+
+### Modelo B2B
+
+Las cuentas pertenecen a un gimnasio. Un coach crea o reutiliza su gimnasio durante el alta; un atleta debe seleccionar uno existente. El endpoint del panel coach filtra los atletas por el `gymId` del coach consultado.
+
+Flujos disponibles:
+
+- atleta: `/signup` -> seleccion de gimnasio -> `/register` -> `/dashboard`
+- coach: `/signup` -> nombre del gimnasio -> `/coach`
+- login atleta: `atleta1@sigmafit.app`
+- login coach: `coach@sigmafit.app`
+
+Consultar gimnasios:
+
+```powershell
+Invoke-RestMethod "http://localhost:3000/api/gyms"
+```
+
+Consultar el panel del coach de Sigma Gym Norte:
+
+```powershell
+Invoke-RestMethod "http://localhost:3000/api/coach/athletes-overview?coachUserId=c0000000-0000-4000-8000-000000000001"
+```
+
+### Dos modos de Workout
+
+`/workout` separa los recorridos para no mezclar estados:
+
+- `Entrenar en vivo`: conserva rutina, registro serie a serie, peso, reps o segundos, descanso y cierre con feedback.
+- `Registrar despues`: interpreta una sesion completa, permite editar la previsualizacion y crea una sesion finalizada. Puede asociarse a un dia activo o guardarse como sesion libre.
+
+Ejemplo de parseo multiple:
+
+```powershell
+$body = @{
+  userId = "d0000000-0000-4000-8000-000000000001"
+  text = "Hoy hice banca 4x8 80kg, sentadilla 3x10 100kg y plancha 3 series de 45 segundos. Fatiga 7, dolor 2."
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method POST `
+  -Uri "http://localhost:3000/api/training-log/parse" `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+Ollama es opcional. En desarrollo local puede usarse `OLLAMA_BASE_URL=http://localhost:11434`; desde Docker Desktop usa normalmente `http://host.docker.internal:11434`. Si no responde dentro de `OLLAMA_TIMEOUT_MS`, el backend usa el parser deterministico.
+
+### Datos de demostracion
+
+El seed `008_demo_month_data.sql` crea 10 atletas distribuidos entre dos gimnasios, rutinas activas y cuatro semanas de sesiones con distintos niveles de adherencia, fatiga y dolor. Esto alimenta `/progress`, el resumen mensual y `/coach`.
+
+En un volumen existente, los scripts nuevos pueden aplicarse sin borrar datos:
+
+```powershell
+docker compose exec -T db psql -U sigmafit -d sigmafit -v ON_ERROR_STOP=1 -f /docker-entrypoint-initdb.d/007_gyms_and_demo_data.sql
+docker compose exec -T db psql -U sigmafit -d sigmafit -v ON_ERROR_STOP=1 -f /docker-entrypoint-initdb.d/008_demo_month_data.sql
+```
+
+El segundo script reemplaza solo las rutinas y sesiones de los usuarios ficticios con IDs `d0000000-...`; no modifica las cuentas creadas por usuarios.
 
 ## Scripts de verificacion
 

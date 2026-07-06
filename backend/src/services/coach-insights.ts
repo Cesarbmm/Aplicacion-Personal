@@ -49,8 +49,10 @@ export function createCoachOverview(
   profiles: UserProfile[],
   summariesByUser: Map<string, MonthlySummary>,
   signalsByUser: Map<string, AdaptiveTrainingSignals>,
+  gym: { gymId: string | null; gymName: string | null } = { gymId: null, gymName: null },
 ): CoachOverviewResponse {
   return {
+    ...gym,
     athletes: profiles.map((profile): CoachAthleteOverview => {
       const monthlySummary = summariesByUser.get(profile.userId)
       const signals = signalsByUser.get(profile.userId)

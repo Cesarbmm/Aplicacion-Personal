@@ -4,6 +4,7 @@ import type {
   AdaptiveTrainingSignals,
 } from '../types/adaptive.js'
 import type { MonthlyTrainingSignals } from '../types/monthly-summary.js'
+import type { CreatePostWorkoutSessionInput } from '../types/training-log.js'
 import type {
   ExerciseCatalogEntry,
   FinishWorkoutSessionInput,
@@ -21,6 +22,7 @@ export interface TrainingRepository {
   getCurrentRoutine(userId: string): Promise<Routine | null>
   getRoutineById(routineId: string): Promise<Routine | null>
   createWorkoutSession(input: StartWorkoutSessionInput): Promise<WorkoutSession>
+  createPostWorkoutSession(input: CreatePostWorkoutSessionInput): Promise<WorkoutSessionSummary>
   updateWorkoutSessionSet(
     sessionId: string,
     setId: string,

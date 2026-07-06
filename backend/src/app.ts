@@ -15,7 +15,13 @@ import type { MonthlySummary } from './types/monthly-summary.js'
 import type { AdaptiveTrainingSignals } from './types/adaptive.js'
 import { onboardingExperienceLevels, onboardingGoals } from './types/profile.js'
 import { type WorkoutUnit } from './types/routine.js'
-import { UserNotFoundError, type UserProfileRepository } from './repositories/user-profile-repository.js'
+import {
+  CoachAccessRequiredError,
+  GymNotFoundError,
+  GymRequiredError,
+  UserNotFoundError,
+  type UserProfileRepository,
+} from './repositories/user-profile-repository.js'
 import {
   ExerciseNotFoundError,
   OnboardingRequiredError,
@@ -112,7 +118,83 @@ const manualRoutineSchema = z
 
 const trainingLogParseSchema = z.object({
   userId: z.string().uuid(),
-  text: z.string().trim().min(3).max(600),
+  text: z.string().trim().min(3).max(4000),
+})
+
+const accountSchema = z
+  .object({
+    email: z.string().email(),
+    name: z.string().trim().min(2).max(120),
+    role: z.enum(['athlete', 'coach']),
+    gymId: z.string().uuid().optional(),
+    gymName: z.string().trim().min(2).max(120).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.role === 'athlete' && !value.gymId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['gymId'],
+        message: 'Selecciona un gimnasio.',
+      })
+    }
+
+    if (value.role === 'coach' && !value.gymName) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['gymName'],
+        message: 'Ingresa el nombre del gimnasio.',
+      })
+    }
+  })
+
+const accountLoginSchema = z.object({
+  email: z.string().email(),
+  role: z.enum(['athlete', 'coach']),
+})
+
+const postWorkoutItemSchema = z
+  .object({
+    exerciseName: z.string().trim().min(1),
+    sets: z.number().int().min(1).max(20),
+    reps: z.number().int().min(0).nullable().optional(),
+    weight: z.number().min(0).nullable().optional(),
+    unit: workoutUnitSchema.default('kg'),
+    actualSeconds: z.number().int().min(1).nullable().optional(),
+  })
+  .superRefine((value, context) => {
+    if (!value.reps && !value.actualSeconds) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['reps'],
+        message: 'Cada ejercicio requiere repeticiones o segundos.',
+      })
+    }
+  })
+
+const postWorkoutSessionSchema = z
+  .object({
+    routineId: z.string().uuid().nullable().optional(),
+    routineDayId: z.string().uuid().nullable().optional(),
+    rawText: z.string().trim().min(3).max(4000),
+    items: z.array(postWorkoutItemSchema).min(1).max(20),
+    feedback: z.object({
+      fatigueLevel: z.number().int().min(1).max(10).nullable().default(null),
+      painLevel: z.number().int().min(0).max(10).nullable().default(null),
+      athleteNotes: z.string().trim().max(1000).nullable().default(null),
+    }),
+  })
+  .superRefine((value, context) => {
+    if (Boolean(value.routineId) !== Boolean(value.routineDayId)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['routineDayId'],
+        message: 'La rutina y el dia deben enviarse juntos o dejarse vacios.',
+      })
+    }
+  })
+
+const coachOverviewQuerySchema = z.object({
+  coachUserId: z.string().uuid().optional(),
 })
 
 const monthlySummaryQuerySchema = z.object({
@@ -151,6 +233,43 @@ export function createApp({
     })
   })
 
+  app.get('/api/gyms', async (_request, response, next) => {
+    try {
+      response.json(await userProfileRepository.listGyms())
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  app.post('/api/accounts', async (request, response, next) => {
+    try {
+      const payload = accountSchema.parse(request.body)
+      const account = await userProfileRepository.createAccount(payload)
+      response.status(201).json(account)
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  app.post('/api/accounts/login', async (request, response, next) => {
+    try {
+      const payload = accountLoginSchema.parse(request.body)
+      const account = await userProfileRepository.getProfileByEmail(payload.email)
+
+      if (!account) {
+        throw new UserNotFoundError(payload.email)
+      }
+
+      if (account.role !== payload.role) {
+        throw new CoachAccessRequiredError(account.userId)
+      }
+
+      response.json(account)
+    } catch (error) {
+      next(error)
+    }
+  })
+
   app.get('/api/exercises', async (_request, response, next) => {
     try {
       const exerciseCatalog = await trainingRepository.getExerciseCatalog()
@@ -172,6 +291,51 @@ export function createApp({
       const exerciseCatalog = await trainingRepository.getExerciseCatalog()
       const parsed = await parseTrainingLog(payload.text, exerciseCatalog)
       response.json(parsed)
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  app.post('/api/users/:id/post-workout-sessions', async (request, response, next) => {
+    try {
+      const { id } = userParamsSchema.parse(request.params)
+      const payload = postWorkoutSessionSchema.parse(request.body)
+      const profile = await userProfileRepository.getProfile(id)
+
+      if (!profile) {
+        throw new UserNotFoundError(id)
+      }
+
+      if (profile.role !== 'athlete') {
+        throw new CoachAccessRequiredError(id)
+      }
+
+      const catalog = await trainingRepository.getExerciseCatalog()
+      const catalogByName = new Map(
+        catalog.map((exercise) => [exercise.name.toLowerCase(), exercise.name] as const),
+      )
+      const normalizedItems = payload.items.map((item) => {
+        const canonicalName = catalogByName.get(item.exerciseName.toLowerCase())
+        if (!canonicalName) {
+          throw new ExerciseNotFoundError(item.exerciseName)
+        }
+
+        return {
+          ...item,
+          exerciseName: canonicalName,
+        }
+      })
+
+      const summary = await trainingRepository.createPostWorkoutSession({
+        userId: id,
+        routineId: payload.routineId ?? null,
+        routineDayId: payload.routineDayId ?? null,
+        rawText: payload.rawText,
+        items: normalizedItems,
+        feedback: payload.feedback,
+      })
+
+      response.status(201).json(summary)
     } catch (error) {
       next(error)
     }
@@ -230,9 +394,25 @@ export function createApp({
     }
   })
 
-  app.get('/api/coach/athletes-overview', async (_request, response, next) => {
+  app.get('/api/coach/athletes-overview', async (request, response, next) => {
     try {
-      const profiles = await userProfileRepository.listProfiles()
+      const { coachUserId } = coachOverviewQuerySchema.parse(request.query)
+      const coachProfile = coachUserId
+        ? await userProfileRepository.getProfile(coachUserId)
+        : (await userProfileRepository.listProfiles({ role: 'coach' }))[0] ?? null
+
+      if (!coachProfile) {
+        throw new UserNotFoundError(coachUserId ?? 'coach')
+      }
+
+      if (coachProfile.role !== 'coach' || !coachProfile.gymId) {
+        throw new CoachAccessRequiredError(coachProfile.userId)
+      }
+
+      const profiles = await userProfileRepository.listProfiles({
+        gymId: coachProfile.gymId,
+        role: 'athlete',
+      })
       const month = new Date().toISOString().slice(0, 7)
       const summariesByUser = new Map<string, MonthlySummary>()
       const signalsByUser = new Map<string, AdaptiveTrainingSignals>()
@@ -249,7 +429,12 @@ export function createApp({
         }),
       )
 
-      response.json(createCoachOverview(profiles, summariesByUser, signalsByUser))
+      response.json(
+        createCoachOverview(profiles, summariesByUser, signalsByUser, {
+          gymId: coachProfile.gymId,
+          gymName: coachProfile.gymName,
+        }),
+      )
     } catch (error) {
       next(error)
     }
@@ -514,6 +699,30 @@ export function createApp({
     if (error instanceof UserNotFoundError) {
       response.status(404).json({
         error: 'USER_NOT_FOUND',
+        message: error.message,
+      })
+      return
+    }
+
+    if (error instanceof GymNotFoundError) {
+      response.status(404).json({
+        error: 'GYM_NOT_FOUND',
+        message: error.message,
+      })
+      return
+    }
+
+    if (error instanceof GymRequiredError) {
+      response.status(400).json({
+        error: 'GYM_REQUIRED',
+        message: error.message,
+      })
+      return
+    }
+
+    if (error instanceof CoachAccessRequiredError) {
+      response.status(403).json({
+        error: 'ROLE_ACCESS_DENIED',
         message: error.message,
       })
       return
