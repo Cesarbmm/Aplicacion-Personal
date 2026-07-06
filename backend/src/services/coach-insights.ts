@@ -1,6 +1,7 @@
 import type { AdaptiveTrainingSignals } from '../types/adaptive.js'
 import type { CoachAthleteOverview, CoachOverviewResponse } from '../types/coach.js'
 import type { MonthlySummary } from '../types/monthly-summary.js'
+import type { MonthlyReportStatus } from '../types/monthly-report.js'
 import type { UserProfile } from '../types/profile.js'
 
 function resolveWeakPoints(signals: AdaptiveTrainingSignals, monthlySummary: MonthlySummary) {
@@ -50,6 +51,7 @@ export function createCoachOverview(
   summariesByUser: Map<string, MonthlySummary>,
   signalsByUser: Map<string, AdaptiveTrainingSignals>,
   gym: { gymId: string | null; gymName: string | null } = { gymId: null, gymName: null },
+  reportStatusByUser: Map<string, MonthlyReportStatus> = new Map(),
 ): CoachOverviewResponse {
   return {
     ...gym,
@@ -63,6 +65,7 @@ export function createCoachOverview(
       return {
         userId: profile.userId,
         name: profile.name,
+        completedSessions,
         consistencyRate: monthlySummary?.consistencyRate ?? 0,
         progressionTrend: monthlySummary?.progressionTrend ?? 'insufficient_data',
         averageFatigue: signals?.averageFatigue ?? null,
@@ -70,6 +73,7 @@ export function createCoachOverview(
         missedSessions: Math.max(0, expectedMonthlySessions - completedSessions),
         weakPoints,
         coachInsight: signals ? buildCoachInsight(weakPoints, signals) : 'No hay datos suficientes para priorizar seguimiento.',
+        reportStatus: reportStatusByUser.get(profile.userId) ?? 'draft',
       }
     }),
   }

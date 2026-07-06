@@ -636,6 +636,9 @@ export function createInMemoryTrainingRepository(seedRoutine?: Routine): Trainin
       const fatigueValues = feedback
         .map((item) => item.fatigueLevel)
         .filter((value): value is number => value !== null)
+      const painValues = feedback
+        .map((item) => item.painLevel)
+        .filter((value): value is number => value !== null)
 
       return {
         userId,
@@ -650,7 +653,36 @@ export function createInMemoryTrainingRepository(seedRoutine?: Routine): Trainin
           fatigueValues.length > 0
             ? fatigueValues.reduce((total, value) => total + value, 0) / fatigueValues.length
             : null,
+        averagePain:
+          painValues.length > 0
+            ? painValues.reduce((total, value) => total + value, 0) / painValues.length
+            : null,
       } satisfies MonthlyTrainingSignals
+    },
+
+    async getMonthlySessionSummaries(userId) {
+      return Array.from(sessions.values())
+        .filter((session) => session.userId === userId && session.status === 'completed')
+        .map((session) => {
+          const feedback = sessionFeedback.get(session.sessionId)
+          const completedSets = session.exercises.flatMap((exercise) => exercise.sessionSets)
+            .filter((setItem) => setItem.completed)
+          return {
+            sessionId: session.sessionId,
+            date: session.finishedAt ?? session.startedAt,
+            source: 'live' as const,
+            completedSets: completedSets.length,
+            totalVolume: completedSets.reduce(
+              (total, setItem) =>
+                total + (setItem.weight ?? 0) * (setItem.actualReps ?? setItem.targetReps),
+              0,
+            ),
+            fatigueLevel: feedback?.fatigueLevel ?? null,
+            painLevel: feedback?.painLevel ?? null,
+            athleteNotes: feedback?.athleteNotes ?? null,
+          }
+        })
+        .sort((left, right) => right.date.localeCompare(left.date))
     },
 
     async saveAdaptiveRecommendation(recommendationDraft: AdaptiveRecommendationDraft) {

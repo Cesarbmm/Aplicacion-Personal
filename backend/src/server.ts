@@ -2,14 +2,17 @@ import { env } from './config/env.js'
 import { createPool } from './db/pool.js'
 import { createPostgresTrainingRepository } from './repositories/postgres-training-repository.js'
 import { createPostgresUserProfileRepository } from './repositories/postgres-user-profile-repository.js'
+import { createPostgresMonthlyReportRepository } from './repositories/postgres-monthly-report-repository.js'
 import { createApp } from './app.js'
 
 const pool = createPool()
 const repository = createPostgresUserProfileRepository(pool)
 const trainingRepository = createPostgresTrainingRepository(pool)
+const monthlyReportRepository = createPostgresMonthlyReportRepository(pool)
 const app = createApp({
   userProfileRepository: repository,
   trainingRepository,
+  monthlyReportRepository,
   frontendOrigin: env.FRONTEND_ORIGIN,
 })
 

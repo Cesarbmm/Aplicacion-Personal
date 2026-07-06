@@ -176,7 +176,7 @@ describe('SigmaFit dashboard routine flow', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/propuesta del coach virtual/i)).toBeTruthy()
-      expect(screen.getAllByText(/origen: sincronizada/i).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(/estado: lista para revisar/i).length).toBeGreaterThan(0)
       expect(screen.getByText(/press de banca/i)).toBeTruthy()
       expect(screen.queryByText(/abrir workout/i)).toBeNull()
     })

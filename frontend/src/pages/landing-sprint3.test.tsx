@@ -66,10 +66,13 @@ describe('SigmaFit landing and adaptive UI', () => {
       },
     })
 
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(jsonResponse(adaptiveSummaryResponse))
-      .mockResolvedValueOnce(
-        jsonResponse({
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/adaptive-summary')) {
+        return jsonResponse(adaptiveSummaryResponse)
+      }
+
+      return jsonResponse({
           userId: demoUserId,
           month: '2026-05',
           totalVolume: 4200,
@@ -78,14 +81,14 @@ describe('SigmaFit landing and adaptive UI', () => {
           averageRpe: 5,
           progressionTrend: 'stable',
           summary: 'Mantuviste una base estable de entrenamiento durante el mes.',
-        }),
-      )
+      })
+    })
 
     await renderRoute('/progress')
 
-    expect(await screen.findByText(/lectura adaptativa/i)).toBeTruthy()
+    expect(await screen.findByText(/ajuste para el siguiente bloque/i)).toBeTruthy()
     expect(screen.getAllByText(/resumen mensual/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/recomendacion: progresar/i)).toBeTruthy()
-    expect(screen.getByText(/buen cumplimiento, fatiga controlada y bajo dolor/i)).toBeTruthy()
+    expect(await screen.findByText(/recomendaci.n: progresar/i)).toBeTruthy()
+    expect(await screen.findByText(/buen cumplimiento, fatiga controlada y bajo dolor/i)).toBeTruthy()
   })
 })

@@ -20,7 +20,7 @@ export function FinalVideoCta({ route }: FinalVideoCtaProps) {
 
       <div className="relative mx-auto grid max-w-6xl items-center gap-8 lg:grid-cols-[0.95fr_1.05fr]">
         <div className="liquid-glass-card rounded-[34px] p-6 md:p-9">
-          <p className="text-xs uppercase tracking-[0.34em] text-red-200/90">Conversion gimnasio</p>
+          <p className="text-xs uppercase tracking-[0.34em] text-red-200/90">SigmaFit para gimnasios</p>
           <h2 className="mt-4 font-['Space_Grotesk'] text-5xl font-semibold uppercase tracking-[-0.07em] text-white md:text-7xl">
             Adquiere ahora <span className="text-red-500">SigmaFit</span>
           </h2>

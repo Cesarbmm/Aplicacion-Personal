@@ -62,18 +62,6 @@ function getRoutineRecommendation(experienceLevel: SigmaExperienceLevel): Routin
   }
 }
 
-function getRoutineSourceLabel(source: 'backend' | 'fallback' | 'none') {
-  if (source === 'fallback') {
-    return 'guardada en este dispositivo'
-  }
-
-  if (source === 'backend') {
-    return 'sincronizada'
-  }
-
-  return 'pendiente'
-}
-
 function getRoutineModeLabel(mode: SigmaRoutineCreationMode) {
   return mode === 'manual' ? 'Manual' : 'Coach Virtual'
 }
@@ -168,9 +156,9 @@ export function DashboardPage() {
         title: 'Rutina',
         value: activeRoutine ? getRoutineModeLabel(activeRoutine.creationMode) : proposedRoutine ? 'Propuesta lista' : 'Sin definir',
         caption: activeRoutine
-          ? `${activeRoutine.name} activa desde ${getRoutineSourceLabel(routine.source)}.`
+          ? `${activeRoutine.name} lista para entrenar.`
           : proposedRoutine
-            ? `Propuesta pendiente desde ${getRoutineSourceLabel(routine.proposalSource)}.`
+            ? 'Propuesta pendiente de confirmación.'
             : 'Primero elige como quieres crear tu plan.',
         icon: <CalendarDays size={18} className="text-red-200" />,
       },
@@ -194,8 +182,6 @@ export function DashboardPage() {
       profile.experienceLevel,
       profile.goal,
       proposedRoutine,
-      routine.proposalSource,
-      routine.source,
       workout.readiness,
     ],
   )
@@ -335,7 +321,7 @@ export function DashboardPage() {
               `Rutina: ${proposedRoutine.name}.`,
               `Objetivo: ${formatSigmaGoal(profile.goal)}.`,
               `Nivel: ${formatSigmaExperienceLevel(profile.experienceLevel)}.`,
-              `Origen: ${getRoutineSourceLabel(routine.proposalSource)}.`,
+              'Estado: lista para revisar.',
             ].map((line) => (
               <div key={line} className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-sm text-slate-300">
                 {line}
@@ -399,7 +385,7 @@ export function DashboardPage() {
         action={
           <div className="inline-flex items-center gap-2 rounded-full border border-red-500/14 bg-red-500/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-red-200">
             <Sparkles size={14} />
-            {getRoutineModeLabel(activeRoutine.creationMode)} - {getRoutineSourceLabel(routine.source)}
+            {getRoutineModeLabel(activeRoutine.creationMode)}
           </div>
         }
       >
@@ -409,7 +395,7 @@ export function DashboardPage() {
               `Nombre: ${activeRoutine.name}.`,
               `Dias: ${activeRoutine.daysPerWeek}.`,
               `Creacion: ${getRoutineModeLabel(activeRoutine.creationMode)}.`,
-              `Estado: ${session.backendStatus === 'online' ? 'sincronizado' : 'en dispositivo'}.`,
+              'Estado: lista para entrenar.',
             ].map((line) => (
               <div key={line} className="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-sm text-slate-300">
                 {line}

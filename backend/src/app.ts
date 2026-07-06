@@ -10,9 +10,11 @@ import {
 } from './services/adaptive-coach.js'
 import { createCoachOverview } from './services/coach-insights.js'
 import { createMonthlySummary } from './services/monthly-summary.js'
+import { createCoachMonthlyReport } from './services/monthly-report-generator.js'
 import { parseTrainingLog } from './services/training-log-parser.js'
 import type { MonthlySummary } from './types/monthly-summary.js'
 import type { AdaptiveTrainingSignals } from './types/adaptive.js'
+import type { MonthlyReportStatus } from './types/monthly-report.js'
 import { onboardingExperienceLevels, onboardingGoals } from './types/profile.js'
 import { type WorkoutUnit } from './types/routine.js'
 import {
@@ -22,6 +24,10 @@ import {
   UserNotFoundError,
   type UserProfileRepository,
 } from './repositories/user-profile-repository.js'
+import {
+  GymAccessDeniedError,
+  type MonthlyReportRepository,
+} from './repositories/monthly-report-repository.js'
 import {
   ExerciseNotFoundError,
   OnboardingRequiredError,
@@ -201,6 +207,22 @@ const monthlySummaryQuerySchema = z.object({
   month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
 })
 
+const coachMonthlyReportParamsSchema = z.object({
+  athleteId: z.string().uuid(),
+})
+
+const coachMonthlyReportQuerySchema = z.object({
+  coachUserId: z.string().uuid(),
+  month: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+})
+
+const reviewMonthlyReportSchema = z.object({
+  coachUserId: z.string().uuid(),
+  month: z.string().regex(/^\d{4}-\d{2}$/),
+  coachNotes: z.string().trim().max(2000).default(''),
+  status: z.enum(['draft', 'reviewed', 'delivered']),
+})
+
 function parseOrigins(origins: string) {
   return origins
     .split(',')
@@ -211,10 +233,12 @@ function parseOrigins(origins: string) {
 export function createApp({
   userProfileRepository,
   trainingRepository,
+  monthlyReportRepository,
   frontendOrigin,
 }: {
   userProfileRepository: UserProfileRepository
   trainingRepository: TrainingRepository
+  monthlyReportRepository: MonthlyReportRepository
   frontendOrigin: string
 }) {
   const app = express()
@@ -225,6 +249,46 @@ export function createApp({
     }),
   )
   app.use(express.json())
+
+  async function loadCoachMonthlyReport(
+    coachUserId: string,
+    athleteUserId: string,
+    month: string,
+  ) {
+    const [coach, athlete] = await Promise.all([
+      userProfileRepository.getProfile(coachUserId),
+      userProfileRepository.getProfile(athleteUserId),
+    ])
+
+    if (!coach) {
+      throw new UserNotFoundError(coachUserId)
+    }
+    if (!athlete) {
+      throw new UserNotFoundError(athleteUserId)
+    }
+    if (coach.role !== 'coach' || !coach.gymId) {
+      throw new CoachAccessRequiredError(coach.userId)
+    }
+    if (athlete.role !== 'athlete' || !athlete.gymId || athlete.gymId !== coach.gymId) {
+      throw new GymAccessDeniedError()
+    }
+
+    const [signals, sessions, storedReport] = await Promise.all([
+      trainingRepository.getMonthlyTrainingSignals(athlete.userId, month),
+      trainingRepository.getMonthlySessionSummaries(athlete.userId, month),
+      monthlyReportRepository.getReport(athlete.userId, month),
+    ])
+    const summary = createMonthlySummary(athlete, signals)
+
+    return createCoachMonthlyReport({
+      coach,
+      athlete,
+      summary,
+      signals,
+      sessions,
+      storedReport,
+    })
+  }
 
   app.get('/api/health', (_request, response) => {
     response.json({
@@ -387,8 +451,27 @@ export function createApp({
       }
 
       const resolvedMonth = month ?? new Date().toISOString().slice(0, 7)
-      const signals = await trainingRepository.getMonthlyTrainingSignals(id, resolvedMonth)
-      response.json(createMonthlySummary(profile, signals))
+      const [signals, deliveredReport] = await Promise.all([
+        trainingRepository.getMonthlyTrainingSignals(id, resolvedMonth),
+        monthlyReportRepository.getDeliveredReport(id, resolvedMonth),
+      ])
+      const summary = createMonthlySummary(profile, signals)
+
+      response.json({
+        ...summary,
+        deliveredReport: deliveredReport
+          ? {
+              reportId: deliveredReport.reportId,
+              coachName: deliveredReport.coachName,
+              generatedSummary: deliveredReport.generatedSummary,
+              strengths: deliveredReport.strengths,
+              opportunities: deliveredReport.opportunities,
+              recommendation: deliveredReport.recommendation,
+              coachNotes: deliveredReport.coachNotes,
+              deliveredAt: deliveredReport.updatedAt,
+            }
+          : null,
+      })
     } catch (error) {
       next(error)
     }
@@ -416,16 +499,19 @@ export function createApp({
       const month = new Date().toISOString().slice(0, 7)
       const summariesByUser = new Map<string, MonthlySummary>()
       const signalsByUser = new Map<string, AdaptiveTrainingSignals>()
+      const reportStatusByUser = new Map<string, MonthlyReportStatus>()
 
       await Promise.all(
         profiles.map(async (profile) => {
-          const [monthlySignals, adaptiveSignals] = await Promise.all([
+          const [monthlySignals, adaptiveSignals, report] = await Promise.all([
             trainingRepository.getMonthlyTrainingSignals(profile.userId, month),
             trainingRepository.getAdaptiveTrainingSignals(profile.userId),
+            monthlyReportRepository.getReport(profile.userId, month),
           ])
 
           summariesByUser.set(profile.userId, createMonthlySummary(profile, monthlySignals))
           signalsByUser.set(profile.userId, adaptiveSignals)
+          reportStatusByUser.set(profile.userId, report?.status ?? 'draft')
         }),
       )
 
@@ -433,8 +519,54 @@ export function createApp({
         createCoachOverview(profiles, summariesByUser, signalsByUser, {
           gymId: coachProfile.gymId,
           gymName: coachProfile.gymName,
-        }),
+        }, reportStatusByUser),
       )
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  app.get('/api/coach/athletes/:athleteId/monthly-report', async (request, response, next) => {
+    try {
+      const { athleteId } = coachMonthlyReportParamsSchema.parse(request.params)
+      const { coachUserId, month } = coachMonthlyReportQuerySchema.parse(request.query)
+      const report = await loadCoachMonthlyReport(
+        coachUserId,
+        athleteId,
+        month ?? new Date().toISOString().slice(0, 7),
+      )
+      response.json(report)
+    } catch (error) {
+      next(error)
+    }
+  })
+
+  app.patch('/api/coach/athletes/:athleteId/monthly-report/review', async (request, response, next) => {
+    try {
+      const { athleteId } = coachMonthlyReportParamsSchema.parse(request.params)
+      const payload = reviewMonthlyReportSchema.parse(request.body)
+      const report = await loadCoachMonthlyReport(payload.coachUserId, athleteId, payload.month)
+      const storedReport = await monthlyReportRepository.saveReport({
+        coachUserId: payload.coachUserId,
+        athleteUserId: athleteId,
+        gymId: report.gym.gymId,
+        month: payload.month,
+        generatedSummary: report.generatedSummary,
+        strengths: report.strengths,
+        weaknesses: report.weaknesses,
+        opportunities: report.opportunities,
+        recommendation: report.recommendation,
+        coachNotes: payload.coachNotes,
+        status: payload.status,
+      })
+
+      response.json({
+        ...report,
+        reportId: storedReport.reportId,
+        coachNotes: storedReport.coachNotes,
+        status: storedReport.status,
+        updatedAt: storedReport.updatedAt,
+      })
     } catch (error) {
       next(error)
     }
@@ -723,6 +855,14 @@ export function createApp({
     if (error instanceof CoachAccessRequiredError) {
       response.status(403).json({
         error: 'ROLE_ACCESS_DENIED',
+        message: error.message,
+      })
+      return
+    }
+
+    if (error instanceof GymAccessDeniedError) {
+      response.status(403).json({
+        error: 'GYM_ACCESS_DENIED',
         message: error.message,
       })
       return

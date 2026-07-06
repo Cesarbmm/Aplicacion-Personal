@@ -98,7 +98,7 @@ export function AppShell({ children }: AppShellProps) {
             <div className="mx-auto max-w-[1380px] space-y-4">
               {session.lastSyncError ? (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-amber-400/18 bg-amber-400/10 px-4 py-4 text-sm text-amber-100">
-                  <span>{session.lastSyncError}</span>
+                  <span>Algunos cambios se guardaron temporalmente. Puedes continuar usando SigmaFit.</span>
                   <button
                     type="button"
                     onClick={clearSyncError}

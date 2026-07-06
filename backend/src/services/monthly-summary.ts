@@ -49,7 +49,9 @@ export function createMonthlySummary(profile: UserProfile, signals: MonthlyTrain
     completedSessions: signals.completedSessions,
     consistencyRate,
     averageRpe: signals.averageRpe,
+    averagePain: signals.averagePain,
     progressionTrend,
     summary: buildSummaryCopy(progressionTrend, consistencyRate),
+    deliveredReport: null,
   }
 }

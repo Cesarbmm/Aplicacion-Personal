@@ -1,5 +1,6 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { act } from 'react'
 
 import { createDefaultSigmafitState } from '@/lib/sigmafit/mock-data'
 import { useSigmafitStore } from '@/store/sigmafit-store'
@@ -133,16 +134,19 @@ describe('SigmaFit product polish', () => {
     await waitFor(() => {
       expect(coachRouter.state.location.pathname).toBe('/coach')
     })
+    await screen.findByText(/todav.a no hay atletas/i)
 
-    useSigmafitStore.setState({
-      ...createDefaultSigmafitState(),
-      session: {
-        ...createDefaultSigmafitState().session,
-        userId: demoUserId,
-        role: 'athlete',
-        isAuthenticated: true,
-        onboardingComplete: true,
-      },
+    act(() => {
+      useSigmafitStore.setState({
+        ...createDefaultSigmafitState(),
+        session: {
+          ...createDefaultSigmafitState().session,
+          userId: demoUserId,
+          role: 'athlete',
+          isAuthenticated: true,
+          onboardingComplete: true,
+        },
+      })
     })
 
     const athleteRouter = await renderRoute('/coach')

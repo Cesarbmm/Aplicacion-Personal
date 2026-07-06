@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import * as Tabs from '@radix-ui/react-tabs'
 import { Link } from '@tanstack/react-router'
-import { Bell, RefreshCcw, Save } from 'lucide-react'
+import { Bell, Save } from 'lucide-react'
 
 import { PageHeader } from '@/components/page-header'
 import { PanelCard } from '@/components/panel-card'
@@ -32,7 +32,6 @@ export function ProfilePage() {
   const preferences = useSigmafitStore((state) => state.preferences)
   const updateProfile = useSigmafitStore((state) => state.updateProfile)
   const updatePreferences = useSigmafitStore((state) => state.updatePreferences)
-  const resetDemo = useSigmafitStore((state) => state.resetDemo)
   const [saved, setSaved] = useState(false)
   const [draft, setDraft] = useState<SigmaProfile>(profile)
 
@@ -212,15 +211,7 @@ export function ProfilePage() {
                 />
               </label>
 
-              <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={resetDemo}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-slate-300 transition hover:bg-white/[0.08]"
-                >
-                  <RefreshCcw size={16} />
-                  Reiniciar datos
-                </button>
+              <div className="mt-5 flex justify-end">
                 <button
                   type="button"
                   onClick={saveProfile}

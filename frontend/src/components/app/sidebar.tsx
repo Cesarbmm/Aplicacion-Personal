@@ -1,5 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { BarChart3, ChevronLeft, ChevronRight, Dumbbell, LayoutDashboard, LogOut, RotateCcw, UserRound, UsersRound, Wrench } from 'lucide-react'
+import { BarChart3, ChevronLeft, ChevronRight, Dumbbell, LayoutDashboard, LogOut, UserRound, UsersRound, Wrench } from 'lucide-react'
 
 import { useSigmafitStore } from '@/store/sigmafit-store'
 
@@ -23,7 +23,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const focus = useSigmafitStore((state) => state.profile.focus)
   const readiness = useSigmafitStore((state) => state.workout.readiness)
   const logout = useSigmafitStore((state) => state.logout)
-  const resetDemo = useSigmafitStore((state) => state.resetDemo)
   const role = useSigmafitStore((state) => state.session.role)
   const visibleNavItems = role === 'coach' ? navItems.filter((item) => item.to === '/coach') : navItems.filter((item) => item.to !== '/coach')
 
@@ -36,7 +35,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </div>
           <div className={collapsed ? 'hidden' : 'block'}>
             <p className="font-['Space_Grotesk'] text-lg font-semibold text-white">SigmaFit</p>
-            <p className="text-sm text-slate-500">Gym platform control</p>
+            <p className="text-sm text-slate-500">Plataforma para gimnasios</p>
           </div>
           <button
             type="button"
@@ -94,15 +93,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </nav>
 
         <div className="mt-auto space-y-3 pt-6">
-          <button
-            type="button"
-            onClick={resetDemo}
-            title="Reiniciar datos"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/8 bg-white/[0.04] px-4 py-3 text-sm text-slate-200 transition hover:border-red-400/20 hover:bg-red-500/10"
-          >
-            <RotateCcw size={16} />
-            <span className={collapsed ? 'hidden' : 'inline'}>Reiniciar datos</span>
-          </button>
           <button
             type="button"
             onClick={logout}

@@ -6,6 +6,7 @@ import type {
   AdaptiveTrainingSignals,
 } from '../types/adaptive.js'
 import type { MonthlyTrainingSignals } from '../types/monthly-summary.js'
+import type { MonthlySessionSummary } from '../types/monthly-report.js'
 import type {
   ExerciseCatalogEntry,
   Routine,
@@ -134,6 +135,18 @@ type MonthlySignalsRow = {
   total_reps: string
   total_seconds: string
   average_rpe: string | null
+  average_pain: string | null
+}
+
+type MonthlySessionRow = {
+  session_id: string
+  session_date: Date
+  source: MonthlySessionSummary['source']
+  completed_sets: string
+  total_volume: string
+  fatigue_level: number | null
+  pain_level: number | null
+  athlete_notes: string | null
 }
 
 function hydrateRoutine(rows: RoutineRow[]) {
@@ -1046,7 +1059,8 @@ export function createPostgresTrainingRepository(pool: Pool): TrainingRepository
               SUM(CASE WHEN wss.completed = TRUE THEN COALESCE(wss.actual_seconds, 0) ELSE 0 END),
               0
             )::text AS total_seconds,
-            AVG(ms.perceived_fatigue)::text AS average_rpe
+            AVG(ms.perceived_fatigue)::text AS average_rpe,
+            AVG(ms.pain_level)::text AS average_pain
           FROM month_sessions ms
           LEFT JOIN workout_session_sets wss ON wss.workout_session_id = ms.id
         `,
@@ -1065,7 +1079,63 @@ export function createPostgresTrainingRepository(pool: Pool): TrainingRepository
         totalReps: Number(row?.total_reps ?? 0),
         totalSeconds: Number(row?.total_seconds ?? 0),
         averageRpe: row?.average_rpe === null || row?.average_rpe === undefined ? null : Number(row.average_rpe),
+        averagePain:
+          row?.average_pain === null || row?.average_pain === undefined
+            ? null
+            : Number(row.average_pain),
       } satisfies MonthlyTrainingSignals
+    },
+
+    async getMonthlySessionSummaries(userId, month) {
+      const result = await pool.query<MonthlySessionRow>(
+        `
+          WITH month_bounds AS (
+            SELECT
+              TO_DATE($2, 'YYYY-MM')::timestamp AS month_start,
+              (TO_DATE($2, 'YYYY-MM') + interval '1 month')::timestamp AS month_end
+          )
+          SELECT
+            ws.id AS session_id,
+            COALESCE(ws.finished_at, ws.started_at) AS session_date,
+            ws.source,
+            COUNT(wss.id) FILTER (WHERE wss.completed = TRUE)::text AS completed_sets,
+            COALESCE(
+              SUM(
+                CASE
+                  WHEN wss.completed = TRUE THEN
+                    COALESCE(wss.weight, 0) * COALESCE(wss.actual_reps, wss.target_reps)
+                  ELSE 0
+                END
+              ),
+              0
+            )::text AS total_volume,
+            ws.perceived_fatigue AS fatigue_level,
+            ws.pain_level,
+            ws.athlete_notes
+          FROM workout_sessions ws
+          LEFT JOIN workout_session_sets wss ON wss.workout_session_id = ws.id
+          CROSS JOIN month_bounds mb
+          WHERE ws.user_id = $1
+            AND ws.status = 'completed'
+            AND COALESCE(ws.finished_at, ws.started_at) >= mb.month_start
+            AND COALESCE(ws.finished_at, ws.started_at) < mb.month_end
+          GROUP BY ws.id
+          ORDER BY session_date DESC
+          LIMIT 12
+        `,
+        [userId, month],
+      )
+
+      return result.rows.map((row) => ({
+        sessionId: row.session_id,
+        date: row.session_date.toISOString(),
+        source: row.source,
+        completedSets: Number(row.completed_sets),
+        totalVolume: Number(row.total_volume),
+        fatigueLevel: row.fatigue_level,
+        painLevel: row.pain_level,
+        athleteNotes: row.athlete_notes,
+      }))
     },
 
     async saveAdaptiveRecommendation(recommendation: AdaptiveRecommendationDraft) {

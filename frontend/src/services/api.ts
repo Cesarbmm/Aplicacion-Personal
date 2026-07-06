@@ -2,6 +2,7 @@ import type {
   SigmaExerciseCatalogEntry,
   SigmaAdaptiveSummary,
   SigmaCoachOverviewResponse,
+  SigmaCoachMonthlyReport,
   SigmaCreateAccountPayload,
   SigmaManualRoutinePayload,
   SigmaMonthlySummary,
@@ -191,6 +192,29 @@ export const sigmafitApi = {
   getCoachOverview(coachUserId?: string) {
     const search = coachUserId ? `?coachUserId=${encodeURIComponent(coachUserId)}` : ''
     return request<SigmaCoachOverviewResponse>(`/coach/athletes-overview${search}`)
+  },
+  getCoachMonthlyReport(coachUserId: string, athleteId: string, month: string) {
+    const search = new URLSearchParams({ coachUserId, month })
+    return request<SigmaCoachMonthlyReport>(
+      `/coach/athletes/${athleteId}/monthly-report?${search.toString()}`,
+    )
+  },
+  reviewCoachMonthlyReport(
+    athleteId: string,
+    payload: {
+      coachUserId: string
+      month: string
+      coachNotes: string
+      status: SigmaCoachMonthlyReport['status']
+    },
+  ) {
+    return request<SigmaCoachMonthlyReport>(
+      `/coach/athletes/${athleteId}/monthly-report/review`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      },
+    )
   },
   generateAdaptiveRecommendation(userId: string) {
     return request<SigmaAdaptiveSummary>(`/users/${userId}/adaptive-recommendations`, {

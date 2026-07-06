@@ -63,8 +63,8 @@ export function HeroSection() {
               transition={{ duration: 0.65, delay: 0.16 }}
               className="mx-auto max-w-3xl text-base leading-8 text-zinc-200/80 md:text-lg"
             >
-              SigmaFit ayuda a gimnasios a registrar sesiones, monitorear atletas y convertir progreso,
-              adherencia y fatiga en decisiones claras para entrenadores.
+              Registra entrenamientos rápido, analiza el progreso mensual y entrega conclusiones claras
+              para coaches y atletas.
             </motion.p>
 
             <motion.div

@@ -4,6 +4,7 @@ import type {
   AdaptiveTrainingSignals,
 } from '../types/adaptive.js'
 import type { MonthlyTrainingSignals } from '../types/monthly-summary.js'
+import type { MonthlySessionSummary } from '../types/monthly-report.js'
 import type { CreatePostWorkoutSessionInput } from '../types/training-log.js'
 import type {
   ExerciseCatalogEntry,
@@ -31,6 +32,7 @@ export interface TrainingRepository {
   finishWorkoutSession(sessionId: string, input?: FinishWorkoutSessionInput): Promise<WorkoutSessionSummary>
   getAdaptiveTrainingSignals(userId: string): Promise<AdaptiveTrainingSignals>
   getMonthlyTrainingSignals(userId: string, month: string): Promise<MonthlyTrainingSignals>
+  getMonthlySessionSummaries(userId: string, month: string): Promise<MonthlySessionSummary[]>
   saveAdaptiveRecommendation(recommendation: AdaptiveRecommendationDraft): Promise<AdaptiveRecommendation>
   getLatestAdaptiveRecommendation(userId: string): Promise<AdaptiveRecommendation | null>
 }

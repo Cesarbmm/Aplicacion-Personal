@@ -1,24 +1,24 @@
 import { cleanup } from '@testing-library/react'
-import { afterEach, beforeAll, vi } from 'vitest'
+import { afterEach, beforeEach, vi } from 'vitest'
 
-beforeAll(() => {
+beforeEach(() => {
   Object.defineProperty(window, 'scrollTo', {
     writable: true,
-    value: vi.fn(),
+    value: () => undefined,
   })
 
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
+    value: (query: string) => ({
       matches: false,
       media: query,
       onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }),
   })
 
   class IntersectionObserverMock implements IntersectionObserver {
@@ -26,10 +26,12 @@ beforeAll(() => {
     readonly rootMargin = '0px'
     readonly thresholds = [0]
 
-    disconnect = vi.fn()
-    observe = vi.fn()
-    takeRecords = vi.fn(() => [])
-    unobserve = vi.fn()
+    disconnect() {}
+    observe() {}
+    takeRecords() {
+      return []
+    }
+    unobserve() {}
   }
 
   Object.defineProperty(window, 'IntersectionObserver', {
@@ -40,6 +42,55 @@ beforeAll(() => {
   Object.defineProperty(globalThis, 'IntersectionObserver', {
     writable: true,
     value: IntersectionObserverMock,
+  })
+
+  class ResizeObserverMock implements ResizeObserver {
+    private readonly callback: ResizeObserverCallback
+
+    constructor(callback: ResizeObserverCallback) {
+      this.callback = callback
+    }
+
+    disconnect() {}
+    unobserve() {}
+    observe(target: Element) {
+      this.callback(
+        [
+          {
+            target,
+            contentRect: {
+              width: 800,
+              height: 320,
+              top: 0,
+              left: 0,
+              right: 800,
+              bottom: 320,
+              x: 0,
+              y: 0,
+              toJSON: () => ({}),
+            },
+            borderBoxSize: [],
+            contentBoxSize: [],
+            devicePixelContentBoxSize: [],
+          },
+        ],
+        this,
+      )
+    }
+  }
+
+  Object.defineProperty(globalThis, 'ResizeObserver', {
+    writable: true,
+    value: ResizeObserverMock,
+  })
+
+  Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+    configurable: true,
+    get: () => 800,
+  })
+  Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+    configurable: true,
+    get: () => 320,
   })
 })
 

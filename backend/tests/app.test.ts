@@ -4,10 +4,12 @@ import { readFileSync } from 'node:fs'
 import { createApp } from '../src/app.js'
 import { createInMemoryTrainingRepository } from './helpers/in-memory-training-repository.js'
 import { createInMemoryUserProfileRepository } from './helpers/in-memory-user-profile-repository.js'
+import { createInMemoryMonthlyReportRepository } from './helpers/in-memory-monthly-report-repository.js'
 
 const demoUserId = '11111111-1111-4111-8111-111111111111'
 const demoCoachId = 'c0000000-0000-4000-8000-000000000001'
 const missingUserId = '22222222-2222-4222-8222-222222222222'
+const demoMonth = '2026-07'
 
 function createTestApp(onboardingCompleted = true) {
   return createApp({
@@ -28,6 +30,7 @@ function createTestApp(onboardingCompleted = true) {
       },
     ]),
     trainingRepository: createInMemoryTrainingRepository(),
+    monthlyReportRepository: createInMemoryMonthlyReportRepository(),
     frontendOrigin: 'http://localhost:5180',
   })
 }
@@ -112,6 +115,7 @@ describe('SigmaFit backend API', () => {
     const app = createApp({
       userProfileRepository: repository,
       trainingRepository: createInMemoryTrainingRepository(),
+      monthlyReportRepository: createInMemoryMonthlyReportRepository(),
       frontendOrigin: 'http://localhost:5180',
     })
 
@@ -297,6 +301,7 @@ describe('SigmaFit backend API', () => {
         onboardingCompleted: false,
       }),
       trainingRepository: createInMemoryTrainingRepository(),
+      monthlyReportRepository: createInMemoryMonthlyReportRepository(),
       frontendOrigin: 'http://localhost:5180',
     })
 
@@ -325,6 +330,7 @@ describe('SigmaFit backend API', () => {
         onboardingCompleted: false,
       }),
       trainingRepository: createInMemoryTrainingRepository(),
+      monthlyReportRepository: createInMemoryMonthlyReportRepository(),
       frontendOrigin: 'http://localhost:5180',
     })
 
@@ -732,6 +738,134 @@ describe('SigmaFit backend API', () => {
     expect(response.body.error).toBe('USER_NOT_FOUND')
   })
 
+  it('generates a human monthly report for an athlete in the coach gym', async () => {
+    const app = createTestApp(true)
+    await createCompletedSession({ app, fatigueLevel: 6, painLevel: 2 })
+
+    const response = await request(app).get(
+      `/api/coach/athletes/${demoUserId}/monthly-report?coachUserId=${demoCoachId}&month=${demoMonth}`,
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toMatchObject({
+      athlete: {
+        userId: demoUserId,
+        name: 'Demo Athlete',
+      },
+      gym: {
+        gymId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        name: 'Sigma Gym Norte',
+      },
+      month: demoMonth,
+      status: 'draft',
+      metrics: {
+        completedSessions: 1,
+        averageFatigue: 6,
+        averagePain: 2,
+      },
+      generatedSummary: expect.stringMatching(/completo 1 sesiones/i),
+      recommendation: expect.any(String),
+    })
+    expect(response.body.sessions).toHaveLength(1)
+    expect(response.body.strengths.length).toBeGreaterThan(0)
+    expect(response.body.opportunities.length).toBeGreaterThan(0)
+  })
+
+  it('returns an understandable report when the athlete has no monthly sessions', async () => {
+    const app = createTestApp(true)
+
+    const response = await request(app).get(
+      `/api/coach/athletes/${demoUserId}/monthly-report?coachUserId=${demoCoachId}&month=${demoMonth}`,
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body.metrics.completedSessions).toBe(0)
+    expect(response.body.generatedSummary).toMatch(/aun no registra sesiones/i)
+  })
+
+  it('blocks a coach from reading reports outside their gym', async () => {
+    const repository = createInMemoryUserProfileRepository([
+      {
+        userId: demoCoachId,
+        email: 'coach@sigmafit.app',
+        name: 'Sigma Coach',
+        role: 'coach',
+      },
+      {
+        userId: demoUserId,
+        email: 'atleta@sigmafit.app',
+        name: 'Sigma Athlete',
+        role: 'athlete',
+        onboardingCompleted: true,
+        goal: 'hypertrophy',
+        experienceLevel: 'intermediate',
+        daysPerWeek: 3,
+      },
+    ])
+    const titanCoach = await repository.createAccount({
+      email: 'titan.coach@sigmafit.app',
+      name: 'Titan Coach',
+      role: 'coach',
+      gymName: 'Titan Fitness',
+    })
+    const app = createApp({
+      userProfileRepository: repository,
+      trainingRepository: createInMemoryTrainingRepository(),
+      monthlyReportRepository: createInMemoryMonthlyReportRepository(),
+      frontendOrigin: 'http://localhost:5180',
+    })
+
+    const response = await request(app).get(
+      `/api/coach/athletes/${demoUserId}/monthly-report?coachUserId=${titanCoach.userId}&month=${demoMonth}`,
+    )
+
+    expect(response.status).toBe(403)
+    expect(response.body.error).toBe('GYM_ACCESS_DENIED')
+  })
+
+  it('stores coach notes and only exposes delivered reports to the athlete', async () => {
+    const app = createTestApp(true)
+    await createCompletedSession({ app, fatigueLevel: 7, painLevel: 2 })
+
+    const reviewed = await request(app)
+      .patch(`/api/coach/athletes/${demoUserId}/monthly-report/review`)
+      .send({
+        coachUserId: demoCoachId,
+        month: demoMonth,
+        coachNotes: 'Mantener tecnica y controlar la fatiga.',
+        status: 'reviewed',
+      })
+
+    expect(reviewed.status).toBe(200)
+    expect(reviewed.body).toMatchObject({
+      status: 'reviewed',
+      coachNotes: 'Mantener tecnica y controlar la fatiga.',
+    })
+
+    const hiddenFromAthlete = await request(app).get(
+      `/api/users/${demoUserId}/monthly-summary?month=${demoMonth}`,
+    )
+    expect(hiddenFromAthlete.body.deliveredReport).toBeNull()
+
+    const delivered = await request(app)
+      .patch(`/api/coach/athletes/${demoUserId}/monthly-report/review`)
+      .send({
+        coachUserId: demoCoachId,
+        month: demoMonth,
+        coachNotes: 'Mantener tecnica y controlar la fatiga.',
+        status: 'delivered',
+      })
+    expect(delivered.body.status).toBe('delivered')
+
+    const visibleToAthlete = await request(app).get(
+      `/api/users/${demoUserId}/monthly-summary?month=${demoMonth}`,
+    )
+    expect(visibleToAthlete.body.deliveredReport).toMatchObject({
+      coachName: 'Coach Sigma',
+      coachNotes: 'Mantener tecnica y controlar la fatiga.',
+    })
+  })
+
   it('returns coach athletes overview from existing profiles and training signals', async () => {
     const app = createTestApp(true)
     await createCompletedSession({ app, fatigueLevel: 8, painLevel: 3 })
@@ -785,6 +919,7 @@ describe('SigmaFit backend API', () => {
     const app = createApp({
       userProfileRepository: repository,
       trainingRepository: createInMemoryTrainingRepository(),
+      monthlyReportRepository: createInMemoryMonthlyReportRepository(),
       frontendOrigin: 'http://localhost:5180',
     })
 
@@ -807,11 +942,18 @@ describe('SigmaFit backend API', () => {
       new URL('../../database/init/008_demo_month_data.sql', import.meta.url),
       'utf8',
     )
+    const reportSeed = readFileSync(
+      new URL('../../database/init/009_coach_monthly_reports.sql', import.meta.url),
+      'utf8',
+    )
 
     expect(schemaSeed).toContain('Sigma Gym Norte')
     expect(schemaSeed).toContain('Titan Fitness')
     expect(monthSeed.match(/@sigmafit\.app/g)?.length ?? 0).toBeGreaterThanOrEqual(12)
     expect(monthSeed).toContain('perceived_fatigue')
+    expect(reportSeed).toContain('coach_monthly_reports')
+    expect(reportSeed).toContain("'delivered'")
+    expect(reportSeed).toContain("'reviewed'")
   })
 
   it('creates and stores an adaptive recommendation', async () => {

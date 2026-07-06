@@ -10,6 +10,7 @@ export type SigmaAdaptiveVolumeChange = 'increase' | 'maintain' | 'reduce'
 export type SigmaTrainingLogParseStatus = 'complete' | 'needs_follow_up'
 export type SigmaMonthlyTrend = 'improving' | 'stable' | 'declining' | 'insufficient_data'
 export type SigmaUserRole = 'athlete' | 'coach'
+export type SigmaMonthlyReportStatus = 'draft' | 'reviewed' | 'delivered'
 
 export type SigmaGym = {
   gymId: string
@@ -252,8 +253,21 @@ export type SigmaMonthlySummary = {
   completedSessions: number
   consistencyRate: number
   averageRpe: number | null
+  averagePain: number | null
   progressionTrend: SigmaMonthlyTrend
   summary: string
+  deliveredReport: SigmaDeliveredMonthlyReport | null
+}
+
+export type SigmaDeliveredMonthlyReport = {
+  reportId: string
+  coachName: string
+  generatedSummary: string
+  strengths: string[]
+  opportunities: string[]
+  recommendation: string
+  coachNotes: string
+  deliveredAt: string
 }
 
 export type SigmaMonthlySummaryState = {
@@ -266,6 +280,7 @@ export type SigmaMonthlySummaryState = {
 export type SigmaCoachAthleteOverview = {
   userId: string
   name: string
+  completedSessions: number
   consistencyRate: number
   progressionTrend: SigmaMonthlyTrend
   averageFatigue: number | null
@@ -273,6 +288,7 @@ export type SigmaCoachAthleteOverview = {
   missedSessions: number
   weakPoints: string[]
   coachInsight: string
+  reportStatus: SigmaMonthlyReportStatus
 }
 
 export type SigmaCoachOverviewResponse = {
@@ -283,9 +299,59 @@ export type SigmaCoachOverviewResponse = {
 
 export type SigmaCoachState = {
   overview: SigmaCoachOverviewResponse | null
+  selectedReport: SigmaCoachMonthlyReport | null
+  selectedAthleteId: string | null
+  selectedMonth: string
   isLoading: boolean
+  isReportLoading: boolean
+  isReportSaving: boolean
   error: string | null
+  reportError: string | null
+  reportSaved: boolean
   source: 'none' | 'backend' | 'local'
+}
+
+export type SigmaMonthlySessionSummary = {
+  sessionId: string
+  date: string
+  source: 'live' | 'post_workout' | 'seed'
+  completedSets: number
+  totalVolume: number
+  fatigueLevel: number | null
+  painLevel: number | null
+  athleteNotes: string | null
+}
+
+export type SigmaCoachMonthlyReport = {
+  reportId: string | null
+  coachUserId: string
+  athlete: {
+    userId: string
+    name: string
+  }
+  gym: {
+    gymId: string
+    name: string
+  }
+  month: string
+  metrics: {
+    completedSessions: number
+    consistencyRate: number
+    completionRate: number
+    totalVolume: number
+    averageFatigue: number | null
+    averagePain: number | null
+    progressionTrend: SigmaMonthlyTrend
+  }
+  sessions: SigmaMonthlySessionSummary[]
+  generatedSummary: string
+  strengths: string[]
+  weaknesses: string[]
+  opportunities: string[]
+  recommendation: string
+  coachNotes: string
+  status: SigmaMonthlyReportStatus
+  updatedAt: string | null
 }
 
 export type SigmaManualRoutineExerciseInput = {

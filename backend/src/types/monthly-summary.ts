@@ -1,3 +1,5 @@
+import type { DeliveredMonthlyReport } from './monthly-report.js'
+
 export type MonthlySummaryTrend = 'improving' | 'stable' | 'declining' | 'insufficient_data'
 
 export type MonthlyTrainingSignals = {
@@ -10,6 +12,7 @@ export type MonthlyTrainingSignals = {
   totalReps: number
   totalSeconds: number
   averageRpe: number | null
+  averagePain: number | null
 }
 
 export type MonthlySummary = {
@@ -19,6 +22,8 @@ export type MonthlySummary = {
   completedSessions: number
   consistencyRate: number
   averageRpe: number | null
+  averagePain: number | null
   progressionTrend: MonthlySummaryTrend
   summary: string
+  deliveredReport: DeliveredMonthlyReport | null
 }

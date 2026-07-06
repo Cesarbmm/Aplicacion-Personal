@@ -68,8 +68,8 @@ export const howItWorksSteps = [
   },
   {
     id: '04',
-    title: 'Decide el siguiente bloque',
-    description: 'Dashboard y Progress explican si conviene progresar, mantener, simplificar o descargar.',
+    title: 'Entrega un reporte claro',
+    description: 'El sistema resume el mes y el coach revisa la conclusion antes de entregarla al atleta.',
   },
 ] as const
 
@@ -200,8 +200,15 @@ export function createDefaultSigmafitState(): SigmafitStateSnapshot {
 
   const coachState: SigmaCoachState = {
     overview: null,
+    selectedReport: null,
+    selectedAthleteId: null,
+    selectedMonth: new Date().toISOString().slice(0, 7),
     isLoading: false,
+    isReportLoading: false,
+    isReportSaving: false,
     error: null,
+    reportError: null,
+    reportSaved: false,
     source: 'none',
   }
 

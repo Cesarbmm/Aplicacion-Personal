@@ -17,7 +17,7 @@ export function HowItWorksSection() {
             Del perfil inicial al ajuste adaptativo.
           </h2>
           <p className="max-w-xl text-base leading-8 text-slate-400">
-            SigmaFit conecta perfil, rutina, tracker y lectura adaptativa con reglas simples, explicables y sin IA externa.
+            SigmaFit conecta el registro del atleta con reportes mensuales que el coach puede revisar y entregar.
           </p>
         </motion.div>
 

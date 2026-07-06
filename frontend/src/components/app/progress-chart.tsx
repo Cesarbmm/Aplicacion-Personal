@@ -22,7 +22,7 @@ export function ProgressChart({ data }: ProgressChartProps) {
     <div className="grid gap-6 xl:grid-cols-2">
       <PanelCard title="Volumen semanal" subtitle="Carga aproximada: peso x reps reales completadas.">
         <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 800, height: 288 }}>
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="volumeFill" x1="0" x2="0" y1="0" y2="1">
@@ -49,7 +49,7 @@ export function ProgressChart({ data }: ProgressChartProps) {
 
       <PanelCard title="Fuerza y fatiga" subtitle="1RM estimado frente a fatiga acumulada del bloque.">
         <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 800, height: 288 }}>
             <LineChart data={data}>
               <CartesianGrid stroke="rgba(148,163,184,0.12)" vertical={false} />
               <XAxis dataKey="week" stroke="#64748b" tickLine={false} axisLine={false} />

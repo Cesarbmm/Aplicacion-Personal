@@ -19,10 +19,12 @@ import {
 import { createDefaultSigmafitState, onboardingToStatePatch } from '@/lib/sigmafit/mock-data'
 import type {
   SigmaAdaptiveSummary,
+  SigmaCoachMonthlyReport,
   SigmaCoachOverviewResponse,
   SigmaCreateAccountPayload,
   SigmaManualRoutinePayload,
   SigmaMonthlySummary,
+  SigmaMonthlyReportStatus,
   SigmaOnboardingPayload,
   SigmaParsedTrainingLog,
   SigmaPostWorkoutSessionPayload,
@@ -128,6 +130,12 @@ type CoachOverviewResult = {
   warning: string | null
 }
 
+type CoachReportResult = {
+  loaded: boolean
+  source: 'backend' | 'local'
+  warning: string | null
+}
+
 type CreateAccountResult = {
   created: boolean
   userId: string
@@ -155,6 +163,14 @@ type SigmafitActions = {
   savePostWorkoutSession: (payload: SigmaPostWorkoutSessionPayload) => Promise<FinishWorkoutSessionResult>
   loadMonthlySummary: (month?: string) => Promise<MonthlySummaryResult>
   loadCoachOverview: () => Promise<CoachOverviewResult>
+  loadCoachMonthlyReport: (athleteId: string, month: string) => Promise<CoachReportResult>
+  saveCoachMonthlyReport: (payload: {
+    athleteId: string
+    month: string
+    coachNotes: string
+    status: SigmaMonthlyReportStatus
+  }) => Promise<CoachReportResult>
+  clearCoachMonthlyReport: () => void
   startWorkoutSession: (payload: StartWorkoutSessionPayload) => Promise<StartWorkoutSessionResult>
   updateSessionSetDraft: (
     sessionId: string,
@@ -181,7 +197,7 @@ type SigmafitActions = {
 
 export type SigmafitStore = SigmafitStateSnapshot & SigmafitActions
 
-const SIGMAFIT_STORE_VERSION = 7
+const SIGMAFIT_STORE_VERSION = 8
 
 function buildInitialState(): SigmafitStateSnapshot {
   return createDefaultSigmafitState()
@@ -616,11 +632,13 @@ function createLocalMonthlySummary(state: SigmafitStateSnapshot): SigmaMonthlySu
     completedSessions,
     consistencyRate,
     averageRpe: completed?.fatigueLevel ?? state.workout.lastSessionRpe,
+    averagePain: completed?.painLevel ?? null,
     progressionTrend: completedSessions > 0 || (latestPoint?.volume ?? 0) > 0 ? 'stable' : 'insufficient_data',
     summary:
       completedSessions > 0
         ? 'Resumen construido con tu ultima sesion completada y tu historial visible.'
         : 'Aun faltan sesiones completadas para construir un resumen mensual real.',
+    deliveredReport: null,
   }
 }
 
@@ -640,6 +658,7 @@ function createLocalCoachOverview(state: SigmafitStateSnapshot): SigmaCoachOverv
       {
         userId: state.session.userId || SIGMAFIT_DEMO_USER_ID,
         name: state.profile.displayName || 'Atleta Sigma',
+        completedSessions: monthlySummary.completedSessions,
         consistencyRate: monthlySummary.consistencyRate,
         progressionTrend: monthlySummary.progressionTrend,
         averageFatigue: adaptiveSummary.averageFatigue,
@@ -650,8 +669,73 @@ function createLocalCoachOverview(state: SigmafitStateSnapshot): SigmaCoachOverv
           weakPoints.length > 0
             ? 'Revisar adherencia, fatiga o molestias antes de aumentar carga.'
             : 'El atleta mantiene senales estables para sostener el bloque actual.',
+        reportStatus: 'draft',
       },
     ],
+  }
+}
+
+function createLocalCoachMonthlyReport(
+  state: SigmafitStateSnapshot,
+  athleteId: string,
+  month: string,
+): SigmaCoachMonthlyReport {
+  const athlete = state.coach.overview?.athletes.find((item) => item.userId === athleteId)
+  const monthly = state.monthlySummary.summary ?? createLocalMonthlySummary(state)
+  const completed = state.training.lastCompletedSummary
+
+  return {
+    reportId: null,
+    coachUserId: state.session.userId ?? SIGMAFIT_DEMO_COACH_ID,
+    athlete: {
+      userId: athleteId,
+      name: athlete?.name ?? 'Atleta Sigma',
+    },
+    gym: {
+      gymId: state.session.gymId ?? SIGMAFIT_DEMO_GYM_ID,
+      name: state.session.gymName ?? 'Sigma Gym Norte',
+    },
+    month,
+    metrics: {
+      completedSessions: athlete?.completedSessions ?? monthly.completedSessions,
+      consistencyRate: athlete?.consistencyRate ?? monthly.consistencyRate,
+      completionRate: monthly.completedSessions > 0 ? 1 : 0,
+      totalVolume: monthly.totalVolume,
+      averageFatigue: athlete?.averageFatigue ?? monthly.averageRpe,
+      averagePain: athlete?.averagePain ?? monthly.averagePain,
+      progressionTrend: athlete?.progressionTrend ?? monthly.progressionTrend,
+    },
+    sessions: completed
+      ? [
+          {
+            sessionId: completed.sessionId,
+            date: new Date().toISOString(),
+            source: 'live',
+            completedSets: completed.completedSets,
+            totalVolume: completed.totalVolume,
+            fatigueLevel: completed.fatigueLevel,
+            painLevel: completed.painLevel,
+            athleteNotes: completed.athleteNotes,
+          },
+        ]
+      : [],
+    generatedSummary:
+      monthly.completedSessions > 0
+        ? `${athlete?.name ?? 'El atleta'} mantiene un registro mensual disponible para revision.`
+        : 'Aun no hay suficientes sesiones para construir una conclusion mensual.',
+    strengths:
+      monthly.consistencyRate >= 0.75
+        ? ['Buena constancia durante el mes.']
+        : ['El atleta mantiene una base de seguimiento activa.'],
+    weaknesses:
+      monthly.consistencyRate < 0.6
+        ? ['La adherencia mensual esta por debajo del objetivo.']
+        : ['No se detectaron alertas relevantes en el mes.'],
+    opportunities: ['Mantener el registro para afinar el siguiente ajuste.'],
+    recommendation: 'Mantener el plan y revisar nuevamente al cierre del siguiente mes.',
+    coachNotes: '',
+    status: 'draft',
+    updatedAt: null,
   }
 }
 
@@ -1771,6 +1855,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
 
           set((state) => ({
             coach: {
+              ...state.coach,
               overview,
               isLoading: false,
               error: null,
@@ -1795,6 +1880,7 @@ export const useSigmafitStore = create<SigmafitStore>()(
 
             set((state) => ({
               coach: {
+                ...state.coach,
                 overview,
                 isLoading: false,
                 error: null,
@@ -1829,6 +1915,168 @@ export const useSigmafitStore = create<SigmafitStore>()(
           }
         }
       },
+
+      loadCoachMonthlyReport: async (athleteId, month) => {
+        const coachUserId = get().session.userId ?? SIGMAFIT_DEMO_COACH_ID
+        set((state) => ({
+          coach: {
+            ...state.coach,
+            selectedAthleteId: athleteId,
+            selectedMonth: month,
+            selectedReport: null,
+            isReportLoading: true,
+            reportError: null,
+            reportSaved: false,
+          },
+        }))
+
+        try {
+          const report = await sigmafitApi.getCoachMonthlyReport(coachUserId, athleteId, month)
+          set((state) => ({
+            coach: {
+              ...state.coach,
+              selectedReport: report,
+              isReportLoading: false,
+              reportError: null,
+              reportSaved: false,
+              source: 'backend',
+            },
+          }))
+          return {
+            loaded: true,
+            source: 'backend' as const,
+            warning: null,
+          }
+        } catch (error) {
+          if (isApiUnavailable(error)) {
+            const report = createLocalCoachMonthlyReport(get(), athleteId, month)
+            set((state) => ({
+              coach: {
+                ...state.coach,
+                selectedReport: report,
+                isReportLoading: false,
+                reportError: null,
+                reportSaved: false,
+                source: 'local',
+              },
+            }))
+            return {
+              loaded: true,
+              source: 'local' as const,
+              warning: 'El reporte se mostrara con los datos guardados.',
+            }
+          }
+
+          set((state) => ({
+            coach: {
+              ...state.coach,
+              isReportLoading: false,
+              reportError: error instanceof Error ? error.message : 'No se pudo cargar el reporte.',
+            },
+          }))
+          return {
+            loaded: false,
+            source: 'backend' as const,
+            warning: null,
+          }
+        }
+      },
+
+      saveCoachMonthlyReport: async ({ athleteId, month, coachNotes, status }) => {
+        const coachUserId = get().session.userId ?? SIGMAFIT_DEMO_COACH_ID
+        set((state) => ({
+          coach: {
+            ...state.coach,
+            isReportSaving: true,
+            reportError: null,
+            reportSaved: false,
+          },
+        }))
+
+        try {
+          const report = await sigmafitApi.reviewCoachMonthlyReport(athleteId, {
+            coachUserId,
+            month,
+            coachNotes,
+            status,
+          })
+          set((state) => ({
+            coach: {
+              ...state.coach,
+              selectedReport: report,
+              overview: state.coach.overview
+                ? {
+                    ...state.coach.overview,
+                    athletes: state.coach.overview.athletes.map((athlete) =>
+                      athlete.userId === athleteId ? { ...athlete, reportStatus: status } : athlete,
+                    ),
+                  }
+                : null,
+              isReportSaving: false,
+              reportError: null,
+              reportSaved: true,
+              source: 'backend',
+            },
+          }))
+          return {
+            loaded: true,
+            source: 'backend' as const,
+            warning: null,
+          }
+        } catch (error) {
+          if (isApiUnavailable(error)) {
+            const current = get().coach.selectedReport ?? createLocalCoachMonthlyReport(get(), athleteId, month)
+            const report = {
+              ...current,
+              reportId: current.reportId ?? `local-report-${athleteId}-${month}`,
+              coachNotes,
+              status,
+              updatedAt: new Date().toISOString(),
+            }
+            set((state) => ({
+              coach: {
+                ...state.coach,
+                selectedReport: report,
+                isReportSaving: false,
+                reportError: null,
+                reportSaved: true,
+                source: 'local',
+              },
+            }))
+            return {
+              loaded: true,
+              source: 'local' as const,
+              warning: 'La revision quedo guardada en este dispositivo.',
+            }
+          }
+
+          set((state) => ({
+            coach: {
+              ...state.coach,
+              isReportSaving: false,
+              reportError: error instanceof Error ? error.message : 'No se pudo guardar el reporte.',
+            },
+          }))
+          return {
+            loaded: false,
+            source: 'backend' as const,
+            warning: null,
+          }
+        }
+      },
+
+      clearCoachMonthlyReport: () =>
+        set((state) => ({
+          coach: {
+            ...state.coach,
+            selectedReport: null,
+            selectedAthleteId: null,
+            isReportLoading: false,
+            isReportSaving: false,
+            reportError: null,
+            reportSaved: false,
+          },
+        })),
 
       startWorkoutSession: async (payload) => {
         const state = get()

@@ -15,7 +15,7 @@ type PostWorkoutLoggerProps = {
 }
 
 const exampleText =
-  'Hoy hice banca 4x8 80kg, sentadilla 3x10 100kg y plancha 3 series de 45 segundos. Fatiga 7, dolor 2.'
+  'Banca 4x8 con 80kg y plancha 3 series de 45 segundos. Fatiga 7, dolor 2.'
 
 function getParsedItems(result: SigmaTrainingLogParseResult | null) {
   if (result?.items?.length) {
@@ -42,6 +42,7 @@ export function PostWorkoutLogger({ routine }: PostWorkoutLoggerProps) {
   const clearAssistedLog = useSigmafitStore((state) => state.clearAssistedLog)
   const [rawText, setRawText] = useState('')
   const [followUpText, setFollowUpText] = useState('')
+  const [validationError, setValidationError] = useState<string | null>(null)
   const [selectedDayId, setSelectedDayId] = useState(routine?.days[0]?.routineDayId ?? '')
   const [items, setItems] = useState<SigmaParsedTrainingLog[]>(() =>
     getParsedItems(assistedLog.result),
@@ -52,8 +53,10 @@ export function PostWorkoutLogger({ routine }: PostWorkoutLoggerProps) {
 
   async function interpret(text = rawText) {
     if (!text.trim()) {
+      setValidationError('Describe el entrenamiento antes de interpretarlo.')
       return
     }
+    setValidationError(null)
     await parseTrainingLog(text)
     const result = useSigmafitStore.getState().assistedLog.result
     setItems(getParsedItems(result))
@@ -71,10 +74,12 @@ export function PostWorkoutLogger({ routine }: PostWorkoutLoggerProps) {
       (item) => item.exerciseName && item.sets && (item.reps || item.actualSeconds),
     )
     if (validItems.length !== items.length || validItems.length === 0) {
+      setValidationError('Completa ejercicio, series y repeticiones o segundos antes de guardar.')
       return
     }
 
-    await savePostWorkoutSession({
+    setValidationError(null)
+    const result = await savePostWorkoutSession({
       routineId: routine?.routineId ?? null,
       routineDayId: selectedDayId || null,
       rawText,
@@ -88,6 +93,18 @@ export function PostWorkoutLogger({ routine }: PostWorkoutLoggerProps) {
       })),
       feedback,
     })
+
+    if (result.finished) {
+      setRawText('')
+      setFollowUpText('')
+      setItems([])
+      setFeedback({
+        fatigueLevel: null,
+        painLevel: null,
+        athleteNotes: '',
+      })
+      clearAssistedLog()
+    }
   }
 
   return (
@@ -98,7 +115,7 @@ export function PostWorkoutLogger({ routine }: PostWorkoutLoggerProps) {
         </div>
         <div>
           <h3 className="font-['Space_Grotesk'] text-2xl font-semibold text-white">
-            Registrar entrenamiento terminado
+            Registrar después
           </h3>
           <p className="mt-2 text-sm leading-6 text-slate-400">
             Describe la sesion completa y revisa los datos antes de guardarlos.
@@ -139,6 +156,12 @@ export function PostWorkoutLogger({ routine }: PostWorkoutLoggerProps) {
       {assistedLog.error ? (
         <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
           {assistedLog.error}
+        </div>
+      ) : null}
+
+      {validationError ? (
+        <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+          {validationError}
         </div>
       ) : null}
 
